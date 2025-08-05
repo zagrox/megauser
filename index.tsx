@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext } from 'react';
+
+import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 
 // --- CONFIGURATION ---
@@ -9,8 +10,8 @@ const ELASTIC_EMAIL_API_BASE = 'https://api.elasticemail.com/v2';
 const ELASTIC_EMAIL_API_V4_BASE = 'https://api.elasticemail.com/v4';
 
 // --- Icon Components ---
-const Icon = ({ path, className = '' }: { path: string; className?: string }) => (
-  <svg className={`icon ${className}`} width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+const Icon = ({ path, className = '', style }: { path: string; className?: string; style?: React.CSSProperties }) => (
+  <svg className={`icon ${className}`} style={style} width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
     <path d={path} />
   </svg>
 );
@@ -24,7 +25,7 @@ const ICONS = {
     CHEVRON_DOWN: "M6 9l6 6 6-6",
     CLICK: "M9 11.3l3.71 2.7-1.42 1.42a.5.5 0 01-.71 0l-1.58-1.58a1 1 0 00-1.42 0l-1.42 1.42a1 1 0 000 1.42l4.24 4.24a.5.5 0 00.71 0l7.07-7.07",
     COMPLAINT: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10zM12 9v2m0 4h.01",
-    CONTACTS: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+    CONTACTS: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
     CREDIT_CARD: "M22 8a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8zM6 14h4v-2H6v2z",
     DEFAULT: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
     DELETE: "M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2",
@@ -42,13 +43,15 @@ const ICONS = {
     PUZZLE: "M20.5 11H19v-2.14a2.5 2.5 0 0 0-2.5-2.5H14V4.5a2.5 2.5 0 0 0-2.5-2.5h-3A2.5 2.5 0 0 0 6 4.5V6H3.5a2.5 2.5 0 0 0-2.5 2.5V11H2.5a2.5 2.5 0 0 1 0 5H1v2.14a2.5 2.5 0 0 0 2.5 2.5H6V23.5a2.5 2.5 0 0 0 2.5 2.5h3A2.5 2.5 0 0 0 14 23.5V22h2.5a2.5 2.5 0 0 0 2.5-2.5V17h1.5a2.5 2.5 0 0 1 0-5z",
     SEND_EMAIL: "m22 2-7 20-4-9-9-4 20-7Zm0 0L11 13 2 9l20-7Z",
     SERVER: "M23 12H1m22-6H1m0 12H1M6 6v12M18 6v12",
-    STATS: "M2.9 12.9a9 9 0 0 1 12.7 0l4.4 4.4m-18.4 0 4.4-4.4a9 9 0 0 1 12.7 0M12 3v1m0 16v1M3 12h1m16 0h1M5.6 5.6l.7.7m12.1-.7-.7.7m0 11.4.7.7m-12.1.7-.7-.7",
+    STATS: "M12 18.5l7-7-4-4-7 7V18.5zM12 2l-2.5 5.5L4 9.5l5.5 5.5L7.5 22l4.5-2.5L16.5 22l-2-7 5.5-5.5-5.5-2L12 2z",
     TRENDING_UP: "M23 6l-9.5 9.5-5-5L1 18",
-    USER_PLUS: "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM20 8v6M23 11h-6",
+    UPLOAD: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m14-7l-5-5-5 5m5-5v12",
+    USER_PLUS: "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0 8zM20 8v6M23 11h-6",
     VERIFY: "M22 11.08V12a10 10 0 1 1-5.93-9.14",
     CHECK: "M20 6L9 17l-5-5",
     X_CIRCLE: "M10 10l4 4m0-4l-4 4M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
     LOADING_SPINNER: "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83",
+    SEARCH: "M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.35-4.35",
 };
 
 // --- API Helpers ---
@@ -163,7 +166,45 @@ const apiFetchV4 = async (endpoint: string, apiKey: string, options: { method?: 
         throw new Error(errorMessage);
     }
     
-    if (response.status === 204) { // Handle No Content for DELETE
+    if (response.status === 204) {
+        return {};
+    }
+
+    const text = await response.text();
+    if (!text) {
+        return {};
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        console.warn(`API for endpoint ${endpoint} returned a non-JSON success response. Text: "${text}"`);
+        // This handles cases where a success response (like 200 OK for DELETE) has a non-JSON body like "OK".
+        // Returning a success-like object prevents the caller's try/catch from failing.
+        return { success: true, nonJsonText: text };
+    }
+};
+
+const apiUploadV4 = async (endpoint: string, apiKey: string, formData: FormData) => {
+    const url = `${ELASTIC_EMAIL_API_V4_BASE}${endpoint}`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-ElasticEmail-ApiKey': apiKey
+        },
+        body: formData
+    });
+
+    if (!response.ok) {
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.Error || 'An unknown API error occurred.';
+        } catch (e) { /* no-op */ }
+        throw new Error(errorMessage);
+    }
+
+    if (response.status === 202) { // Import returns 202 Accepted
         return {};
     }
 
@@ -209,11 +250,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const apiKey = localStorage.getItem('elastic_email_api_key');
         if (apiKey) {
             try {
-                await apiFetch('/account/load', apiKey); // Validate key
+                const accountData = await apiFetch('/account/load', apiKey); // Validate key and get data
                 setUser({
                     elastic_email_api_key: apiKey,
-                    first_name: 'Valued',
-                    email: 'user@apikey.local',
+                    first_name: accountData.firstname,
+                    email: accountData.email,
                     isApiKeyUser: true,
                 });
             } catch (error) {
@@ -244,12 +285,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     
     const loginWithApiKey = async (apiKey: string) => {
-        await apiFetch('/account/load', apiKey); // This will throw on failure
+        const accountData = await apiFetch('/account/load', apiKey); // This will throw on failure
         localStorage.setItem('elastic_email_api_key', apiKey);
         setUser({
             elastic_email_api_key: apiKey,
-            first_name: 'Valued',
-            email: 'user@apikey.local',
+            first_name: accountData.firstname,
+            email: accountData.email,
             isApiKeyUser: true,
         });
     };
@@ -341,7 +382,10 @@ const useApiV4 = (endpoint: string, apiKey: string, params: Record<string, any> 
   const paramsString = JSON.stringify(params);
 
   useEffect(() => {
-    if (!apiKey || !endpoint) return;
+    if (!apiKey || !endpoint) {
+        setLoading(false);
+        return;
+    }
 
     const fetchData = async () => {
       setLoading(true);
@@ -462,11 +506,15 @@ const getPastDateByYears = (years: number) => {
 };
 const formatDateForDisplay = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
+    try {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } catch (e) {
+        return 'Invalid Date';
+    }
 }
 
 // --- View Components ---
@@ -862,11 +910,13 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
     if (!user) return <CenteredMessage><Loader /></CenteredMessage>;
     if (statsError) console.warn("Could not load dashboard stats:", statsError);
 
+    const welcomeName = user?.first_name || 'User';
+
     return (
         <div className="dashboard-container">
             <div className="dashboard-header">
                 <div>
-                    <h2>Welcome, {user?.first_name || 'User'}!</h2>
+                    <h2>Welcome, {welcomeName}!</h2>
                     <p>Here's a quick overview of your MegaMail account. Ready to launch your next campaign?</p>
                 </div>
                 <div className="dashboard-actions">
@@ -912,12 +962,189 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
 
 // --- START OF IMPLEMENTED VIEWS ---
 
+const ContactDetailModal = ({ isOpen, onClose, contactData, isLoading, error }: { isOpen: boolean; onClose: () => void; contactData: any; isLoading: boolean; error: string | null; }) => {
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={isLoading ? "Loading..." : contactData?.Email || "Contact Details"}>
+            {isLoading && <CenteredMessage><Loader /></CenteredMessage>}
+            {error && <ErrorMessage error={{ endpoint: 'GET /contacts/{email}', message: error || "An unknown error occurred" }} />}
+            {contactData && (
+                <div className="contact-details-grid">
+                    <dt>Email</dt><dd>{contactData.Email}</dd>
+                    <dt>Status</dt><dd><Badge text={contactData.Status} type={contactData.Status === 'Active' ? 'success' : 'default'}/></dd>
+                    <dt>First Name</dt><dd>{contactData.FirstName || '-'}</dd>
+                    <dt>Last Name</dt><dd>{contactData.LastName || '-'}</dd>
+                    <dt>Source</dt><dd>{contactData.Source || '-'}</dd>
+                    <dt>Date Added</dt><dd>{formatDateForDisplay(contactData.DateAdded)}</dd>
+                    <dt>Date Updated</dt><dd>{formatDateForDisplay(contactData.DateUpdated)}</dd>
+                    <dt>Status Changed</dt><dd>{formatDateForDisplay(contactData.StatusChangeDate)}</dd>
+                    
+                    <div className="grid-separator"><h4>Activity</h4></div>
+                    
+                    <dt>Total Sent</dt><dd>{contactData.Activity?.TotalSent?.toLocaleString() ?? '0'}</dd>
+                    <dt>Total Opened</dt><dd>{contactData.Activity?.TotalOpened?.toLocaleString() ?? '0'}</dd>
+                    <dt>Total Clicked</dt><dd>{contactData.Activity?.TotalClicked?.toLocaleString() ?? '0'}</dd>
+                    <dt>Total Failed</dt><dd>{contactData.Activity?.TotalFailed?.toLocaleString() ?? '0'}</dd>
+                    <dt>Last Sent</dt><dd>{formatDateForDisplay(contactData.Activity?.LastSent)}</dd>
+                    <dt>Last Opened</dt><dd>{formatDateForDisplay(contactData.Activity?.LastOpened)}</dd>
+                    <dt>Last Clicked</dt><dd>{formatDateForDisplay(contactData.Activity?.LastClicked)}</dd>
+                    <dt>Last Failed</dt><dd>{formatDateForDisplay(contactData.Activity?.LastFailed)}</dd>
+
+                    <div className="grid-separator"><h4>Custom Fields</h4></div>
+                    
+                    {contactData.CustomFields && Object.keys(contactData.CustomFields).length > 0 ? (
+                         Object.entries(contactData.CustomFields).map(([key, value]) => (
+                             <React.Fragment key={key}>
+                                 <dt>{key}</dt>
+                                 <dd>{String(value) || '-'}</dd>
+                             </React.Fragment>
+                         ))
+                    ) : (
+                        <dd className="full-width-dd">No custom fields found.</dd>
+                    )}
+                </div>
+            )}
+        </Modal>
+    );
+};
+
+const ImportContactsModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { isOpen: boolean; onClose: () => void; apiKey: string; onSuccess: () => void; onError: (msg: string) => void; }) => {
+    const [file, setFile] = useState<File | null>(null);
+    const [listName, setListName] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const [dragOver, setDragOver] = useState(false);
+    const { data: lists, loading: listsLoading } = useApiV4('/lists', apiKey, {}, isOpen ? 1 : 0);
+
+    const handleFileChange = (files: FileList | null) => {
+        if (files && files.length > 0) {
+            if (files[0].type === 'text/csv' || files[0].name.endsWith('.csv')) {
+                setFile(files[0]);
+            } else {
+                onError('Invalid file type. Please select a CSV file.');
+            }
+        }
+    };
+
+    const handleDragEvents = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+    const handleDragEnter = (e: React.DragEvent) => { handleDragEvents(e); setDragOver(true); };
+    const handleDragLeave = (e: React.DragEvent) => { handleDragEvents(e); setDragOver(false); };
+    const handleDrop = (e: React.DragEvent) => {
+        handleDragEvents(e);
+        setDragOver(false);
+        handleFileChange(e.dataTransfer.files);
+    };
+    
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!file) return;
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+        if (listName) {
+            formData.append('listName', listName);
+        }
+
+        try {
+            await apiUploadV4('/contacts/import', apiKey, formData);
+            onSuccess();
+        } catch (err: any) {
+            onError(err.message);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+    
+    useEffect(() => {
+        if (!isOpen) {
+            setFile(null);
+            setListName('');
+            setIsUploading(false);
+            setDragOver(false);
+        }
+    }, [isOpen]);
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Import Contacts from CSV">
+            <form onSubmit={handleSubmit} className="modal-form">
+                <div className="form-group">
+                    <label>Upload CSV File</label>
+                    <div
+                        className={`file-dropzone ${dragOver ? 'drag-over' : ''}`}
+                        onClick={() => document.getElementById('csv-input')?.click()}
+                        onDragEnter={handleDragEnter}
+                        onDragLeave={handleDragLeave}
+                        onDragOver={handleDragEvents}
+                        onDrop={handleDrop}
+                    >
+                        <input
+                            type="file" id="csv-input" accept=".csv, text/csv"
+                            onChange={(e) => handleFileChange(e.target.files)}
+                            style={{ display: 'none' }}
+                        />
+                         {file ? (
+                            <p className="file-name">Selected: {file.name}</p>
+                        ) : (
+                            <p><strong>Click to browse</strong> or drag & drop your file here.</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="form-group">
+                     <label htmlFor="listName">Add to list (optional)</label>
+                     <select id="listName" value={listName} onChange={e => setListName(e.target.value)} disabled={listsLoading}>
+                         <option value="">Don't add to a list</option>
+                         {lists?.map((l: any) => <option key={l.ListName} value={l.ListName}>{l.ListName}</option>)}
+                     </select>
+                </div>
+                <div className="form-actions" style={{marginTop: '1rem'}}>
+                     <button type="submit" className="btn btn-primary full-width" disabled={!file || isUploading}>
+                        {isUploading ? <Loader /> : 'Start Import'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
+const ContactCard = ({ contact, onView, onDelete }: { contact: any; onView: (email: string) => void; onDelete: (email: string) => void; }) => (
+    <div className="card contact-card">
+        <div className="contact-card-main">
+            <div className="contact-card-info">
+                <h4 className="contact-card-name">{contact.FirstName || contact.LastName ? `${contact.FirstName || ''} ${contact.LastName || ''}`.trim() : contact.Email}</h4>
+                <p className="contact-card-email">{contact.Email}</p>
+            </div>
+            <div className="contact-card-status">
+                <Badge text={contact.Status} type={contact.Status === 'Active' ? 'success' : 'default'} />
+            </div>
+        </div>
+        <div className="contact-card-footer">
+            <small>Added: {formatDateForDisplay(contact.DateAdded)}</small>
+            <div className="action-buttons">
+                <button className="btn-icon" onClick={() => onView(contact.Email)} aria-label="View contact details">
+                    <Icon path={ICONS.EYE} />
+                </button>
+                <button className="btn-icon btn-icon-danger" onClick={() => onDelete(contact.Email)} aria-label="Delete contact">
+                    <Icon path={ICONS.DELETE} />
+                </button>
+            </div>
+        </div>
+    </div>
+);
+
 const ContactsView = ({ apiKey }: { apiKey: string }) => {
     const [refetchIndex, setRefetchIndex] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
     const [offset, setOffset] = useState(0);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedContactDetails, setSelectedContactDetails] = useState<any>(null);
+    const [isDetailLoading, setIsDetailLoading] = useState(false);
+    const [detailError, setDetailError] = useState<string | null>(null);
 
     const CONTACTS_PER_PAGE = 20;
 
@@ -928,7 +1155,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
         try {
             await apiFetchV4('/contacts', apiKey, { method: 'POST', body: [contactData] });
             setActionStatus({ type: 'success', message: `Contact ${contactData.Email} added successfully!` });
-            setIsModalOpen(false);
+            setIsAddModalOpen(false);
             refetch();
         } catch (err: any) {
             setActionStatus({ type: 'error', message: `Failed to add contact: ${err.message}` });
@@ -946,6 +1173,21 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
         }
     };
 
+    const handleViewContact = async (email: string) => {
+        setIsDetailModalOpen(true);
+        setIsDetailLoading(true);
+        setDetailError(null);
+        setSelectedContactDetails(null);
+        try {
+            const details = await apiFetchV4(`/contacts/${encodeURIComponent(email)}`, apiKey);
+            setSelectedContactDetails(details);
+        } catch (err: any) {
+            setDetailError(err.message || 'Failed to fetch contact details.');
+        } finally {
+            setIsDetailLoading(false);
+        }
+    };
+
     return (
         <div>
             <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
@@ -953,82 +1195,84 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                 <div className="search-bar">
                     <input
                         type="search"
-                        placeholder="Search contacts..."
+                        placeholder="Search contacts by email, name..."
                         value={searchQuery}
                         onChange={(e) => {
                             setSearchQuery(e.target.value);
-                            setOffset(0); // Reset to first page on search
+                            setOffset(0);
                         }}
                     />
                 </div>
-                <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-                    <Icon path={ICONS.USER_PLUS} /> Add Contact
-                </button>
+                <div className="header-actions">
+                    <button className="btn" onClick={() => setIsImportModalOpen(true)}>
+                        <Icon path={ICONS.UPLOAD} /> Import Contacts
+                    </button>
+                    <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
+                        <Icon path={ICONS.USER_PLUS} /> Add Contact
+                    </button>
+                </div>
             </div>
 
-            <Modal title="Add New Contact" isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+            <ImportContactsModal 
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                apiKey={apiKey}
+                onSuccess={() => {
+                    setIsImportModalOpen(false);
+                    setActionStatus({ type: 'success', message: 'Contacts are being imported. This may take a few moments to reflect.' });
+                    setTimeout(refetch, 2000); // Refetch after a small delay
+                }}
+                onError={(message) => {
+                    setActionStatus({ type: 'error', message: `Import failed: ${message}` });
+                }}
+            />
+
+            <Modal title="Add New Contact" isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)}>
                 <AddContactForm onSubmit={handleAddContact} />
             </Modal>
+
+            <ContactDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => { setIsDetailModalOpen(false); setSelectedContactDetails(null); }}
+                contactData={selectedContactDetails}
+                isLoading={isDetailLoading}
+                error={detailError}
+            />
 
             {loading && !contacts && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
 
-            <div className="table-container">
-                {loading && contacts && (
-                    <div className="table-overlay-loader">
-                        <Loader /> Loading...
-                    </div>
-                )}
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Email</th>
-                            <th>First Name</th>
-                            <th>Last Name</th>
-                            <th>Status</th>
-                            <th>Date Added</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {contacts?.length > 0 ? (
-                            contacts.map((contact: any) => (
-                                <tr key={contact.Email}>
-                                    <td>{contact.Email}</td>
-                                    <td>{contact.FirstName || '-'}</td>
-                                    <td>{contact.LastName || '-'}</td>
-                                    <td><Badge text={contact.Status} type={contact.Status === 'Active' ? 'success' : 'default'}/></td>
-                                    <td>{formatDateForDisplay(contact.DateAdded)}</td>
-                                    <td>
-                                        <div className="action-buttons">
-                                            <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteContact(contact.Email)} aria-label="Delete contact">
-                                                <Icon path={ICONS.DELETE} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem' }}>
-                                    No contacts found.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            {!loading && !error && (
+                <>
+                    {contacts?.length > 0 ? (
+                        <div className="contacts-grid">
+                            {contacts.map((contact: any) => (
+                                <ContactCard 
+                                    key={contact.Email} 
+                                    contact={contact} 
+                                    onView={handleViewContact} 
+                                    onDelete={handleDeleteContact} 
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <CenteredMessage>
+                           {searchQuery ? `No contacts found for "${searchQuery}".` : "No contacts found."}
+                        </CenteredMessage>
+                    )}
 
-            {contacts && (
-                <div className="pagination-controls">
-                    <button onClick={() => setOffset(o => Math.max(0, o - CONTACTS_PER_PAGE))} disabled={offset === 0 || loading}>
-                        Previous
-                    </button>
-                    <span>Page {offset / CONTACTS_PER_PAGE + 1}</span>
-                    <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={contacts.length < CONTACTS_PER_PAGE || loading}>
-                        Next
-                    </button>
-                </div>
+                    {contacts && contacts.length > 0 && (
+                        <div className="pagination-controls">
+                            <button onClick={() => setOffset(o => Math.max(0, o - CONTACTS_PER_PAGE))} disabled={offset === 0 || loading}>
+                                Previous
+                            </button>
+                            <span>Page {offset / CONTACTS_PER_PAGE + 1}</span>
+                            <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={contacts.length < CONTACTS_PER_PAGE || loading}>
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
@@ -1065,12 +1309,120 @@ const AddContactForm = ({ onSubmit }: { onSubmit: (data: {Email: string, FirstNa
     );
 };
 
+const RenameListModal = ({ isOpen, onClose, listName, onSubmit }: { isOpen: boolean, onClose: () => void, listName: string, onSubmit: (newName: string) => Promise<void> }) => {
+    const [newName, setNewName] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setNewName(listName);
+        }
+    }, [isOpen, listName]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newName || newName === listName) return;
+        setIsSubmitting(true);
+        await onSubmit(newName);
+        setIsSubmitting(false);
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Rename List "${listName}"`}>
+            <form onSubmit={handleSubmit} className="modal-form">
+                <div className="form-group">
+                    <label htmlFor="new-list-name">New List Name</label>
+                    <input id="new-list-name" type="text" value={newName} onChange={e => setNewName(e.target.value)} required disabled={isSubmitting} />
+                </div>
+                <div className="form-actions" style={{ marginTop: '1rem' }}>
+                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" disabled={isSubmitting || !newName || newName === listName}>
+                        {isSubmitting ? <Loader /> : 'Save Changes'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: boolean, onClose: () => void, listName: string, apiKey: string }) => {
+    const [offset, setOffset] = useState(0);
+    const [refetchIndex, setRefetchIndex] = useState(0);
+    const CONTACTS_PER_PAGE = 15;
+    
+    useEffect(() => {
+        if (isOpen) {
+            setOffset(0);
+            setRefetchIndex(i => i + 1);
+        }
+    }, [isOpen]);
+
+    const { data: contacts, loading, error } = useApiV4(
+        isOpen ? `/lists/${encodeURIComponent(listName)}/contacts` : '', 
+        apiKey, 
+        { limit: CONTACTS_PER_PAGE, offset },
+        refetchIndex
+    );
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Contacts in "${listName}"`}>
+            {loading && <CenteredMessage><Loader /></CenteredMessage>}
+            {error && <ErrorMessage error={error} />}
+            {!loading && !error && (
+                <>
+                    <div className="table-container">
+                        <table className="simple-table">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {contacts && contacts.length > 0 ? (
+                                    contacts.map((c: any) => (
+                                        <tr key={c.Email}>
+                                            <td>{c.Email}</td>
+                                            <td>{`${c.FirstName || ''} ${c.LastName || ''}`.trim() || '-'}</td>
+                                            <td><Badge text={c.Status} type={c.Status === 'Active' ? 'success' : 'default'} /></td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>This list has no contacts.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    {contacts && (contacts.length > 0 || offset > 0) && (
+                         <div className="pagination-controls" style={{borderTop: 'none', marginTop: '1rem'}}>
+                            <button onClick={() => setOffset(o => Math.max(0, o - CONTACTS_PER_PAGE))} disabled={offset === 0 || loading}>
+                                Previous
+                            </button>
+                            <span>Page {offset / CONTACTS_PER_PAGE + 1}</span>
+                            <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={contacts.length < CONTACTS_PER_PAGE || loading}>
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
+        </Modal>
+    );
+};
+
 
 const EmailListView = ({ apiKey }: { apiKey: string }) => {
     const [refetchIndex, setRefetchIndex] = useState(0);
+    const [searchQuery, setSearchQuery] = useState('');
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [newListName, setNewListName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const [listToRename, setListToRename] = useState<any>(null);
+    const [listToView, setListToView] = useState<any>(null);
 
     const { data: lists, loading, error } = useApiV4('/lists', apiKey, {}, refetchIndex);
     const refetch = () => setRefetchIndex(i => i + 1);
@@ -1102,9 +1454,48 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
         }
     };
 
+    const handleRenameList = async (newName: string) => {
+        if (!listToRename) return;
+        try {
+            await apiFetchV4(`/lists/${encodeURIComponent(listToRename.ListName)}`, apiKey, {
+                method: 'PUT',
+                body: { ListName: newName }
+            });
+            setActionStatus({ type: 'success', message: `List renamed to "${newName}".` });
+            setListToRename(null);
+            setTimeout(() => refetch(), 1000); // Wait for API to propagate change
+        } catch (err: any) {
+            setActionStatus({ type: 'error', message: `Failed to rename list: ${err.message}` });
+        }
+    };
+
+    const filteredLists = lists?.filter((list: any) => 
+        list.ListName.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [];
+
     return (
         <div>
             <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
+
+            {listToRename && (
+                <RenameListModal 
+                    isOpen={!!listToRename}
+                    onClose={() => setListToRename(null)}
+                    listName={listToRename.ListName}
+                    onSubmit={handleRenameList}
+                />
+            )}
+            
+            {listToView && (
+                <ListContactsModal
+                    isOpen={!!listToView}
+                    onClose={() => setListToView(null)}
+                    listName={listToView.ListName}
+                    apiKey={apiKey}
+                />
+            )}
+
+
             <div className="view-header">
                 <form className="create-list-form" onSubmit={handleCreateList}>
                     <input
@@ -1118,27 +1509,44 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                         {isSubmitting ? <Loader /> : <><Icon path={ICONS.PLUS}/> Create List</>}
                     </button>
                 </form>
+                 <div className="search-bar">
+                    <Icon path={ICONS.SEARCH} />
+                    <input
+                        type="search"
+                        placeholder="Search lists..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
             </div>
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
-            {!loading && lists?.length === 0 && <CenteredMessage>No email lists found. Create one above to get started.</CenteredMessage>}
+            {!loading && filteredLists.length === 0 && (
+                 <CenteredMessage>
+                    {searchQuery ? `No lists found for "${searchQuery}".` : "No email lists found. Create one above to get started."}
+                </CenteredMessage>
+            )}
             <div className="card-grid list-grid">
-                {lists?.map((list: any) => (
+                {filteredLists.map((list: any) => (
                     <div key={list.ListName} className="card list-card">
                         <div className="list-card-header">
                             <h3>{list.ListName}</h3>
                         </div>
                         <div className="list-card-body">
-                            <div className="list-card-stat">
-                                <span>Contacts</span>
-                                <strong>{list.Count?.toLocaleString() ?? '0'}</strong>
-                            </div>
+                             <p>Date Added: {formatDateForDisplay(list.DateAdded)}</p>
                         </div>
                         <div className="list-card-footer">
-                             <span>Created: {formatDateForDisplay(list.DateAdded)}</span>
-                            <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteList(list.ListName)} aria-label="Delete list">
-                                <Icon path={ICONS.DELETE} />
-                            </button>
+                           <div className="action-buttons">
+                                <button className="btn-icon" onClick={() => setListToRename(list)} aria-label="Rename list">
+                                    <Icon path={ICONS.PENCIL} />
+                                </button>
+                                <button className="btn-icon" onClick={() => setListToView(list)} aria-label="View contacts in list">
+                                    <Icon path={ICONS.CONTACTS} />
+                                </button>
+                                <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteList(list.ListName)} aria-label="Delete list">
+                                    <Icon path={ICONS.DELETE} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -1147,11 +1555,119 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
     );
 };
 
+const RenameSegmentModal = ({ isOpen, onClose, segmentName, onSubmit }: { isOpen: boolean, onClose: () => void, segmentName: string, onSubmit: (newName: string) => Promise<void> }) => {
+    const [newName, setNewName] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setNewName(segmentName);
+        }
+    }, [isOpen, segmentName]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newName || newName === segmentName) return;
+        setIsSubmitting(true);
+        await onSubmit(newName);
+        setIsSubmitting(false);
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Rename Segment "${segmentName}"`}>
+            <form onSubmit={handleSubmit} className="modal-form">
+                <div className="form-group">
+                    <label htmlFor="new-segment-name">New Segment Name</label>
+                    <input id="new-segment-name" type="text" value={newName} onChange={e => setNewName(e.target.value)} required disabled={isSubmitting} />
+                </div>
+                <div className="form-actions" style={{ marginTop: '1rem' }}>
+                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" disabled={isSubmitting || !newName || newName === segmentName}>
+                        {isSubmitting ? <Loader /> : 'Save Changes'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+const SegmentContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: boolean, onClose: () => void, listName: string, apiKey: string }) => {
+    const [offset, setOffset] = useState(0);
+    const [refetchIndex, setRefetchIndex] = useState(0);
+    const CONTACTS_PER_PAGE = 15;
+    
+    useEffect(() => {
+        if (isOpen) {
+            setOffset(0);
+            setRefetchIndex(i => i + 1);
+        }
+    }, [isOpen]);
+
+    const { data: contacts, loading, error } = useApiV4(
+        isOpen ? `/segments/${encodeURIComponent(listName)}/contacts` : '', 
+        apiKey, 
+        { limit: CONTACTS_PER_PAGE, offset },
+        refetchIndex
+    );
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Contacts in "${listName}"`}>
+            {loading && <CenteredMessage><Loader /></CenteredMessage>}
+            {error && <ErrorMessage error={error} />}
+            {!loading && !error && (
+                <>
+                    <div className="table-container">
+                        <table className="simple-table">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {contacts && contacts.length > 0 ? (
+                                    contacts.map((c: any) => (
+                                        <tr key={c.Email}>
+                                            <td>{c.Email}</td>
+                                            <td>{`${c.FirstName || ''} ${c.LastName || ''}`.trim() || '-'}</td>
+                                            <td><Badge text={c.Status} type={c.Status === 'Active' ? 'success' : 'default'} /></td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>This segment has no contacts.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    {contacts && (contacts.length > 0 || offset > 0) && (
+                         <div className="pagination-controls" style={{borderTop: 'none', marginTop: '1rem'}}>
+                            <button onClick={() => setOffset(o => Math.max(0, o - CONTACTS_PER_PAGE))} disabled={offset === 0 || loading}>
+                                Previous
+                            </button>
+                            <span>Page {offset / CONTACTS_PER_PAGE + 1}</span>
+                            <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={contacts.length < CONTACTS_PER_PAGE || loading}>
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
+        </Modal>
+    );
+};
+
 const SegmentsView = ({ apiKey }: { apiKey: string }) => {
     const [refetchIndex, setRefetchIndex] = useState(0);
+    const [searchQuery, setSearchQuery] = useState('');
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     
+    const [segmentToRename, setSegmentToRename] = useState<any>(null);
+    const [segmentToView, setSegmentToView] = useState<any>(null);
+
     const { data: segments, loading, error } = useApiV4('/segments', apiKey, {}, refetchIndex);
     const refetch = () => setRefetchIndex(i => i + 1);
 
@@ -1159,49 +1675,107 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
         try {
             await apiFetchV4('/segments', apiKey, { method: 'POST', body: segmentData });
             setActionStatus({ type: 'success', message: `Segment "${segmentData.Name}" created.` });
-            setIsModalOpen(false);
+            setIsCreateModalOpen(false);
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to create segment: ${err.message}` });
+            // Let the modal handle showing the error
+            throw err;
         }
     };
-
+    
     const handleDeleteSegment = async (segmentName: string) => {
         if (!window.confirm(`Are you sure you want to delete the segment "${segmentName}"?`)) return;
         try {
             await apiFetchV4(`/segments/${encodeURIComponent(segmentName)}`, apiKey, { method: 'DELETE' });
             setActionStatus({ type: 'success', message: `Segment "${segmentName}" deleted.` });
-            refetch();
+            setTimeout(() => refetch(), 1000);
         } catch (err: any) {
             setActionStatus({ type: 'error', message: `Failed to delete segment: ${err.message}` });
         }
     };
+    
+    const handleRenameSegment = async (newName: string) => {
+        if (!segmentToRename) return;
+        try {
+            await apiFetchV4(`/segments/${encodeURIComponent(segmentToRename.Name)}`, apiKey, {
+                method: 'PUT',
+                body: { Name: newName }
+            });
+            setActionStatus({ type: 'success', message: `Segment renamed to "${newName}".` });
+            setSegmentToRename(null);
+            setTimeout(() => refetch(), 1000);
+        } catch (err: any) {
+             setActionStatus({ type: 'error', message: `Failed to rename segment: ${err.message}` });
+        }
+    };
+
+    const filteredSegments = segments?.filter((segment: any) =>
+        segment.Name.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [];
 
     return (
         <div>
             <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
             <div className="view-header">
-                <h3>Your Segments</h3>
-                <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+                <div className="search-bar">
+                    <Icon path={ICONS.SEARCH} />
+                    <input
+                        type="search"
+                        placeholder="Search segments..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <button className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
                     <Icon path={ICONS.PLUS} /> Create Segment
                 </button>
             </div>
-
-            <Modal title="Create New Segment" isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-                <CreateSegmentForm onSubmit={handleCreateSegment} />
+            
+            <Modal title="Create New Segment" isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
+                <CreateSegmentRuleBuilder onSubmit={handleCreateSegment} />
             </Modal>
+            
+            {segmentToRename && (
+                <RenameSegmentModal 
+                    isOpen={!!segmentToRename}
+                    onClose={() => setSegmentToRename(null)}
+                    segmentName={segmentToRename.Name}
+                    onSubmit={handleRenameSegment}
+                />
+            )}
+            
+            {segmentToView && (
+                <SegmentContactsModal
+                    isOpen={!!segmentToView}
+                    onClose={() => setSegmentToView(null)}
+                    listName={segmentToView.Name}
+                    apiKey={apiKey}
+                />
+            )}
 
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
-            {!loading && segments?.length === 0 && <CenteredMessage>No segments found. Create one to get started.</CenteredMessage>}
+            {!loading && filteredSegments.length === 0 && (
+                 <CenteredMessage>
+                    {searchQuery ? `No segments found for "${searchQuery}".` : "No segments found. Create one to get started."}
+                </CenteredMessage>
+            )}
             <div className="card-grid">
-                {segments?.map((segment: any) => (
+                {filteredSegments.map((segment: any) => (
                     <div key={segment.Name} className="card segment-card">
                         <div className="segment-card-header">
                             <h3>{segment.Name}</h3>
-                            <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteSegment(segment.Name)} aria-label="Delete segment">
-                                <Icon path={ICONS.DELETE} />
-                            </button>
+                             <div className="action-buttons">
+                                <button className="btn-icon" onClick={() => setSegmentToRename(segment)} aria-label="Rename segment">
+                                    <Icon path={ICONS.PENCIL} />
+                                </button>
+                                <button className="btn-icon" onClick={() => setSegmentToView(segment)} aria-label="View contacts in segment">
+                                    <Icon path={ICONS.EYE} />
+                                </button>
+                                <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteSegment(segment.Name)} aria-label="Delete segment">
+                                    <Icon path={ICONS.DELETE} />
+                                </button>
+                            </div>
                         </div>
                         <div className="segment-card-body">
                              <label>Rule</label>
@@ -1218,29 +1792,166 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
     );
 };
 
-const CreateSegmentForm = ({ onSubmit }: { onSubmit: (data: {Name: string, Rule: string}) => void }) => {
+// --- Segment Rule Builder ---
+type FieldDef = { name: string; apiName: string; type: 'text' | 'number' | 'date'; };
+type OperatorDef = { name: string; apiOp: string; noValue?: boolean; };
+type Rule = { id: number; field: string; op: string; value: string; };
+
+const SEGMENT_FIELDS_CONFIG: Record<string, FieldDef[]> = {
+    "General": [
+        { name: 'Firstname', apiName: 'Firstname', type: 'text' }, { name: 'Lastname', apiName: 'Lastname', type: 'text' },
+        { name: 'List Name', apiName: 'ListName', type: 'text' }, { name: 'Status', apiName: 'Status', type: 'text' },
+        { name: 'Source', apiName: 'Source', type: 'text' }, { name: 'Unsubscribe Reason', apiName: 'UnsubscribeReason', type: 'text' },
+        { name: 'Email', apiName: 'Email', type: 'text' }, { name: 'Date Added', apiName: 'DateAdded', type: 'date' },
+        { name: 'Date Updated', apiName: 'DateUpdated', type: 'date' }, { name: 'Status Change Date', apiName: 'StatusChangeDate', type: 'date' },
+        { name: 'Consent Date', apiName: 'ConsentDate', type: 'date' }, { name: 'Consent IP', apiName: 'ConsentIp', type: 'text' },
+        { name: 'Consent Tracking', apiName: 'ConsentTracking', type: 'text' }, { name: 'Days Since Date Added', apiName: 'DaysSinceDateAdded', type: 'number' },
+        { name: 'Days Since Date Updated', apiName: 'DaysSinceDateUpdated', type: 'number' }, { name: 'Days Since Consent Date', apiName: 'DaysSinceConsentDate', type: 'number' },
+        { name: 'Created From IP', apiName: 'CreatedFromIp', type: 'text' }, { name: 'Last Error', apiName: 'LastError', type: 'text' },
+    ],
+    "Statistics": [
+        { name: 'Total Sent', apiName: 'TotalSent', type: 'number' }, { name: 'Total Opens', apiName: 'TotalOpens', type: 'number' },
+        { name: 'Total Clicks', apiName: 'TotalClicks', type: 'number' }, { name: 'Total Bounces', apiName: 'TotalBounces', type: 'number' },
+        { name: 'Last Sent', apiName: 'LastSent', type: 'date' }, { name: 'Last Opened', apiName: 'LastOpened', type: 'date' },
+        { name: 'Last Clicked', apiName: 'LastClicked', type: 'date' }, { name: 'Last Bounced', apiName: 'LastBounced', type: 'date' },
+        { name: 'Days Since Last Sent', apiName: 'DaysSinceLastSent', type: 'number' }, { name: 'Days Since Last Opened', apiName: 'DaysSinceLastOpened', type: 'number' },
+        { name: 'Days Since Last Clicked', apiName: 'DaysSinceLastClicked', type: 'number' }, { name: 'Days Since Last Bounced', apiName: 'DaysSinceLastBounced', type: 'number' },
+    ],
+    "Custom": [
+        { name: 'Country', apiName: 'Country', type: 'text' }, { name: 'Mobile', apiName: 'Mobile', type: 'text' },
+        { name: 'Phone', apiName: 'Phone', type: 'text' }, { name: 'Company', apiName: 'Company', type: 'text' },
+    ]
+};
+
+const OPERATORS_CONFIG: Record<'text' | 'number' | 'date', OperatorDef[]> = {
+    text: [ { name: 'Is', apiOp: '=' }, { name: 'Contains', apiOp: 'CONTAINS' }, { name: 'Does Not Contain', apiOp: 'NOTCONTAINS' }, { name: 'Starts With', apiOp: 'STARTSWITH' }, { name: 'Ends With', apiOp: 'ENDSWITH' }, { name: 'Is Empty', apiOp: 'IS EMPTY', noValue: true }, { name: 'Is Not Empty', apiOp: 'IS NOT EMPTY', noValue: true } ],
+    number: [ { name: 'Equals', apiOp: '=' }, { name: 'Greater Than', apiOp: '>' }, { name: 'Less Than', apiOp: '<' }, { name: 'Greater Than or Equals', apiOp: '>=' }, { name: 'Less Than or Equals', apiOp: '<=' } ],
+    date: [ { name: 'On', apiOp: '=' }, { name: 'Before', apiOp: '<' }, { name: 'After', apiOp: '>' } ]
+};
+
+const ALL_FIELDS = Object.values(SEGMENT_FIELDS_CONFIG).flat();
+
+const CreateSegmentRuleBuilder = ({ onSubmit }: { onSubmit: (data: { Name: string, Rule: string }) => Promise<any> }) => {
     const [name, setName] = useState('');
-    const [rule, setRule] = useState('');
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSubmit({ Name: name, Rule: rule });
+    const [conjunction, setConjunction] = useState('AND');
+    const [rules, setRules] = useState<Rule[]>([{ id: Date.now(), field: 'Firstname', op: 'Is', value: '' }]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
+    const addRule = () => {
+        setRules([...rules, { id: Date.now(), field: 'Firstname', op: 'Is', value: '' }]);
+    };
+    
+    const removeRule = (id: number) => {
+        setRules(rules.filter(r => r.id !== id));
+    };
+    
+    const updateRule = (id: number, newValues: Partial<Omit<Rule, 'id'>>) => {
+        setRules(rules.map(r => r.id === id ? { ...r, ...newValues } : r));
     };
 
-    // A simple text area for the rule for now, as a full UI builder is very complex.
+    const handleFieldChange = (id: number, newField: string) => {
+        const fieldDef = ALL_FIELDS.find(f => f.name === newField);
+        if (fieldDef) {
+            const newOp = OPERATORS_CONFIG[fieldDef.type][0].name;
+            updateRule(id, { field: newField, op: newOp, value: '' });
+        }
+    };
+    
+    const buildQuery = () => {
+        return rules.map(rule => {
+            const fieldDef = ALL_FIELDS.find(f => f.name === rule.field);
+            const opDef = OPERATORS_CONFIG[fieldDef?.type || 'text'].find(o => o.name === rule.op);
+            if (!fieldDef || !opDef) return null;
+
+            if (opDef.noValue) return `${fieldDef.apiName} ${opDef.apiOp}`;
+            
+            let value = rule.value;
+            if(fieldDef.type === 'text' || fieldDef.type === 'date') {
+                 value = `'${value.replace(/'/g, "''")}'`; // Quote and escape single quotes
+            }
+            if (value === "''") value = "''"; // Keep empty string literal
+            
+            return `${fieldDef.apiName} ${opDef.apiOp} ${value}`;
+        }).filter(Boolean).join(` ${conjunction} `);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        const ruleString = buildQuery();
+        if (!name || !ruleString) {
+            setError('Please provide a name and at least one valid rule.');
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            await onSubmit({ Name: name, Rule: ruleString });
+        } catch(err: any) {
+            setError(err.message || 'An error occurred during submission.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
-        <form onSubmit={handleSubmit} className="modal-form">
+        <form onSubmit={handleSubmit} className="rule-builder-form">
+            <div className="info-message" style={{textAlign: 'left', display: 'flex', alignItems: 'center', gap: '1rem'}}>
+               <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0}} />
+                <span>Please note, that if you want to use "And" and "Or" in your rule, you need to add a sub-rule.</span>
+            </div>
             <div className="form-group">
                 <label htmlFor="segmentName">Segment Name</label>
-                <input id="segmentName" type="text" value={name} onChange={e => setName(e.target.value)} required />
+                <input id="segmentName" type="text" value={name} onChange={e => setName(e.target.value)} required disabled={isSubmitting} />
             </div>
-            <div className="form-group">
-                <label htmlFor="segmentRule">Rule</label>
-                <textarea id="segmentRule" value={rule} onChange={e => setRule(e.target.value)} required placeholder="Example: Country = 'Canada' AND ConsentTracked = 'true'"></textarea>
-                 <small style={{marginTop: '0.5rem', display: 'block'}}>
-                    Enter a rule using Elastic Email's segmentation query language.
-                </small>
+            <div className="rule-builder">
+                <div className="rule-conjunction-toggle">
+                    <label>Match</label>
+                    <button type="button" className={conjunction === 'AND' ? 'active' : ''} onClick={() => setConjunction('AND')}>All (AND)</button>
+                    <label>of the following rules:</label>
+                </div>
+                <div className="rule-list">
+                    {rules.map((rule, index) => {
+                        const fieldDef = ALL_FIELDS.find(f => f.name === rule.field);
+                        const operators = OPERATORS_CONFIG[fieldDef?.type || 'text'];
+                        const opDef = operators.find(o => o.name === rule.op);
+
+                        return (
+                            <div key={rule.id} className="rule-row">
+                                <select value={rule.field} onChange={e => handleFieldChange(rule.id, e.target.value)} disabled={isSubmitting}>
+                                    {Object.entries(SEGMENT_FIELDS_CONFIG).map(([category, fields]) => (
+                                        <optgroup key={category} label={category}>
+                                            {fields.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
+                                        </optgroup>
+                                    ))}
+                                </select>
+                                <select value={rule.op} onChange={e => updateRule(rule.id, { op: e.target.value })} disabled={isSubmitting}>
+                                    {operators.map(o => <option key={o.name} value={o.name}>{o.name}</option>)}
+                                </select>
+                                <input
+                                    type={fieldDef?.type === 'date' ? 'date' : fieldDef?.type === 'number' ? 'number' : 'text'}
+                                    value={rule.value}
+                                    onChange={e => updateRule(rule.id, { value: e.target.value })}
+                                    disabled={isSubmitting || opDef?.noValue}
+                                    placeholder={opDef?.noValue ? '<no value needed>' : 'Enter value'}
+                                />
+                                <button type="button" className="btn-icon btn-icon-danger remove-rule-btn" onClick={() => removeRule(rule.id)} disabled={rules.length <= 1 || isSubmitting}>
+                                    <Icon path={ICONS.DELETE} />
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+                <div className="add-rule-btn-container">
+                    <button type="button" className="btn add-rule-btn" onClick={addRule} disabled={isSubmitting}>
+                        <Icon path={ICONS.PLUS}/> Add another rule
+                    </button>
+                </div>
             </div>
-            <button type="submit" className="btn btn-primary full-width">Create Segment</button>
+            {error && <ActionStatus status={{ type: 'error', message: error }} onDismiss={() => setError('')} />}
+            <button type="submit" className="btn btn-primary full-width" disabled={isSubmitting}>
+                {isSubmitting ? <Loader /> : 'Create Segment'}
+            </button>
         </form>
     );
 }
@@ -1357,51 +2068,159 @@ const SendEmailView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 };
 
 const CampaignCardSkeleton = () => (
-    <div className="campaign-card">
+    <div className="campaign-card-skeleton">
         <div className="campaign-card-header">
-            <div className="skeleton skeleton-title"></div>
-            <div className="skeleton skeleton-badge"></div>
+            <div className="skeleton skeleton-title" style={{ width: '60%', height: '24px' }}></div>
+            <div className="skeleton" style={{ width: '80px', height: '24px', borderRadius: '99px' }}></div>
         </div>
         <div className="campaign-card-body">
-            <div className="skeleton skeleton-text"></div>
-            <div className="skeleton skeleton-text"></div>
+            <div className="skeleton skeleton-text" style={{ width: '90%', height: '16px' }}></div>
         </div>
         <div className="campaign-stats">
             <div>
-                <span>Recipients</span>
-                <div className="skeleton skeleton-stat"></div>
+                <div className="skeleton skeleton-text" style={{ width: '70%', height: '12px', margin: '0 auto 0.5rem' }}></div>
+                <div className="skeleton skeleton-stat" style={{ width: '40px', height: '28px', margin: '0 auto' }}></div>
             </div>
             <div>
-                <span>Opened</span>
-                <div className="skeleton skeleton-stat"></div>
+                <div className="skeleton skeleton-text" style={{ width: '50%', height: '12px', margin: '0 auto 0.5rem' }}></div>
+                <div className="skeleton skeleton-stat" style={{ width: '40px', height: '28px', margin: '0 auto' }}></div>
             </div>
             <div>
-                <span>Clicked</span>
-                <div className="skeleton skeleton-stat"></div>
+                <div className="skeleton skeleton-text" style={{ width: '50%', height: '12px', margin: '0 auto 0.5rem' }}></div>
+                <div className="skeleton skeleton-stat" style={{ width: '40px', height: '28px', margin: '0 auto' }}></div>
             </div>
         </div>
         <div className="campaign-card-footer">
-            <div className="skeleton skeleton-text" style={{width: '40%'}}></div>
+            <div className="skeleton skeleton-text" style={{width: '40%', height: '14px'}}></div>
         </div>
     </div>
 );
 
+const CampaignStatsModal = ({ isOpen, onClose, campaign }: { isOpen: boolean; onClose: () => void; campaign: any; }) => {
+    if (!campaign) {
+        return null;
+    }
+
+    const stats = campaign.Stats;
+    const campaignName = campaign.Name;
+    
+    const statItems = stats ? [
+        { title: 'Recipients', value: stats.Recipients, icon: ICONS.CONTACTS },
+        { title: 'Total Emails', value: stats.EmailTotal, icon: ICONS.MAIL },
+        { title: 'Total SMS', value: stats.SmsTotal, icon: ICONS.COMPLAINT },
+        { title: 'Delivered', value: stats.Delivered, icon: ICONS.VERIFY },
+        { title: 'Bounced', value: stats.Bounced, icon: ICONS.BOUNCED },
+        { title: 'In Progress', value: stats.InProgress, icon: ICONS.LOADING_SPINNER },
+        { title: 'Opened', value: stats.Opened, icon: ICONS.EYE },
+        { title: 'Clicked', value: stats.Clicked, icon: ICONS.CLICK },
+        { title: 'Unsubscribed', value: stats.Unsubscribed, icon: ICONS.LOGOUT },
+        { title: 'Complaints', value: stats.Complaints, icon: ICONS.COMPLAINT },
+        { title: 'Manual Cancel', value: stats.ManualCancel, icon: ICONS.X_CIRCLE },
+        { title: 'Not Delivered', value: stats.NotDelivered, icon: ICONS.BOUNCED },
+    ].filter(item => item.title !== 'Total SMS' || Number(item.value) > 0)
+    : [];
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Stats for "${campaignName}"`}>
+            {stats && Object.keys(stats).length > 0 ? (
+                <div className="card-grid account-grid">
+                    {statItems.map(item => (
+                        <AccountDataCard key={item.title} title={item.title} iconPath={item.icon}>
+                            {(Number(item.value) || 0).toLocaleString()}
+                        </AccountDataCard>
+                    ))}
+                </div>
+            ) : (
+                 <CenteredMessage>No statistics data found for this campaign.</CenteredMessage>
+            )}
+        </Modal>
+    );
+};
+
 const CampaignsView = ({ apiKey }: { apiKey: string }) => {
-    const { data: campaigns, loading, error } = useApiV4('/campaigns', apiKey);
+    const [campaigns, setCampaigns] = useState<any[] | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<any | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [campaignToViewStats, setCampaignToViewStats] = useState<any>(null);
+
+    useEffect(() => {
+        const fetchCampaignData = async () => {
+            if (!apiKey) {
+                setLoading(false);
+                return;
+            }
+            setLoading(true);
+            setError(null);
+            try {
+                // Fetch both campaigns and their statistics in parallel.
+                const [campaignsList, campaignsStats] = await Promise.all([
+                    apiFetchV4('/campaigns', apiKey),
+                    apiFetchV4('/statistics/campaigns', apiKey)
+                ]);
+
+                // Create a map of statistics keyed by a sanitized campaign name for efficient lookup.
+                const statsMap = new Map();
+                if (Array.isArray(campaignsStats)) {
+                    campaignsStats.forEach((stat: any) => {
+                        // The bulk stats endpoint nests data in a 'Summary' object.
+                        // We key by a lowercase, trimmed name for robust matching.
+                        if (stat.CampaignName && stat.Summary) {
+                            statsMap.set(stat.CampaignName.toLowerCase().trim(), stat.Summary);
+                        }
+                    });
+                }
+                
+                // Merge the campaign list with their corresponding stats.
+                const merged = Array.isArray(campaignsList) 
+                    ? campaignsList.map((campaign: any) => ({
+                        ...campaign,
+                        // Find stats using the same sanitized key. Default to an empty object if not found.
+                        Stats: statsMap.get(campaign.Name.toLowerCase().trim()) || {} 
+                    })) 
+                    : [];
+                
+                setCampaigns(merged);
+
+            } catch (err: any) {
+                setError({ message: err.message, endpoint: '/campaigns & /statistics/campaigns' });
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCampaignData();
+    }, [apiKey]);
     
     const getBadgeTypeForStatus = (statusName: string | undefined) => {
         const lowerStatus = (statusName || '').toLowerCase();
-        if (lowerStatus === 'sent') return 'success';
+        if (lowerStatus === 'sent' || lowerStatus === 'complete' || lowerStatus === 'completed') return 'success';
         if (lowerStatus === 'draft') return 'default';
-        if (lowerStatus === 'processing' || lowerStatus === 'sending') return 'info';
+        if (lowerStatus === 'processing' || lowerStatus === 'sending' || lowerStatus === 'inprogress' || lowerStatus === 'scheduled') return 'info';
         if (lowerStatus === 'cancelled') return 'warning';
         return 'default';
     }
 
+    const filteredCampaigns = useMemo(() => {
+        if (!campaigns) return [];
+        return campaigns.filter((c: any) => 
+            c.Name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            c.Content?.[0]?.Subject.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [campaigns, searchQuery]);
+
     if (loading) {
         return (
-            <div className="campaign-grid">
-                {Array.from({ length: 6 }).map((_, index) => <CampaignCardSkeleton key={index} />)}
+             <div>
+                <div className="view-header">
+                     <div className="search-bar">
+                        <Icon path={ICONS.SEARCH} />
+                        <input type="search" placeholder="Search campaigns..." disabled />
+                    </div>
+                </div>
+                <div className="campaign-grid">
+                    {Array.from({ length: 6 }).map((_, index) => <CampaignCardSkeleton key={index} />)}
+                </div>
             </div>
         );
     }
@@ -1413,37 +2232,52 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
     }
 
     return (
-        <div className="campaign-grid">
-            {campaigns.map((campaign: any) => (
-                <div key={campaign.Name} className="campaign-card">
-                    <div className="campaign-card-header">
-                        <h3>{campaign.Name}</h3>
-                        <Badge text={campaign.Status?.Name ?? 'Unknown'} type={getBadgeTypeForStatus(campaign.Status?.Name)} />
-                    </div>
-                    <div className="campaign-card-body">
-                        <p className="campaign-subject">
-                            {campaign.Content?.[0]?.Subject || 'No Subject'}
-                        </p>
-                    </div>
-                    <div className="campaign-stats">
-                        <div>
-                            <span>Recipients</span>
-                            <strong>{campaign.Status?.Recipients?.toLocaleString() ?? '0'}</strong>
-                        </div>
-                        <div>
-                            <span>Opened</span>
-                            <strong>{campaign.Status?.Opened?.toLocaleString() ?? '0'}</strong>
-                        </div>
-                        <div>
-                            <span>Clicked</span>
-                            <strong>{campaign.Status?.Clicked?.toLocaleString() ?? '0'}</strong>
-                        </div>
-                    </div>
-                    <div className="campaign-card-footer">
-                       <span>Sent: {formatDateForDisplay(campaign.Content?.[0]?.DateAdded)}</span>
-                    </div>
+        <div>
+            <CampaignStatsModal 
+                isOpen={!!campaignToViewStats}
+                onClose={() => setCampaignToViewStats(null)}
+                campaign={campaignToViewStats}
+            />
+            <div className="view-header">
+                <div className="search-bar">
+                    <Icon path={ICONS.SEARCH} />
+                    <input
+                        type="search"
+                        placeholder="Search campaigns by name or subject..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                 </div>
-            ))}
+            </div>
+
+            {!loading && filteredCampaigns.length === 0 && (
+                <CenteredMessage>
+                    {searchQuery ? `No campaigns found for "${searchQuery}".` : "You haven't sent any campaigns yet."}
+                </CenteredMessage>
+            )}
+
+            <div className="campaign-grid">
+                {filteredCampaigns.map((campaign: any) => {
+                    return (
+                        <div key={campaign.Name} className="campaign-card">
+                            <div className="campaign-card-header">
+                                <h3>{campaign.Name}</h3>
+                                <div className="action-buttons">
+                                    <button className="btn-icon" onClick={() => setCampaignToViewStats(campaign)} aria-label="View campaign statistics">
+                                        <Icon path={ICONS.TRENDING_UP} />
+                                    </button>
+                                    <Badge text={campaign.Status ?? 'Unknown'} type={getBadgeTypeForStatus(campaign.Status)} />
+                                </div>
+                            </div>
+                            <div className="campaign-card-body">
+                                <p className="campaign-subject">
+                                    {campaign.Content?.[0]?.Subject || 'No Subject'}
+                                </p>
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
         </div>
     );
 };
@@ -1649,7 +2483,7 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
                                     <div><span>MX</span> <Badge text={isMxVerified ? 'Verified' : 'Missing'} type={isMxVerified ? 'success' : 'warning'} /></div>
                                 </div>
                             </div>
-                            <div className="domain-card-footer" onClick={() => setExpandedDomain(d => d === domainName ? null : domainName)} role="button" aria-expanded={isExpanded}>
+                            <div className="domain-card-footer" onClick={() => setExpandedDomain(d => d === domainName ? null : d === null ? domainName : null)} role="button" aria-expanded={isExpanded}>
                                 <span>Show DNS & Verify</span>
                                 <Icon path={ICONS.CHEVRON_DOWN} className={isExpanded ? 'expanded' : ''} />
                             </div>
