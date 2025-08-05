@@ -1,6 +1,6 @@
 # Run and deploy your MegaMail app
 
-This contains everything you need to run your app locally.
+This contains everything you need to run your email app locally.
 
 ## Run Locally
 

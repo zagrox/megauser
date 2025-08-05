@@ -25,12 +25,12 @@ const ICONS = {
     CHEVRON_DOWN: "M6 9l6 6 6-6",
     CLICK: "M9 11.3l3.71 2.7-1.42 1.42a.5.5 0 01-.71 0l-1.58-1.58a1 1 0 00-1.42 0l-1.42 1.42a1 1 0 000 1.42l4.24 4.24a.5.5 0 00.71 0l7.07-7.07",
     COMPLAINT: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10zM12 9v2m0 4h.01",
-    CONTACTS: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
-    CREDIT_CARD: "M22 8a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8zM6 14h4v-2H6v2z",
-    DEFAULT: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+    CONTACTS: "M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zM21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+    BUY_CREDITS: "M22 8a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8zM6 14h4v-2H6v2z",
+    STAR: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
     DELETE: "M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2",
-    DOMAINS: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20",
-    EMAIL_LIST: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+    DOMAINS: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+    EMAIL_LISTS: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
     EYE: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
     EYE_OFF: "M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22",
     KEY: "M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
@@ -40,10 +40,10 @@ const ICONS = {
     PENCIL: "M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z",
     PLUS: "M12 5v14m-7-7h14",
     PRICE_TAG: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7H7.01",
-    PUZZLE: "M20.5 11H19v-2.14a2.5 2.5 0 0 0-2.5-2.5H14V4.5a2.5 2.5 0 0 0-2.5-2.5h-3A2.5 2.5 0 0 0 6 4.5V6H3.5a2.5 2.5 0 0 0-2.5 2.5V11H2.5a2.5 2.5 0 0 1 0 5H1v2.14a2.5 2.5 0 0 0 2.5 2.5H6V23.5a2.5 2.5 0 0 0 2.5 2.5h3A2.5 2.5 0 0 0 14 23.5V22h2.5a2.5 2.5 0 0 0 2.5-2.5V17h1.5a2.5 2.5 0 0 1 0-5z",
+    SEGMENTS: "M20.5 11H19v-2.14a2.5 2.5 0 0 0-2.5-2.5H14V4.5a2.5 2.5 0 0 0-2.5-2.5h-3A2.5 2.5 0 0 0 6 4.5V6H3.5a2.5 2.5 0 0 0-2.5 2.5V11H2.5a2.5 2.5 0 0 1 0 5H1v2.14a2.5 2.5 0 0 0 2.5 2.5H6V23.5a2.5 2.5 0 0 0 2.5 2.5h3A2.5 2.5 0 0 0 14 23.5V22h2.5a2.5 2.5 0 0 0 2.5-2.5V17h1.5a2.5 2.5 0 0 1 0-5z",
     SEND_EMAIL: "m22 2-7 20-4-9-9-4 20-7Zm0 0L11 13 2 9l20-7Z",
-    SERVER: "M23 12H1m22-6H1m0 12H1M6 6v12M18 6v12",
-    STATS: "M12 18.5l7-7-4-4-7 7V18.5zM12 2l-2.5 5.5L4 9.5l5.5 5.5L7.5 22l4.5-2.5L16.5 22l-2-7 5.5-5.5-5.5-2L12 2z",
+    SMTP: "M23 12H1m22-6H1m0 12H1M6 6v12M18 6v12",
+    STATISTICS: "M23 6l-9.5 9.5-5-5L1 18",
     TRENDING_UP: "M23 6l-9.5 9.5-5-5L1 18",
     UPLOAD: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m14-7l-5-5-5 5m5-5v12",
     USER_PLUS: "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0 8zM20 8v6M23 11h-6",
@@ -349,7 +349,7 @@ const useApi = (endpoint: string, apiKey: string, params: Record<string, any> = 
   const paramsString = JSON.stringify(params);
 
   useEffect(() => {
-    if (!apiKey || !endpoint || refetchIndex === 0) {
+    if (!apiKey || !endpoint) {
         setLoading(false);
         return;
     };
@@ -384,6 +384,7 @@ const useApiV4 = (endpoint: string, apiKey: string, params: Record<string, any> 
   useEffect(() => {
     if (!apiKey || !endpoint) {
         setLoading(false);
+        setData(null);
         return;
     }
 
@@ -519,21 +520,22 @@ const formatDateForDisplay = (dateString: string | undefined) => {
 
 // --- View Components ---
 
+const durationOptions: {[key: string]: {label: string, from: () => Date}} = {
+    '7days': { label: 'Last 7 days', from: () => getPastDateByDays(7) },
+    '14days': { label: 'Last 14 days', from: () => getPastDateByDays(14) },
+    '30days': { label: 'Last 30 days', from: () => getPastDateByDays(30) },
+    '3months': { label: 'Last 3 months', from: () => getPastDateByMonths(3) },
+    '6months': { label: 'Last 6 months', from: () => getPastDateByMonths(6) },
+    '1year': { label: 'Last year', from: () => getPastDateByYears(1) },
+};
+
 const StatisticsView = ({ apiKey }: { apiKey: string }) => {
     const [duration, setDuration] = useState('3months');
 
-    const durationOptions: {[key: string]: {label: string, from: () => Date}} = {
-        '7days': { label: 'Last 7 days', from: () => getPastDateByDays(7) },
-        '14days': { label: 'Last 14 days', from: () => getPastDateByDays(14) },
-        '30days': { label: 'Last 30 days', from: () => getPastDateByDays(30) },
-        '3months': { label: 'Last 3 months', from: () => getPastDateByMonths(3) },
-        '6months': { label: 'Last 6 months', from: () => getPastDateByMonths(6) },
-        '1year': { label: 'Last year', from: () => getPastDateByYears(1) },
-    };
-
-    const apiParams = {
+    const apiParams = useMemo(() => ({
         from: formatDateForApiV4(durationOptions[duration].from()),
-    };
+    }), [duration]);
+
     const { data: stats, loading, error } = useApiV4(`/statistics`, apiKey, apiParams);
     
     const filterControl = (
@@ -895,16 +897,21 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 };
 
 const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => void, apiKey: string, user: any }) => {
-    const { data: statsData, loading: statsLoading, error: statsError } = useApiV4(`/statistics`, apiKey, { from: formatDateForApiV4(getPastDateByDays(30)) });
-    const { data: accountData } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
-    
+    const apiParams = useMemo(() => ({ from: formatDateForApiV4(getPastDateByDays(30)) }), []);
+    const { data: statsData, loading: statsLoading, error: statsError } = useApiV4(`/statistics`, apiKey, apiParams);
+    const { data: accountData, loading: accountLoading } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
+    const { data: contactsCountData, loading: contactsCountLoading } = useApi('/contact/count', apiKey, { allContacts: true }, apiKey ? 1 : 0);
+
     const navItems = [
-        { name: 'Statistics', icon: ICONS.STATS, desc: 'View detailed sending statistics and analytics.', view: 'Statistics' },
-        { name: 'Contacts', icon: ICONS.CONTACTS, desc: 'Manage your contacts, lists, and segments.', view: 'Contacts' },
+        { name: 'Statistics', icon: ICONS.STATISTICS, desc: 'View detailed sending statistics and analytics.', view: 'Statistics' },
+        { name: 'Contacts', icon: ICONS.CONTACTS, desc: 'Manage all of your individual contacts.', view: 'Contacts' },
+        { name: 'Email Lists', icon: ICONS.EMAIL_LISTS, desc: 'Organize contacts into subscriber lists.', view: 'Email Lists' },
+        { name: 'Segments', icon: ICONS.SEGMENTS, desc: 'Create dynamic segments for targeted sending.', view: 'Segments' },
         { name: 'Send Email', icon: ICONS.SEND_EMAIL, desc: 'Compose and send a new email campaign.', view: 'Send Email' },
-        { name: 'Campaigns', icon: ICONS.CAMPAIGNS, desc: 'Review your past and ongoing email campaigns.', view: 'Campaigns' },
+        { name: 'Campaigns', icon: ICONS.CAMPAIGNS, desc: 'Review your past and ongoing campaigns.', view: 'Campaigns' },
         { name: 'Domains', icon: ICONS.DOMAINS, desc: 'Manage and verify your sending domains.', view: 'Domains' },
-        { name: 'SMTP', icon: ICONS.SERVER, desc: 'Get your SMTP credentials for integration.', view: 'SMTP' },
+        { name: 'SMTP', icon: ICONS.SMTP, desc: 'Get your SMTP credentials for integration.', view: 'SMTP' },
+        { name: 'Buy Credits', icon: ICONS.BUY_CREDITS, desc: 'Purchase more email credits for your account.', view: 'Buy Credits' },
     ];
     
     if (!user) return <CenteredMessage><Loader /></CenteredMessage>;
@@ -920,20 +927,20 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
                     <p>Here's a quick overview of your MegaMail account. Ready to launch your next campaign?</p>
                 </div>
                 <div className="dashboard-actions">
-                    <button className="btn" onClick={() => setView('Contacts')}><Icon path={ICONS.USER_PLUS} /> Manage Contacts</button>
+                    <button className="btn" onClick={() => setView('Contacts')}><Icon path={ICONS.CONTACTS} /> Manage Contacts</button>
                     <button className="btn btn-primary" onClick={() => setView('Send Email')}><Icon path={ICONS.SEND_EMAIL} /> Send an Email</button>
                 </div>
             </div>
 
             <div className="dashboard-stats-grid">
                  <AccountDataCard title="Sending Reputation" iconPath={ICONS.TRENDING_UP}>
-                    {accountData?.reputation ? `${accountData.reputation}%` : 'N/A'}
+                    {accountLoading ? '...' : (accountData?.reputation ? `${accountData.reputation}%` : 'N/A')}
                 </AccountDataCard>
                 <AccountDataCard title="Emails Sent (30d)" iconPath={ICONS.MAIL}>
                     {statsLoading ? '...' : (statsData?.EmailTotal?.toLocaleString() ?? '0')}
                 </AccountDataCard>
                  <AccountDataCard title="Total Contacts" iconPath={ICONS.CONTACTS}>
-                    {accountData?.contactcount?.toLocaleString() ?? '0'}
+                    {contactsCountLoading ? '...' : (contactsCountData?.toLocaleString() ?? '0')}
                 </AccountDataCard>
             </div>
 
@@ -2096,13 +2103,13 @@ const CampaignCardSkeleton = () => (
     </div>
 );
 
-const CampaignStatsModal = ({ isOpen, onClose, campaign }: { isOpen: boolean; onClose: () => void; campaign: any; }) => {
-    if (!campaign) {
-        return null;
-    }
-
-    const stats = campaign.Stats;
-    const campaignName = campaign.Name;
+const CampaignStatsModal = ({ isOpen, onClose, campaignName, apiKey }: { isOpen: boolean; onClose: () => void; campaignName: string | null; apiKey: string; }) => {
+    // Only fetch if the modal is open and has a campaign name
+    const shouldFetch = isOpen && !!campaignName;
+    const { data: stats, loading, error } = useApiV4(
+        shouldFetch ? `/statistics/campaigns/${encodeURIComponent(campaignName!)}` : '',
+        apiKey
+    );
     
     const statItems = stats ? [
         { title: 'Recipients', value: stats.Recipients, icon: ICONS.CONTACTS },
@@ -2121,77 +2128,31 @@ const CampaignStatsModal = ({ isOpen, onClose, campaign }: { isOpen: boolean; on
     : [];
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Stats for "${campaignName}"`}>
-            {stats && Object.keys(stats).length > 0 ? (
-                <div className="card-grid account-grid">
-                    {statItems.map(item => (
-                        <AccountDataCard key={item.title} title={item.title} iconPath={item.icon}>
-                            {(Number(item.value) || 0).toLocaleString()}
-                        </AccountDataCard>
-                    ))}
-                </div>
-            ) : (
-                 <CenteredMessage>No statistics data found for this campaign.</CenteredMessage>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Stats for "${campaignName || '...'}"`}>
+            {loading && <CenteredMessage><Loader /></CenteredMessage>}
+            {error && <ErrorMessage error={error} />}
+            {!loading && !error && (
+                stats && Object.keys(stats).length > 0 ? (
+                    <div className="card-grid account-grid">
+                        {statItems.map(item => (
+                            <AccountDataCard key={item.title} title={item.title} iconPath={item.icon}>
+                                {(Number(item.value) || 0).toLocaleString()}
+                            </AccountDataCard>
+                        ))}
+                    </div>
+                ) : (
+                     <CenteredMessage>No statistics data found for this campaign.</CenteredMessage>
+                )
             )}
         </Modal>
     );
 };
 
 const CampaignsView = ({ apiKey }: { apiKey: string }) => {
-    const [campaigns, setCampaigns] = useState<any[] | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<any | null>(null);
+    const { data: campaigns, loading, error } = useApiV4('/campaigns', apiKey);
     const [searchQuery, setSearchQuery] = useState('');
-    const [campaignToViewStats, setCampaignToViewStats] = useState<any>(null);
+    const [campaignNameToViewStats, setCampaignNameToViewStats] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchCampaignData = async () => {
-            if (!apiKey) {
-                setLoading(false);
-                return;
-            }
-            setLoading(true);
-            setError(null);
-            try {
-                // Fetch both campaigns and their statistics in parallel.
-                const [campaignsList, campaignsStats] = await Promise.all([
-                    apiFetchV4('/campaigns', apiKey),
-                    apiFetchV4('/statistics/campaigns', apiKey)
-                ]);
-
-                // Create a map of statistics keyed by a sanitized campaign name for efficient lookup.
-                const statsMap = new Map();
-                if (Array.isArray(campaignsStats)) {
-                    campaignsStats.forEach((stat: any) => {
-                        // The bulk stats endpoint nests data in a 'Summary' object.
-                        // We key by a lowercase, trimmed name for robust matching.
-                        if (stat.CampaignName && stat.Summary) {
-                            statsMap.set(stat.CampaignName.toLowerCase().trim(), stat.Summary);
-                        }
-                    });
-                }
-                
-                // Merge the campaign list with their corresponding stats.
-                const merged = Array.isArray(campaignsList) 
-                    ? campaignsList.map((campaign: any) => ({
-                        ...campaign,
-                        // Find stats using the same sanitized key. Default to an empty object if not found.
-                        Stats: statsMap.get(campaign.Name.toLowerCase().trim()) || {} 
-                    })) 
-                    : [];
-                
-                setCampaigns(merged);
-
-            } catch (err: any) {
-                setError({ message: err.message, endpoint: '/campaigns & /statistics/campaigns' });
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchCampaignData();
-    }, [apiKey]);
-    
     const getBadgeTypeForStatus = (statusName: string | undefined) => {
         const lowerStatus = (statusName || '').toLowerCase();
         if (lowerStatus === 'sent' || lowerStatus === 'complete' || lowerStatus === 'completed') return 'success';
@@ -2202,7 +2163,7 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
     }
 
     const filteredCampaigns = useMemo(() => {
-        if (!campaigns) return [];
+        if (!Array.isArray(campaigns)) return [];
         return campaigns.filter((c: any) => 
             c.Name.toLowerCase().includes(searchQuery.toLowerCase()) || 
             c.Content?.[0]?.Subject.toLowerCase().includes(searchQuery.toLowerCase())
@@ -2227,16 +2188,17 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
     
     if (error) return <ErrorMessage error={error} />;
     
-    if (!campaigns || campaigns.length === 0) {
+    if (!Array.isArray(campaigns) || campaigns.length === 0) {
         return <CenteredMessage>No campaigns found.</CenteredMessage>;
     }
 
     return (
         <div>
             <CampaignStatsModal 
-                isOpen={!!campaignToViewStats}
-                onClose={() => setCampaignToViewStats(null)}
-                campaign={campaignToViewStats}
+                isOpen={!!campaignNameToViewStats}
+                onClose={() => setCampaignNameToViewStats(null)}
+                campaignName={campaignNameToViewStats}
+                apiKey={apiKey}
             />
             <div className="view-header">
                 <div className="search-bar">
@@ -2263,7 +2225,7 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
                             <div className="campaign-card-header">
                                 <h3>{campaign.Name}</h3>
                                 <div className="action-buttons">
-                                    <button className="btn-icon" onClick={() => setCampaignToViewStats(campaign)} aria-label="View campaign statistics">
+                                    <button className="btn-icon" onClick={() => setCampaignNameToViewStats(campaign.Name)} aria-label="View campaign statistics">
                                         <Icon path={ICONS.TRENDING_UP} />
                                     </button>
                                     <Badge text={campaign.Status ?? 'Unknown'} type={getBadgeTypeForStatus(campaign.Status)} />
@@ -2496,35 +2458,249 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
     );
 };
 
+const AddSmtpCredentialModal = ({ isOpen, onClose, apiKey, onSuccess }: { isOpen: boolean, onClose: () => void, apiKey: string, onSuccess: (data: any) => void }) => {
+    const [name, setName] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (!isOpen) {
+            setName('');
+            setError('');
+            setIsSubmitting(false);
+        }
+    }, [isOpen]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        if (!name) {
+            setError('Credential name cannot be empty.');
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const newCredential = await apiFetchV4('/security/smtp', apiKey, {
+                method: 'POST',
+                body: { Name: name }
+            });
+            onSuccess(newCredential);
+        } catch (err: any) {
+            setError(err.message || 'Failed to create credential.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Add New SMTP Credential">
+            <form onSubmit={handleSubmit} className="modal-form">
+                <div className="form-group">
+                    <label htmlFor="credential-name">Credential Name</label>
+                    <input
+                        id="credential-name"
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g., My App Credential"
+                        required
+                        disabled={isSubmitting}
+                    />
+                     <small style={{ marginTop: '0.5rem', display: 'block' }}>
+                        A unique name to identify this credential.
+                    </small>
+                </div>
+                {error && <ActionStatus status={{ type: 'error', message: error }} onDismiss={() => setError('')} />}
+                <div className="form-actions" style={{ marginTop: '1rem' }}>
+                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+                    <button type="submit" className="btn btn-primary" disabled={isSubmitting || !name}>
+                        {isSubmitting ? <Loader /> : 'Create Credential'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+const ShowNewSmtpKeyModal = ({ isOpen, onClose, credential }: { isOpen: boolean, onClose: () => void, credential: any }) => {
+    const [copied, setCopied] = useState(false);
+    
+    useEffect(() => {
+        if (!isOpen) setCopied(false);
+    }, [isOpen]);
+
+    if (!credential) return null;
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(credential.ApiKey);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Credential Created Successfully">
+            <div className="info-message warning">
+                <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0}} />
+                <span>Please copy the API Key below. This is the only time it will be shown.</span>
+            </div>
+            <div className="new-api-key-display">
+                <div className="form-group">
+                    <label>Credential Name</label>
+                    <input type="text" value={credential.Name} readOnly disabled />
+                </div>
+                 <div className="form-group">
+                    <label>API Key (Password)</label>
+                    <div className="secret-value-wrapper">
+                        <input type="text" value={credential.ApiKey} readOnly />
+                        <button className="btn" onClick={handleCopy}>
+                            {copied ? 'Copied!' : 'Copy'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div className="form-actions" style={{justifyContent: 'flex-end', marginTop: '1.5rem'}}>
+                <button className="btn btn-primary" onClick={onClose}>Done</button>
+            </div>
+        </Modal>
+    );
+};
+
 
 const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
-    if (!user) return <CenteredMessage><Loader /></CenteredMessage>;
+    const [refetchIndex, setRefetchIndex] = useState(1);
+    const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [newlyCreatedCredential, setNewlyCreatedCredential] = useState<any>(null);
+    const [isFeatureUnavailable, setIsFeatureUnavailable] = useState(false);
+
+    const { data: credentials, loading, error } = useApiV4('/security/smtp', apiKey, {}, refetchIndex);
+    const refetch = () => setRefetchIndex(i => i + 1);
+
+    useEffect(() => {
+        if (error && error.message.toLowerCase().includes('account not found')) {
+            setIsFeatureUnavailable(true);
+        } else if (!error) {
+            setIsFeatureUnavailable(false);
+        }
+    }, [error]);
 
     const smtpDetails = {
         server: 'smtp.elasticemail.com',
         ports: '25, 2525, 587, 465 (SSL)'
     };
+    
+    if (!user) return <CenteredMessage><Loader /></CenteredMessage>;
+
+    const handleAddSuccess = (newCredential: any) => {
+        setIsAddModalOpen(false);
+        setActionStatus({ type: 'success', message: `Credential "${newCredential.Name}" created.` });
+        setNewlyCreatedCredential(newCredential);
+        setIsFeatureUnavailable(false);
+    };
+
+    const handleCloseNewKeyModal = () => {
+        setNewlyCreatedCredential(null);
+        refetch();
+    };
+
+    const handleDelete = async (name: string) => {
+        if (!window.confirm(`Are you sure you want to delete the SMTP credential "${name}"? This action cannot be undone.`)) return;
+        try {
+            await apiFetchV4(`/security/smtp/${encodeURIComponent(name)}`, apiKey, { method: 'DELETE' });
+            setActionStatus({ type: 'success', message: `Credential "${name}" deleted successfully.` });
+            refetch();
+        } catch (err: any) {
+            setActionStatus({ type: 'error', message: `Failed to delete credential: ${err.message}` });
+        }
+    };
+    
+    const additionalCredentials = useMemo(() => {
+        if (!Array.isArray(credentials)) return [];
+        return credentials.filter((c: any) => c.AccessLevel !== 'AllAccess');
+    }, [credentials]);
 
     return (
-        <div className="card-grid smtp-grid">
-            <div className="card smtp-card">
+        <div>
+            <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
+            
+            <AddSmtpCredentialModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                apiKey={apiKey}
+                onSuccess={handleAddSuccess}
+            />
+            
+            <ShowNewSmtpKeyModal 
+                isOpen={!!newlyCreatedCredential}
+                onClose={handleCloseNewKeyModal}
+                credential={newlyCreatedCredential}
+            />
+
+            <div className="card smtp-card main-credential-card">
                 <div className="smtp-card-header">
-                    <h3>SMTP Credentials</h3>
+                    <h3>Main Account Credentials</h3>
                 </div>
                 <div className="smtp-card-body">
                     <div className="smtp-detail-item"><label>Server</label> <strong>{smtpDetails.server}</strong></div>
                     <div className="smtp-detail-item"><label>Ports</label> <strong>{smtpDetails.ports}</strong></div>
                     <div className="smtp-detail-item full-span"><label>Username</label> <strong className="monospace">{user.email}</strong></div>
                     <div className="smtp-detail-item full-span">
-                        <label>Password</label>
+                        <label>Password (Main API Key)</label>
                         <div className="secret-value-wrapper">
                             <input type="password" value={apiKey} readOnly />
                             <button className="btn" onClick={() => navigator.clipboard.writeText(apiKey)}>Copy</button>
                         </div>
-                        <small style={{display: 'block', marginTop: '0.5rem'}}>Your password is your API Key.</small>
                     </div>
                 </div>
             </div>
+            
+            <div className="content-header" style={{borderTop: '1px solid var(--border-color)', marginTop: '2.5rem', paddingTop: '2.5rem'}}>
+                <div className="view-header" style={{marginBottom: 0, paddingBottom: 0, borderBottom: 'none'}}>
+                    <h2 style={{margin: 0}}>Additional Credentials</h2>
+                     {!isFeatureUnavailable && (
+                        <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
+                            <Icon path={ICONS.PLUS} /> Add Credential
+                        </button>
+                    )}
+                </div>
+            </div>
+            
+            {loading ? (
+                <CenteredMessage><Loader /></CenteredMessage>
+            ) : isFeatureUnavailable ? (
+                <div className="info-message warning" style={{maxWidth: 'none', alignItems: 'flex-start'}}>
+                    <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0, marginTop: '0.2rem'}} />
+                    <div>
+                        <strong>Feature Not Available</strong>
+                        <p style={{color: '#78350F', margin: '0.25rem 0 0', padding: 0}}>
+                            Managing additional SMTP credentials is not available for this account. This might be due to your account's plan or API key permissions.
+                        </p>
+                    </div>
+                </div>
+            ) : error ? (
+                <ErrorMessage error={error} />
+            ) : (
+                additionalCredentials.length > 0 ? (
+                    <div className="card-grid smtp-additional-grid">
+                        {additionalCredentials.map((cred: any) => (
+                             <div key={cred.Name} className="card smtp-additional-card">
+                                <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)'}}>
+                                    <h4 style={{wordBreak: 'break-all', margin: 0}}>{cred.Name}</h4>
+                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDelete(cred.Name)} aria-label={`Delete ${cred.Name}`}>
+                                        <Icon path={ICONS.DELETE}/>
+                                    </button>
+                                </div>
+                                <div className="card-body" style={{padding: '1rem 0 0', display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+                                    <div className="smtp-additional-detail"><label>Access Level</label><span>{cred.AccessLevel}</span></div>
+                                    <div className="smtp-additional-detail"><label>Created</label><span>{formatDateForDisplay(cred.DateCreated)}</span></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <CenteredMessage>No additional SMTP credentials found.</CenteredMessage>
+                )
+            )}
         </div>
     );
 };
@@ -2756,7 +2932,7 @@ const views: { [key: string]: React.ComponentType<any> } = {
 
 const getIconForView = (viewName: string) => {
     const normalizedName = viewName.toUpperCase().replace(/\s+/g, '_');
-    return (ICONS as Record<string, string>)[normalizedName] || ICONS.DEFAULT;
+    return (ICONS as Record<string, string>)[normalizedName] || ICONS.STAR;
 };
 
 const MainApp = () => {
@@ -2844,7 +3020,7 @@ const Sidebar = ({ view, setView, logout }: { view: string, setView: (view: stri
                     <span>User Profile</span>
                 </button>
                 <button onClick={() => setView('Buy Credits')} className={`nav-btn ${view === 'Buy Credits' ? 'active' : ''}`}>
-                    <Icon path={ICONS.CREDIT_CARD} />
+                    <Icon path={ICONS.BUY_CREDITS} />
                     <span>Buy Credits</span>
                 </button>
                 <button onClick={() => logout()} className="nav-btn logout-btn">
