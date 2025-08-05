@@ -1,3 +1,4 @@
+
 :root {
   --primary-color: #1A2B3C;
   --secondary-color: #007BFF;
@@ -131,6 +132,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  width: 100%;
 }
 .btn:disabled {
     opacity: 0.6;
@@ -152,10 +154,44 @@ body {
   background-color: #0069D9;
 }
 
+.btn-secondary {
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    margin-top: 1rem;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: var(--background-color);
+}
+
 .btn .icon {
     width: 18px;
     height: 18px;
 }
+
+.auth-separator {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: var(--subtle-text-color);
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin: 1.5rem 0;
+}
+.auth-separator::before,
+.auth-separator::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-color);
+}
+.auth-separator:not(:empty)::before {
+    margin-right: .5em;
+}
+.auth-separator:not(:empty)::after {
+    margin-left: .5em;
+}
+
 
 .auth-switch {
     margin-top: 1.5rem;
@@ -406,6 +442,18 @@ main:has(.dashboard-container) .content-header {
 .info-message p {
     font-size: 0.9rem;
     color: #1D4ED8;
+}
+
+.link-button {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: var(--secondary-color);
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 500;
 }
 
 /* View specific controls like filters */

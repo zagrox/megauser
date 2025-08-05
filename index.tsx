@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 
 // --- CONFIGURATION ---
 // TODO: Replace with your public Directus instance URL
-const DIRECTUS_URL = 'https://club.advering.ltd'; 
+const DIRECTUS_URL = 'https://app.megamail.ir'; 
 const ELASTIC_EMAIL_API_BASE = 'https://api.elasticemail.com/v2';
 const ELASTIC_EMAIL_API_V4_BASE = 'https://api.elasticemail.com/v4';
 
@@ -177,6 +177,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     loading: boolean;
     login: (credentials: any) => Promise<void>;
+    loginWithApiKey: (apiKey: string) => Promise<void>;
     register: (details: any) => Promise<void>;
     logout: () => void;
     updateUser: (data: any) => Promise<void>;
@@ -189,22 +190,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     const getMe = useCallback(async () => {
+        setLoading(true);
         const token = localStorage.getItem('directus_access_token');
-        if (!token) {
-            setLoading(false);
+        if (token) {
+            try {
+                const { data } = await directusFetch('/users/me?fields=*.*');
+                setUser(data);
+            } catch (error) {
+                console.error("Failed to fetch user:", error);
+                localStorage.removeItem('directus_access_token');
+                setUser(null);
+            } finally {
+                setLoading(false);
+            }
             return;
         }
-        try {
-            const { data } = await directusFetch('/users/me?fields=*.*');
-            setUser(data);
-        } catch (error) {
-            console.error("Failed to fetch user:", error);
-            localStorage.removeItem('directus_access_token');
-            setUser(null);
-        } finally {
-            setLoading(false);
+
+        const apiKey = localStorage.getItem('elastic_email_api_key');
+        if (apiKey) {
+            try {
+                await apiFetch('/account/load', apiKey); // Validate key
+                setUser({
+                    elastic_email_api_key: apiKey,
+                    first_name: 'Valued',
+                    email: 'user@apikey.local',
+                    isApiKeyUser: true,
+                });
+            } catch (error) {
+                console.error("Stored API key is invalid, removing.", error);
+                localStorage.removeItem('elastic_email_api_key');
+                setUser(null);
+            } finally {
+                setLoading(false);
+            }
+            return;
         }
+
+        setLoading(false);
     }, []);
+
 
     useEffect(() => {
         getMe();
@@ -218,6 +242,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('directus_access_token', data.access_token);
         await getMe();
     };
+    
+    const loginWithApiKey = async (apiKey: string) => {
+        await apiFetch('/account/load', apiKey); // This will throw on failure
+        localStorage.setItem('elastic_email_api_key', apiKey);
+        setUser({
+            elastic_email_api_key: apiKey,
+            first_name: 'Valued',
+            email: 'user@apikey.local',
+            isApiKeyUser: true,
+        });
+    };
 
     const register = async (details: any) => {
         await directusFetch('/users', {
@@ -229,6 +264,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const logout = () => {
         localStorage.removeItem('directus_access_token');
+        localStorage.removeItem('elastic_email_api_key');
         setUser(null);
     };
     
@@ -245,6 +281,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!user,
         loading,
         login,
+        loginWithApiKey,
         register,
         logout,
         updateUser,
@@ -509,7 +546,7 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
 };
 
 const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
-    const { updateUser } = useAuth();
+    const { updateUser, logout } = useAuth();
     const { data, loading, error } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
     const [newApiKey, setNewApiKey] = useState(user.elastic_email_api_key || '');
     const [isSaving, setIsSaving] = useState(false);
@@ -563,57 +600,72 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const statusType = getStatusType(accountStatus);
     const reputation = getReputationInfo(data.reputation);
     const fullName = [data.firstname, data.lastname].filter(Boolean).join(' ') || user.first_name;
+    const isApiKeyUser = user?.isApiKeyUser;
 
     return (
         <div className="profile-view-container">
-            <div className="card">
-                <form onSubmit={handleSaveKey} className="modal-form" style={{padding: '1rem'}}>
-                    <div className="form-group">
-                        <label htmlFor="api-key-input">Your Elastic Email API Key</label>
-                        <input
-                            id="api-key-input"
-                            type="password"
-                            value={newApiKey}
-                            onChange={(e) => setNewApiKey(e.target.value)}
-                            placeholder="Enter your Elastic Email API Key"
-                            required
-                        />
-                        <small style={{ marginTop: '0.5rem', display: 'block' }}>
-                            Update your key here. It will be validated before saving.
-                        </small>
-                    </div>
-                    {status && <ActionStatus status={status} onDismiss={() => setStatus(null)}/>}
-                    <div className="form-actions" style={{justifyContent: 'flex-end', marginTop: 0}}>
-                        <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                            {isSaving ? <Loader /> : 'Save & Verify Key'}
-                        </button>
-                    </div>
-                </form>
-            </div>
+            {!isApiKeyUser && (
+                <div className="card">
+                    <form onSubmit={handleSaveKey} className="modal-form" style={{padding: '1rem'}}>
+                        <div className="form-group">
+                            <label htmlFor="api-key-input">Your Elastic Email API Key</label>
+                            <input
+                                id="api-key-input"
+                                type="password"
+                                value={newApiKey}
+                                onChange={(e) => setNewApiKey(e.target.value)}
+                                placeholder="Enter your Elastic Email API Key"
+                                required
+                            />
+                            <small style={{ marginTop: '0.5rem', display: 'block' }}>
+                                Update your key here. It will be validated before saving.
+                            </small>
+                        </div>
+                        {status && <ActionStatus status={status} onDismiss={() => setStatus(null)}/>}
+                        <div className="form-actions" style={{justifyContent: 'flex-end', marginTop: 0}}>
+                            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                                {isSaving ? <Loader /> : 'Save & Verify Key'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+            
+            {isApiKeyUser && (
+                 <div className="info-message" style={{textAlign: 'left'}}>
+                    <p>
+                        You are signed in using an API key. Account details are shown below. <br/>
+                        To create and manage a user profile, please <button className="link-button" onClick={logout}>log out</button> and register.
+                    </p>
+                </div>
+            )}
 
-            <div className="profile-hero">
-                <div className="profile-avatar">
-                    <Icon path={ICONS.ACCOUNT} />
-                </div>
-                <div className="profile-info">
-                    <h3>{fullName || 'User Profile'}</h3>
-                    <p className="profile-email">{data.email}</p>
-                    <div className="profile-meta">
-                        <div className="meta-item">
-                            <label>Public ID</label>
-                            <span>{data.publicaccountid || 'N/A'}</span>
-                        </div>
-                        <div className="meta-item">
-                            <label>Joined</label>
-                            <span>{formatDateForDisplay(data.datecreated)}</span>
-                        </div>
-                        <div className="meta-item">
-                            <label>Last Activity</label>
-                            <span>{formatDateForDisplay(data.lastactivity)}</span>
+            {!isApiKeyUser && (
+                <div className="profile-hero">
+                    <div className="profile-avatar">
+                        <Icon path={ICONS.ACCOUNT} />
+                    </div>
+                    <div className="profile-info">
+                        <h3>{fullName || 'User Profile'}</h3>
+                        <p className="profile-email">{data.email}</p>
+                        <div className="profile-meta">
+                            <div className="meta-item">
+                                <label>Public ID</label>
+                                <span>{data.publicaccountid || 'N/A'}</span>
+                            </div>
+                            <div className="meta-item">
+                                <label>Joined</label>
+                                <span>{formatDateForDisplay(data.datecreated)}</span>
+                            </div>
+                            <div className="meta-item">
+                                <label>Last Activity</label>
+                                <span>{formatDateForDisplay(data.lastactivity)}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
+
 
             <div className="card-grid account-grid">
                 <AccountDataCard title="Account Status" iconPath={ICONS.VERIFY}>
@@ -1650,13 +1702,17 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 // --- Main App & Auth Flow ---
 
 const LoginPage = ({ setView }: { setView: (view: 'login' | 'register') => void }) => {
-    const { login } = useAuth();
+    const { login, loginWithApiKey } = useAuth();
+    const [mode, setMode] = useState<'credentials' | 'apikey'>('credentials');
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [apiKey, setApiKey] = useState('');
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleCredentialsSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
@@ -1668,28 +1724,67 @@ const LoginPage = ({ setView }: { setView: (view: 'login' | 'register') => void 
             setLoading(false);
         }
     };
+    
+    const handleApiKeySubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            await loginWithApiKey(apiKey);
+        } catch (err: any) {
+            setError(err.message || 'Invalid API Key or connection issue.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="auth-container">
             <div className="auth-box">
-                <h1 className="logo-font">MegaMail</h1>
-                <p>Welcome back! Please sign in to your account.</p>
-                <form className="auth-form" onSubmit={handleSubmit}>
-                    <div className="input-group" style={{marginBottom: '1rem'}}>
-                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email Address" required disabled={loading} />
-                    </div>
-                    <div className="input-group">
-                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required disabled={loading} />
-                    </div>
-                    {error && <div className="action-status error" style={{textAlign:'center', marginTop: '1rem'}}>{error}</div>}
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading && <Loader />}
-                        <span>{loading ? 'Signing In...' : 'Sign In'}</span>
-                    </button>
-                </form>
-                 <p className="auth-switch">
-                    Don't have an account? <button onClick={() => setView('register')}>Register</button>
-                </p>
+                {mode === 'credentials' ? (
+                    <>
+                        <h1 className="logo-font">MegaMail</h1>
+                        <p>Welcome back! Please sign in to your account.</p>
+                        <form className="auth-form" onSubmit={handleCredentialsSubmit}>
+                            <div className="input-group" style={{marginBottom: '1rem'}}>
+                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email Address" required disabled={loading} />
+                            </div>
+                            <div className="input-group">
+                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required disabled={loading} />
+                            </div>
+                            {error && <div className="action-status error" style={{textAlign:'center', marginTop: '1rem'}}>{error}</div>}
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading && <Loader />}
+                                <span>{loading ? 'Signing In...' : 'Sign In'}</span>
+                            </button>
+                        </form>
+                        <div className="auth-separator"><span>OR</span></div>
+                        <button className="btn btn-secondary" onClick={() => { setMode('apikey'); setError(''); }} disabled={loading}>
+                            <Icon path={ICONS.KEY} /> Continue with API Key
+                        </button>
+                        <p className="auth-switch">
+                            Don't have an account? <button onClick={() => setView('register')}>Register</button>
+                        </p>
+                    </>
+                ) : (
+                     <>
+                        <h1 className="logo-font">Continue with Key</h1>
+                        <p>Enter your Elastic Email API Key to access the dashboard.</p>
+                        <form className="auth-form" onSubmit={handleApiKeySubmit}>
+                            <div className="input-group">
+                                <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Elastic Email API Key" required disabled={loading} />
+                            </div>
+                             {error && <div className="action-status error" style={{textAlign:'center', marginTop: '1rem'}}>{error}</div>}
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading && <Loader />}
+                                <span>{loading ? 'Verifying...' : 'Continue'}</span>
+                            </button>
+                        </form>
+                        <p className="auth-switch">
+                            Want to use email and password? <button onClick={() => { setMode('credentials'); setError(''); }}>Sign In</button>
+                        </p>
+                    </>
+                )}
             </div>
         </div>
     );
