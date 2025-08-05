@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -52,6 +51,9 @@ const ICONS = {
     X_CIRCLE: "M10 10l4 4m0-4l-4 4M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
     LOADING_SPINNER: "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83",
     SEARCH: "M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.35-4.35",
+    SUN: "M12 1v2M4.93 4.93l1.41 1.41M1 12h2M4.93 19.07l1.41-1.41M12 23v-2M19.07 19.07l-1.41-1.41M23 12h-2M19.07 4.93l-1.41-1.41M12 6a6 6 0 100 12 6 6 0 000-12z",
+    MOON: "M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z",
+    DESKTOP: "M9 17v2m6-2v2M9 15h6M4 3h16a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z"
 };
 
 // --- API Helpers ---
@@ -340,6 +342,65 @@ export const useAuth = () => {
 };
 
 
+// --- Theme Context ---
+type Theme = 'light' | 'dark' | 'auto';
+interface ThemeContextType {
+    theme: Theme;
+    setTheme: (theme: Theme) => void;
+    effectiveTheme: 'light' | 'dark';
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+const ThemeProvider = ({ children }: { children: ReactNode }) => {
+    const [theme, _setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'auto');
+    const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('light');
+
+    const setTheme = (newTheme: Theme) => {
+        localStorage.setItem('theme', newTheme);
+        _setTheme(newTheme);
+    };
+
+    useEffect(() => {
+        const applyTheme = (t: Theme) => {
+            if (t === 'auto') {
+                const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                const newEffectiveTheme = mediaQuery.matches ? 'dark' : 'light';
+                setEffectiveTheme(newEffectiveTheme);
+                document.documentElement.setAttribute('data-theme', newEffectiveTheme);
+            } else {
+                setEffectiveTheme(t);
+                document.documentElement.setAttribute('data-theme', t);
+            }
+        };
+
+        applyTheme(theme);
+        
+        if (theme === 'auto') {
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            const handleChange = (e: MediaQueryListEvent) => {
+                const newEffectiveTheme = e.matches ? 'dark' : 'light';
+                setEffectiveTheme(newEffectiveTheme);
+                document.documentElement.setAttribute('data-theme', newEffectiveTheme);
+            };
+            mediaQuery.addEventListener('change', handleChange);
+            return () => mediaQuery.removeEventListener('change', handleChange);
+        }
+    }, [theme]);
+
+    const value = { theme, setTheme, effectiveTheme };
+
+    return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+const useTheme = () => {
+    const context = useContext(ThemeContext);
+    if (!context) {
+        throw new Error('useTheme must be used within a ThemeProvider');
+    }
+    return context;
+};
+
 // --- Custom Hook for API calls (v2) ---
 const useApi = (endpoint: string, apiKey: string, params: Record<string, any> = {}, refetchIndex = 0) => {
   const [data, setData] = useState<any>(null);
@@ -486,6 +547,31 @@ const AccountDataCard = ({ iconPath, title, children }: { iconPath: string; titl
     </div>
 );
 
+const ThemeSwitcher = () => {
+    const { theme, setTheme } = useTheme();
+    const options: { value: Theme; label: string; icon: string; }[] = [
+        { value: 'light', label: 'Light', icon: ICONS.SUN },
+        { value: 'dark', label: 'Dark', icon: ICONS.MOON },
+        { value: 'auto', label: 'System', icon: ICONS.DESKTOP },
+    ];
+
+    return (
+        <div className="theme-switcher">
+            {options.map(option => (
+                <button
+                    key={option.value}
+                    className={`theme-btn ${theme === option.value ? 'active' : ''}`}
+                    onClick={() => setTheme(option.value)}
+                    aria-label={`Switch to ${option.label} theme`}
+                >
+                    <Icon path={option.icon} />
+                    <span>{option.label}</span>
+                </button>
+            ))}
+        </div>
+    );
+};
+
 // --- Helper Functions ---
 const getPastDateByDays = (days: number) => {
     const date = new Date();
@@ -529,15 +615,182 @@ const durationOptions: {[key: string]: {label: string, from: () => Date}} = {
     '1year': { label: 'Last year', from: () => getPastDateByYears(1) },
 };
 
+const StatsChart = ({ data, width, height }: { data: any[]; width: number; height: number; }) => {
+    const { effectiveTheme } = useTheme();
+    const [tooltip, setTooltip] = useState<any>(null);
+    const svgRef = React.useRef<SVGSVGElement>(null);
+
+    const chartData = useMemo(() => data.map(d => ({ ...d, date: new Date(d.date) })), [data]);
+    const metrics = useMemo(() => [
+        { key: 'Delivered', color: 'var(--info-color)' },
+        { key: 'Opened', color: 'var(--success-color)' },
+        { key: 'Clicked', color: 'var(--warning-color)' },
+    ], []);
+
+    const { margin, chartWidth, chartHeight, xScale, yScale, lineGenerators } = useMemo(() => {
+        const margin = { top: 20, right: 20, bottom: 50, left: 60 };
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+
+        if (chartData.length === 0) return { margin, chartWidth, chartHeight };
+
+        const xScale = (val: Date) => (val.getTime() - chartData[0].date.getTime()) / (chartData[chartData.length - 1].date.getTime() - chartData[0].date.getTime()) * chartWidth;
+        const yMax = Math.max(...chartData.map(d => Math.max(d.Delivered || 0, d.Opened || 0, d.Clicked || 0)));
+        const yScale = (val: number) => chartHeight - (val / (yMax > 0 ? yMax : 1)) * chartHeight;
+
+        const lineGenerators = metrics.reduce((acc, metric) => {
+            acc[metric.key] = chartData.map(d => `${xScale(d.date)},${yScale(d[metric.key] || 0)}`).join(' ');
+            return acc;
+        }, {} as Record<string, string>);
+
+        return { margin, chartWidth, chartHeight, xScale, yScale, lineGenerators };
+    }, [chartData, width, height, metrics]);
+
+    const handleMouseMove = (event: React.MouseEvent<SVGRectElement>) => {
+        if (!svgRef.current || !xScale) return;
+        const svgRect = svgRef.current.getBoundingClientRect();
+        const mouseX = event.clientX - svgRect.left - margin.left;
+
+        const dateRatio = mouseX / chartWidth;
+        const minTime = chartData[0].date.getTime();
+        const maxTime = chartData[chartData.length - 1].date.getTime();
+        const hoverTime = minTime + dateRatio * (maxTime - minTime);
+
+        let closestIndex = 0;
+        chartData.forEach((d, i) => {
+            if (Math.abs(d.date.getTime() - hoverTime) < Math.abs(chartData[closestIndex].date.getTime() - hoverTime)) {
+                closestIndex = i;
+            }
+        });
+        
+        const pointData = chartData[closestIndex];
+        const pointX = xScale(pointData.date);
+
+        setTooltip({
+            data: pointData,
+            x: pointX + margin.left,
+            y: margin.top, 
+        });
+    };
+
+    if (chartData.length < 2 || !xScale || !yScale) {
+        return <div style={{ height, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Not enough data to display chart.</div>;
+    }
+
+    const yAxisTicks = Array.from({ length: 5 }, (_, i) => {
+        const yMax = Math.max(...chartData.map(d => Math.max(d.Delivered || 0, d.Opened || 0, d.Clicked || 0)));
+        const value = (yMax / 4) * i;
+        return { value, y: yScale(value) };
+    });
+    const xAxisTicks = chartData.filter((_, i, arr) => arr.length <= 10 || i % Math.floor(arr.length / 10) === 0);
+
+    return (
+        <div className="stats-chart-container">
+            <svg ref={svgRef} width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="stats-chart-svg">
+                <g transform={`translate(${margin.left}, ${margin.top})`}>
+                    {/* Y-axis grid lines and labels */}
+                    {yAxisTicks.map(tick => (
+                        <g key={tick.value}>
+                            <line className="grid-line" x1={0} x2={chartWidth} y1={tick.y} y2={tick.y} />
+                            <text className="axis-label" x={-10} y={tick.y} dy="0.32em" textAnchor="end">
+                                {tick.value >= 1000 ? `${(tick.value / 1000).toFixed(0)}k` : tick.value}
+                            </text>
+                        </g>
+                    ))}
+                    {/* X-axis labels */}
+                    {xAxisTicks.map(d => (
+                        <text className="axis-label" key={d.date.toISOString()} x={xScale(d.date)} y={chartHeight + 20} textAnchor="middle">
+                            {d.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </text>
+                    ))}
+
+                    {/* Lines */}
+                    {metrics.map(metric => (
+                        <polyline key={metric.key} className={`plot-line ${metric.key.toLowerCase()}`} points={lineGenerators[metric.key]} style={{ stroke: metric.color }} />
+                    ))}
+                    
+                    {/* Tooltip line and dots */}
+                    {tooltip && (
+                        <g>
+                            <line className="tooltip-line" x1={tooltip.x - margin.left} y1={0} x2={tooltip.x - margin.left} y2={chartHeight} />
+                            {metrics.map(metric => (
+                                <circle key={metric.key} className="chart-tooltip-dot" cx={tooltip.x - margin.left} cy={yScale(tooltip.data[metric.key] || 0)} r={5} style={{ fill: metric.color }}/>
+                            ))}
+                        </g>
+                    )}
+
+                    <rect className="mouse-overlay" width={chartWidth} height={chartHeight} onMouseMove={handleMouseMove} onMouseLeave={() => setTooltip(null)} />
+                </g>
+            </svg>
+            {tooltip && (
+                <div className="chart-tooltip" style={{ left: tooltip.x, top: tooltip.y, transform: `translateX(${tooltip.x > width / 2 ? '-110%' : '10%'})`}}>
+                    <div className="tooltip-date">{new Date(tooltip.data.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
+                    {metrics.map(metric => (
+                        <div key={metric.key} className="tooltip-item">
+                            <span className="color-swatch" style={{ backgroundColor: metric.color }}></span>
+                            <span className="label">{metric.key}:</span>
+                            <span className="value">{(tooltip.data[metric.key] || 0).toLocaleString()}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+            <div className="chart-legend">
+                {metrics.map(metric => (
+                    <div key={metric.key} className="legend-item">
+                        <span className="color-swatch" style={{ backgroundColor: metric.color }}></span>
+                        <span>{metric.key}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const StatisticsView = ({ apiKey }: { apiKey: string }) => {
     const [duration, setDuration] = useState('3months');
+    const [dailyData, setDailyData] = useState<any[]>([]);
+    const [isChartLoading, setIsChartLoading] = useState(true);
 
     const apiParams = useMemo(() => ({
         from: formatDateForApiV4(durationOptions[duration].from()),
     }), [duration]);
 
-    const { data: stats, loading, error } = useApiV4(`/statistics`, apiKey, apiParams);
+    const { data: aggregateStats, loading: aggregateLoading, error: aggregateError } = useApiV4(`/statistics`, apiKey, apiParams);
     
+    useEffect(() => {
+        const fetchDailyData = async () => {
+            if (!apiKey) return;
+            setIsChartLoading(true);
+            const fromDate = durationOptions[duration].from();
+            const toDate = new Date();
+            const promises = [];
+            
+            for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
+                const day = new Date(d);
+                const from = formatDateForApiV4(new Date(day.setHours(0,0,0,0))) + 'Z';
+                const to = formatDateForApiV4(new Date(day.setHours(23,59,59,999))) + 'Z';
+                
+                promises.push(
+                    apiFetchV4(`/statistics`, apiKey, { params: { from, to } })
+                        .then(res => ({ ...res, date: day.toISOString().split('T')[0] }))
+                        .catch(() => ({ Delivered: 0, Opened: 0, Clicked: 0, date: day.toISOString().split('T')[0] }))
+                );
+            }
+            
+            try {
+                const results = await Promise.all(promises);
+                setDailyData(results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+            } catch (err) {
+                console.error("Failed to fetch daily chart data", err);
+                setDailyData([]);
+            } finally {
+                setIsChartLoading(false);
+            }
+        };
+        
+        fetchDailyData();
+    }, [apiKey, duration]);
+
     const filterControl = (
         <div className="view-controls">
             <label htmlFor="duration-select">Date Range:</label>
@@ -549,45 +802,55 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
         </div>
     );
 
-    if (error) return (
+    if (aggregateError) return (
         <>
             {filterControl}
-            <ErrorMessage error={error} />
+            <ErrorMessage error={aggregateError} />
         </>
     );
 
     return (
         <>
             {filterControl}
-            {loading ? (
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+                {isChartLoading ? (
+                    <div style={{height: '350px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><Loader /></div>
+                ) : (
+                    <div className="stats-chart-wrapper">
+                      <StatsChart data={dailyData} width={800} height={350} />
+                    </div>
+                )}
+            </div>
+            
+            {aggregateLoading ? (
                 <CenteredMessage><Loader /></CenteredMessage>
-            ) : (!stats || Object.keys(stats).length === 0) ? (
+            ) : (!aggregateStats || Object.keys(aggregateStats).length === 0) ? (
                 <CenteredMessage>No statistics data found for the {durationOptions[duration].label.toLowerCase()}.</CenteredMessage>
             ) : (
                 <div className="card-grid account-grid">
                     <AccountDataCard title="Total Emails" iconPath={ICONS.MAIL}>
-                        {stats.EmailTotal?.toLocaleString() ?? '0'}
+                        {aggregateStats.EmailTotal?.toLocaleString() ?? '0'}
                     </AccountDataCard>
                     <AccountDataCard title="Recipients" iconPath={ICONS.CONTACTS}>
-                        {stats.Recipients?.toLocaleString() ?? '0'}
+                        {aggregateStats.Recipients?.toLocaleString() ?? '0'}
                     </AccountDataCard>
                     <AccountDataCard title="Delivered" iconPath={ICONS.VERIFY}>
-                        {stats.Delivered?.toLocaleString() ?? '0'}
+                        {aggregateStats.Delivered?.toLocaleString() ?? '0'}
                     </AccountDataCard>
                     <AccountDataCard title="Opened" iconPath={ICONS.EYE}>
-                        {stats.Opened?.toLocaleString() ?? '0'}
+                        {aggregateStats.Opened?.toLocaleString() ?? '0'}
                     </AccountDataCard>
                     <AccountDataCard title="Clicked" iconPath={ICONS.CLICK}>
-                        {stats.Clicked?.toLocaleString() ?? '0'}
+                        {aggregateStats.Clicked?.toLocaleString() ?? '0'}
                     </AccountDataCard>
                     <AccountDataCard title="Unsubscribed" iconPath={ICONS.LOGOUT}>
-                        {stats.Unsubscribed?.toLocaleString() ?? '0'}
+                        {aggregateStats.Unsubscribed?.toLocaleString() ?? '0'}
                     </AccountDataCard>
                     <AccountDataCard title="Complaints" iconPath={ICONS.COMPLAINT}>
-                        {stats.Complaints?.toLocaleString() ?? '0'}
+                        {aggregateStats.Complaints?.toLocaleString() ?? '0'}
                     </AccountDataCard>
                      <AccountDataCard title="Bounced" iconPath={ICONS.BOUNCED}>
-                        {stats.Bounced?.toLocaleString() ?? '0'}
+                        {aggregateStats.Bounced?.toLocaleString() ?? '0'}
                     </AccountDataCard>
                 </div>
             )}
@@ -655,42 +918,6 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     return (
         <div className="profile-view-container">
             {!isApiKeyUser && (
-                <div className="card">
-                    <form onSubmit={handleSaveKey} className="modal-form" style={{padding: '1rem'}}>
-                        <div className="form-group">
-                            <label htmlFor="api-key-input">Your Elastic Email API Key</label>
-                            <input
-                                id="api-key-input"
-                                type="password"
-                                value={newApiKey}
-                                onChange={(e) => setNewApiKey(e.target.value)}
-                                placeholder="Enter your Elastic Email API Key"
-                                required
-                            />
-                            <small style={{ marginTop: '0.5rem', display: 'block' }}>
-                                Update your key here. It will be validated before saving.
-                            </small>
-                        </div>
-                        {status && <ActionStatus status={status} onDismiss={() => setStatus(null)}/>}
-                        <div className="form-actions" style={{justifyContent: 'flex-end', marginTop: 0}}>
-                            <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                                {isSaving ? <Loader /> : 'Save & Verify Key'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            )}
-            
-            {isApiKeyUser && (
-                 <div className="info-message" style={{textAlign: 'left'}}>
-                    <p>
-                        You are signed in using an API key. Account details are shown below. <br/>
-                        To create and manage a user profile, please <button className="link-button" onClick={logout}>log out</button> and register.
-                    </p>
-                </div>
-            )}
-
-            {!isApiKeyUser && (
                 <div className="profile-hero">
                     <div className="profile-avatar">
                         <Icon path={ICONS.ACCOUNT} />
@@ -715,7 +942,53 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     </div>
                 </div>
             )}
+            
+            <div className="card">
+                <div className="card-header" style={{padding: '1.25rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem'}}>
+                    <h3 style={{margin:0, fontSize: '1.25rem'}}>Settings</h3>
+                </div>
+                <div className="card-body" style={{padding: '0 1.25rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '2.5rem'}}>
+                    <div>
+                        <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>Display Mode</h4>
+                        <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>Choose how MegaMail looks to you. Select a theme or sync with your system.</p>
+                        <ThemeSwitcher />
+                    </div>
+                    
+                    {!isApiKeyUser && (
+                        <div>
+                             <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>API Key</h4>
+                             <form onSubmit={handleSaveKey} style={{padding: 0}}>
+                                <div className="form-group">
+                                    <label htmlFor="api-key-input">Your Elastic Email API Key</label>
+                                    <input
+                                        id="api-key-input"
+                                        type="password"
+                                        value={newApiKey}
+                                        onChange={(e) => setNewApiKey(e.target.value)}
+                                        placeholder="Enter your Elastic Email API Key"
+                                        required
+                                    />
+                                </div>
+                                {status && <ActionStatus status={status} onDismiss={() => setStatus(null)}/>}
+                                <div className="form-actions" style={{justifyContent: 'flex-end', marginTop: '1rem', padding: 0}}>
+                                    <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                                        {isSaving ? <Loader /> : 'Save & Verify Key'}
+                                    </button>
+                                </div>
+                             </form>
+                        </div>
+                    )}
+                </div>
+            </div>
 
+            {isApiKeyUser && (
+                 <div className="info-message" style={{textAlign: 'left'}}>
+                    <p>
+                        You are signed in using an API key. Account details are shown below. <br/>
+                        To create and manage a user profile, please <button className="link-button" onClick={logout}>log out</button> and register.
+                    </p>
+                </div>
+            )}
 
             <div className="card-grid account-grid">
                 <AccountDataCard title="Account Status" iconPath={ICONS.VERIFY}>
@@ -745,14 +1018,39 @@ const creditPackages = [
 ];
 
 const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onClose: () => void, apiKey: string }) => {
-    // Use the v2 hook as originally suggested for this specific endpoint
     const refetchIndex = isOpen ? 1 : 0;
-    const { data: history, loading, error } = useApi('/account/loademailcreditshistory', apiKey, {}, refetchIndex);
+    const { data: history, loading, error } = useApi('/account/loadsubaccountsemailcreditshistory', apiKey, {}, refetchIndex);
+    
+    const isAccessDenied = error && error.message.toLowerCase().includes('access denied');
+    
+    // The v2 API is inconsistent. This handles if the data is a direct array or nested in `historyitems`
+    const historyItems = useMemo(() => {
+        if (!history) return [];
+        if (Array.isArray(history)) return history;
+        if (history && Array.isArray(history.historyitems)) return history.historyitems;
+        if (history && Array.isArray(history.HistoryItems)) return history.HistoryItems;
+        return [];
+    }, [history]);
+
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Credit Purchase History">
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
-            {error && <ErrorMessage error={error} />}
+            {error && (
+                isAccessDenied ? (
+                    <div className="info-message warning" style={{maxWidth: 'none', alignItems: 'flex-start'}}>
+                        <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0, marginTop: '0.2rem'}} />
+                        <div>
+                            <strong>Feature Not Available</strong>
+                            <p style={{color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0}}>
+                               Viewing credit history is not available for this account. This might be due to your account's plan or API key permissions.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <ErrorMessage error={error} />
+                )
+            )}
             {!loading && !error && (
                 <div className="table-container">
                     <table className="credit-history-table">
@@ -764,13 +1062,13 @@ const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onCl
                             </tr>
                         </thead>
                         <tbody>
-                            {history && Array.isArray(history.historyitems) && history.historyitems.length > 0 ? (
-                                history.historyitems.map((item: any, index: number) => (
+                            {historyItems.length > 0 ? (
+                                historyItems.map((item: any, index: number) => (
                                     <tr key={index}>
-                                        <td>{formatDateForDisplay(item.historydate)}</td>
-                                        <td>{item.notes}</td>
+                                        <td>{formatDateForDisplay(item.Date || item.historydate)}</td>
+                                        <td>{item.Notes || item.notes}</td>
                                         <td className="credit-history-amount">
-                                            +{item.amount?.toLocaleString() ?? '0'}
+                                            +{item.Amount?.toLocaleString() ?? item.amount?.toLocaleString() ?? '0'}
                                         </td>
                                     </tr>
                                 ))
@@ -863,27 +1161,23 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             </Modal>
             <div className="packages-grid">
                 {creditPackages.map((pkg) => (
-                    <div key={pkg.credits} className={`card package-card ${pkg.popular ? 'popular' : ''}`}>
+                    <div key={pkg.credits} className={`package-card ${pkg.popular ? 'popular' : ''}`}>
                         {pkg.popular && <div className="popular-badge">Most Popular</div>}
-                        <div className="package-card-header">
-                            <h3>{pkg.credits.toLocaleString()}</h3>
-                            <span>Email Credits</span>
+                        <div className="package-icon-wrapper">
+                             <Icon path={ICONS.PRICE_TAG} />
                         </div>
-                        <div className="package-card-body">
-                            <div className="package-price">
-                                {pkg.price.toLocaleString()}
-                                <span> IRT</span>
-                            </div>
+                        <div className="package-info">
+                             <div className="package-credits">{pkg.credits.toLocaleString()}</div>
+                             <p>Email Credits</p>
                         </div>
-                        <div className="package-card-footer">
-                            <button
-                                className="btn btn-primary"
-                                onClick={() => handlePurchase(pkg)}
-                                disabled={isSubmitting !== null}
-                            >
-                                {isSubmitting === pkg.credits ? <Loader /> : 'Purchase Now'}
-                            </button>
-                        </div>
+                        <div className="package-price">{pkg.price.toLocaleString()} IRT</div>
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => handlePurchase(pkg)}
+                            disabled={isSubmitting !== null}
+                        >
+                            {isSubmitting === pkg.credits ? <Loader /> : 'Purchase Now'}
+                        </button>
                     </div>
                 ))}
             </div>
@@ -2672,7 +2966,7 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0, marginTop: '0.2rem'}} />
                     <div>
                         <strong>Feature Not Available</strong>
-                        <p style={{color: '#78350F', margin: '0.25rem 0 0', padding: 0}}>
+                        <p style={{color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0}}>
                             Managing additional SMTP credentials is not available for this account. This might be due to your account's plan or API key permissions.
                         </p>
                     </div>
@@ -3050,7 +3344,9 @@ if (container) {
     const root = createRoot(container);
     root.render(
         <AuthProvider>
-            <App />
+            <ThemeProvider>
+                <App />
+            </ThemeProvider>
         </AuthProvider>
     );
 }
