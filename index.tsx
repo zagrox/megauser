@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -1093,6 +1094,8 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '' });
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
+    const { data: accountData, loading: creditLoading, error: creditError } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
+
     const handlePurchase = async (pkg: {credits: number, price: number}) => {
         if (!user || !user.email) {
             setModalState({ isOpen: true, title: 'Error', message: 'User information is not available. Cannot proceed with purchase.' });
@@ -1142,6 +1145,18 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
     return (
         <div className="buy-credits-view">
+            <div className="account-card current-balance-card">
+                <div className="card-icon-wrapper">
+                    <Icon path={ICONS.BUY_CREDITS} />
+                </div>
+                <div className="card-details">
+                    <div className="card-title">Your Current Balance</div>
+                    <div className="card-content">
+                        {creditLoading ? <Loader /> : (creditError || accountData?.emailcredits === undefined) ? 'N/A' : Number(accountData.emailcredits).toLocaleString()}
+                    </div>
+                </div>
+            </div>
+            
             <div className="view-header">
                 <h3>Choose a Package</h3>
                 <button className="btn" onClick={() => setIsHistoryOpen(true)}>
@@ -1232,6 +1247,9 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
                 </AccountDataCard>
                 <AccountDataCard title="Emails Sent (30d)" iconPath={ICONS.MAIL}>
                     {statsLoading ? '...' : (statsData?.EmailTotal?.toLocaleString() ?? '0')}
+                </AccountDataCard>
+                <AccountDataCard title="Remaining Credits" iconPath={ICONS.BUY_CREDITS}>
+                    {accountLoading ? '...' : (accountData?.emailcredits === undefined) ? 'N/A' : Number(accountData.emailcredits).toLocaleString()}
                 </AccountDataCard>
                  <AccountDataCard title="Total Contacts" iconPath={ICONS.CONTACTS}>
                     {contactsCountLoading ? '...' : (contactsCountData?.toLocaleString() ?? '0')}
