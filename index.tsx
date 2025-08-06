@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -17,6 +16,7 @@ const Icon = ({ path, className = '', style }: { path: string; className?: strin
 );
 
 const ICONS = {
+    DOWNLOAD: "M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 11l5 5 5-5M12 4v12",
     DASHBOARD: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
     ACCOUNT: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
     BOUNCED: "M9 10l-5 5 5 5M20 4v7a4 4 0 01-4 4H4",
@@ -526,8 +526,8 @@ const ErrorMessage = ({ error }: {error: {endpoint: string, message: string}}) =
   </div>
 );
 
-const CenteredMessage = ({ children }: { children?: ReactNode }) => (
-    <div className="centered-container" style={{height: '200px'}}>
+const CenteredMessage = ({ children, style }: { children?: ReactNode, style?: React.CSSProperties }) => (
+    <div className="centered-container" style={{height: '200px', ...style}}>
         {children}
     </div>
 );
@@ -616,10 +616,32 @@ const durationOptions: {[key: string]: {label: string, from: () => Date}} = {
     '1year': { label: 'Last year', from: () => getPastDateByYears(1) },
 };
 
-const StatsChart = ({ data, width, height }: { data: any[]; width: number; height: number; }) => {
+const StatsChart = ({ data }: { data: any[] }) => {
     const { effectiveTheme } = useTheme();
     const [tooltip, setTooltip] = useState<any>(null);
     const svgRef = React.useRef<SVGSVGElement>(null);
+    const containerRef = React.useRef<HTMLDivElement>(null);
+    const [dimensions, setDimensions] = useState({ width: 0, height: 350 });
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const resizeObserver = new ResizeObserver(() => {
+            if (container) {
+                setDimensions({ width: container.clientWidth, height: 350 });
+            }
+        });
+
+        resizeObserver.observe(container);
+        setDimensions({ width: container.clientWidth, height: 350 });
+        
+        return () => {
+            if (container) {
+               resizeObserver.unobserve(container);
+            }
+        }
+    }, []);
 
     const chartData = useMemo(() => data.map(d => ({ ...d, date: new Date(d.date) })), [data]);
     const metrics = useMemo(() => [
@@ -628,38 +650,73 @@ const StatsChart = ({ data, width, height }: { data: any[]; width: number; heigh
         { key: 'Clicked', color: 'var(--warning-color)' },
     ], []);
 
-    const { margin, chartWidth, chartHeight, xScale, yScale, lineGenerators } = useMemo(() => {
+    const { width, height } = dimensions;
+
+    const { margin, chartWidth, chartHeight, xScale, yScale, lineGenerators, areaGenerator, yAxisTicks, xAxisTicks } = useMemo(() => {
         const margin = { top: 20, right: 20, bottom: 50, left: 60 };
+        
+        if (width <= 0 || chartData.length < 2) {
+            return { margin, chartWidth: 0, chartHeight: 0, xScale: null, yScale: null, lineGenerators: {}, areaGenerator: '', yAxisTicks: [], xAxisTicks: [] };
+        }
+
         const chartWidth = width - margin.left - margin.right;
         const chartHeight = height - margin.top - margin.bottom;
 
-        if (chartData.length === 0) return { margin, chartWidth, chartHeight };
-
-        const xScale = (val: Date) => (val.getTime() - chartData[0].date.getTime()) / (chartData[chartData.length - 1].date.getTime() - chartData[0].date.getTime()) * chartWidth;
-        const yMax = Math.max(...chartData.map(d => Math.max(d.Delivered || 0, d.Opened || 0, d.Clicked || 0)));
-        const yScale = (val: number) => chartHeight - (val / (yMax > 0 ? yMax : 1)) * chartHeight;
+        const timeDomain = [chartData[0].date.getTime(), chartData[chartData.length - 1].date.getTime()];
+        const timeDiff = timeDomain[1] - timeDomain[0];
+        const xScale = (val: Date) => ((val.getTime() - timeDomain[0]) / (timeDiff > 0 ? timeDiff : 1)) * chartWidth;
+        
+        const yMaxSource = Math.max(...chartData.map(d => Math.max(d.Delivered || 0, d.Opened || 0, d.Clicked || 0)));
+        const yMax = yMaxSource > 0 ? yMaxSource : 10;
+        
+        const magnitude = Math.pow(10, Math.floor(Math.log10(yMax - 0.01))); // -0.01 to handle powers of 10 correctly
+        const niceYMax = Math.ceil(yMax / magnitude) * magnitude;
+        
+        const yScale = (val: number) => chartHeight - (val / niceYMax) * chartHeight;
 
         const lineGenerators = metrics.reduce((acc, metric) => {
             acc[metric.key] = chartData.map(d => `${xScale(d.date)},${yScale(d[metric.key] || 0)}`).join(' ');
             return acc;
         }, {} as Record<string, string>);
+        
+        const areaPoints = chartData.map(d => `${xScale(d.date)},${yScale(d.Delivered || 0)}`).join(' ');
+        const areaGenerator = `M${xScale(chartData[0].date)},${chartHeight} L${areaPoints} L${xScale(chartData[chartData.length - 1].date)},${chartHeight} Z`;
 
-        return { margin, chartWidth, chartHeight, xScale, yScale, lineGenerators };
+        const yAxisTicks = Array.from({ length: 5 }, (_, i) => {
+            const value = (niceYMax / 4) * i;
+            return { value, y: yScale(value) };
+        });
+
+        const maxXTicks = Math.floor(chartWidth / 80);
+        const tickIncrement = Math.max(1, Math.ceil(chartData.length / maxXTicks));
+        const xAxisTicks = chartData.filter((_, i) => i % tickIncrement === 0);
+
+        return { margin, chartWidth, chartHeight, xScale, yScale, lineGenerators, areaGenerator, yAxisTicks, xAxisTicks };
     }, [chartData, width, height, metrics]);
-
+    
     const handleMouseMove = (event: React.MouseEvent<SVGRectElement>) => {
-        if (!svgRef.current || !xScale) return;
+        if (!svgRef.current || !xScale || !chartWidth || chartData.length === 0) return;
+        
         const svgRect = svgRef.current.getBoundingClientRect();
         const mouseX = event.clientX - svgRect.left - margin.left;
+        
+        if (mouseX < 0 || mouseX > chartWidth) {
+            setTooltip(null);
+            return;
+        }
 
         const dateRatio = mouseX / chartWidth;
         const minTime = chartData[0].date.getTime();
         const maxTime = chartData[chartData.length - 1].date.getTime();
-        const hoverTime = minTime + dateRatio * (maxTime - minTime);
+        const timeDiff = maxTime - minTime;
+        const hoverTime = minTime + dateRatio * (timeDiff > 0 ? timeDiff : 0);
 
         let closestIndex = 0;
+        let minDistance = Infinity;
         chartData.forEach((d, i) => {
-            if (Math.abs(d.date.getTime() - hoverTime) < Math.abs(chartData[closestIndex].date.getTime() - hoverTime)) {
+            const distance = Math.abs(d.date.getTime() - hoverTime);
+            if (distance < minDistance) {
+                minDistance = distance;
                 closestIndex = i;
             }
         });
@@ -673,76 +730,224 @@ const StatsChart = ({ data, width, height }: { data: any[]; width: number; heigh
             y: margin.top, 
         });
     };
-
-    if (chartData.length < 2 || !xScale || !yScale) {
-        return <div style={{ height, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Not enough data to display chart.</div>;
+    
+    if (chartData.length < 2) {
+        return (
+            <div ref={containerRef} style={{ height: dimensions.height, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div className="info-message" style={{maxWidth: 'none', alignItems: 'flex-start'}}>
+                    <Icon path={ICONS.STATISTICS} style={{flexShrink: 0, marginTop: '0.2rem'}} />
+                    <div>
+                        <strong>Not Enough Data</strong>
+                        <p style={{color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0}}>
+                            At least two data points are needed to draw a chart. Please select a wider date range.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
     }
-
-    const yAxisTicks = Array.from({ length: 5 }, (_, i) => {
-        const yMax = Math.max(...chartData.map(d => Math.max(d.Delivered || 0, d.Opened || 0, d.Clicked || 0)));
-        const value = (yMax / 4) * i;
-        return { value, y: yScale(value) };
-    });
-    const xAxisTicks = chartData.filter((_, i, arr) => arr.length <= 10 || i % Math.floor(arr.length / 10) === 0);
-
+    
     return (
-        <div className="stats-chart-container">
-            <svg ref={svgRef} width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="stats-chart-svg">
-                <g transform={`translate(${margin.left}, ${margin.top})`}>
-                    {/* Y-axis grid lines and labels */}
-                    {yAxisTicks.map(tick => (
-                        <g key={tick.value}>
-                            <line className="grid-line" x1={0} x2={chartWidth} y1={tick.y} y2={tick.y} />
-                            <text className="axis-label" x={-10} y={tick.y} dy="0.32em" textAnchor="end">
-                                {tick.value >= 1000 ? `${(tick.value / 1000).toFixed(0)}k` : tick.value}
+        <div className="stats-chart-container" ref={containerRef}>
+            {width > 0 && (
+                <>
+                <svg ref={svgRef} width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="stats-chart-svg">
+                    <defs>
+                        <linearGradient id="area-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style={{ stopColor: 'var(--info-color)', stopOpacity: 0.3 }} />
+                            <stop offset="100%" style={{ stopColor: 'var(--info-color)', stopOpacity: 0 }} />
+                        </linearGradient>
+                    </defs>
+                    <g transform={`translate(${margin.left}, ${margin.top})`}>
+                        {/* Y-axis grid lines and labels */}
+                        {yScale && yAxisTicks.map(tick => (
+                            <g key={tick.value}>
+                                <line className="grid-line" x1={0} x2={chartWidth} y1={tick.y} y2={tick.y} />
+                                <text className="axis-label" x={-10} y={tick.y} dy="0.32em" textAnchor="end">
+                                    {tick.value >= 1000 ? `${(tick.value / 1000).toFixed(tick.value % 1000 !== 0 ? 1 : 0)}k` : tick.value}
+                                </text>
+                            </g>
+                        ))}
+                        {/* X-axis labels */}
+                        {xScale && xAxisTicks.map(d => (
+                            <text className="axis-label" key={d.date.toISOString()} x={xScale(d.date)} y={chartHeight + 20} textAnchor="middle">
+                                {d.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </text>
-                        </g>
-                    ))}
-                    {/* X-axis labels */}
-                    {xAxisTicks.map(d => (
-                        <text className="axis-label" key={d.date.toISOString()} x={xScale(d.date)} y={chartHeight + 20} textAnchor="middle">
-                            {d.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </text>
-                    ))}
+                        ))}
+                        
+                        {/* Area Gradient for Delivered */}
+                        <path d={areaGenerator} fill="url(#area-gradient)" />
 
-                    {/* Lines */}
-                    {metrics.map(metric => (
-                        <polyline key={metric.key} className={`plot-line ${metric.key.toLowerCase()}`} points={lineGenerators[metric.key]} style={{ stroke: metric.color }} />
-                    ))}
-                    
-                    {/* Tooltip line and dots */}
-                    {tooltip && (
-                        <g>
-                            <line className="tooltip-line" x1={tooltip.x - margin.left} y1={0} x2={tooltip.x - margin.left} y2={chartHeight} />
-                            {metrics.map(metric => (
-                                <circle key={metric.key} className="chart-tooltip-dot" cx={tooltip.x - margin.left} cy={yScale(tooltip.data[metric.key] || 0)} r={5} style={{ fill: metric.color }}/>
-                            ))}
-                        </g>
-                    )}
+                        {/* Lines */}
+                        {metrics.map(metric => (
+                            lineGenerators[metric.key] && <polyline key={metric.key} className={`plot-line ${metric.key.toLowerCase()}`} points={lineGenerators[metric.key]} style={{ stroke: metric.color }} />
+                        ))}
+                        
+                        {/* Tooltip line and dots */}
+                        {tooltip && yScale && (
+                            <g>
+                                <line className="tooltip-line" x1={tooltip.x - margin.left} y1={0} x2={tooltip.x - margin.left} y2={chartHeight} />
+                                {metrics.map(metric => {
+                                    const yPos = yScale(tooltip.data[metric.key] || 0);
+                                    return (yPos !== undefined && !isNaN(yPos)) && (
+                                    <circle key={metric.key} className="chart-tooltip-dot" cx={tooltip.x - margin.left} cy={yPos} r={5} style={{ fill: metric.color }}/>
+                                    );
+                                })}
+                            </g>
+                        )}
 
-                    <rect className="mouse-overlay" width={chartWidth} height={chartHeight} onMouseMove={handleMouseMove} onMouseLeave={() => setTooltip(null)} />
-                </g>
-            </svg>
-            {tooltip && (
-                <div className="chart-tooltip" style={{ left: tooltip.x, top: tooltip.y, transform: `translateX(${tooltip.x > width / 2 ? '-110%' : '10%'})`}}>
-                    <div className="tooltip-date">{new Date(tooltip.data.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
+                        <rect className="mouse-overlay" width={chartWidth} height={chartHeight} onMouseMove={handleMouseMove} onMouseLeave={() => setTooltip(null)} />
+                    </g>
+                </svg>
+                {tooltip && (
+                    <div className="chart-tooltip" style={{ left: tooltip.x, top: tooltip.y, transform: `translateX(${tooltip.x > width / 2 ? '-110%' : '10%'})`}}>
+                        <div className="tooltip-date">{new Date(tooltip.data.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
+                        {metrics.map(metric => (
+                            <div key={metric.key} className="tooltip-item">
+                                <span className="color-swatch" style={{ backgroundColor: metric.color }}></span>
+                                <span className="label">{metric.key}:</span>
+                                <span className="value">{(tooltip.data[metric.key] || 0).toLocaleString()}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <div className="chart-legend">
                     {metrics.map(metric => (
-                        <div key={metric.key} className="tooltip-item">
+                        <div key={metric.key} className="legend-item">
                             <span className="color-swatch" style={{ backgroundColor: metric.color }}></span>
-                            <span className="label">{metric.key}:</span>
-                            <span className="value">{(tooltip.data[metric.key] || 0).toLocaleString()}</span>
+                            <span>{metric.key}</span>
                         </div>
                     ))}
                 </div>
+                </>
             )}
-            <div className="chart-legend">
-                {metrics.map(metric => (
-                    <div key={metric.key} className="legend-item">
-                        <span className="color-swatch" style={{ backgroundColor: metric.color }}></span>
-                        <span>{metric.key}</span>
-                    </div>
-                ))}
+        </div>
+    );
+};
+
+const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: boolean, error: any }) => {
+    const containerRef = React.useRef<HTMLDivElement>(null);
+    const [dimensions, setDimensions] = useState({ width: 0, height: 400 });
+    const [tooltip, setTooltip] = useState<{ label: string, value: number, x: number, y: number, color: string } | null>(null);
+
+    useEffect(() => {
+        // If we are loading, the container ref isn't available yet for measurement.
+        // This effect will re-run when loading becomes false, and then we can measure.
+        if (loading) {
+            return;
+        }
+
+        const container = containerRef.current;
+        if (!container) return;
+        
+        const resizeObserver = new ResizeObserver(() => {
+            // Check the ref again inside the observer callback
+            if (containerRef.current) {
+                setDimensions({ width: containerRef.current.clientWidth, height: 400 });
+            }
+        });
+        resizeObserver.observe(container);
+        
+        // Set initial dimensions now that the container is rendered and has a width
+        if (container.clientWidth > 0) {
+            setDimensions({ width: container.clientWidth, height: 400 });
+        }
+        
+        return () => { 
+            // The ref might be null if the component is unmounted.
+            // Ensure we use the ref's current value for cleanup.
+            if(containerRef.current) {
+                resizeObserver.unobserve(containerRef.current);
+            }
+        };
+    }, [loading]); // Rerun this effect when the loading state changes.
+
+
+    const chartMetrics = useMemo(() => {
+        if (!stats) return [];
+        return [
+            { label: 'Delivered', value: stats.Delivered || 0, color: 'var(--info-color)' },
+            { label: 'Opened', value: stats.Opened || 0, color: 'var(--success-color)' },
+            { label: 'Clicked', value: stats.Clicked || 0, color: 'var(--warning-color)' },
+            { label: 'Unsubscribed', value: stats.Unsubscribed || 0, color: '#64748B' },
+            { label: 'Complaints', value: stats.Complaints || 0, color: 'var(--danger-color)' },
+            { label: 'Bounced', value: stats.Bounced || 0, color: '#94A3B8' },
+        ].filter(d => d.value > 0).sort((a, b) => b.value - a.value);
+    }, [stats]);
+
+    const { width, height } = dimensions;
+    const { margin, chartWidth, chartHeight, bandWidth, yScale, yAxisTicks } = useMemo(() => {
+        const margin = { top: 20, right: 20, bottom: 50, left: 70 };
+        if (width <= 0 || chartMetrics.length === 0) return { margin, chartWidth: 0, chartHeight: 0, bandWidth: 0, yScale: null, yAxisTicks: [] };
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+        const yMax = Math.max(...chartMetrics.map(d => d.value));
+        const magnitude = Math.pow(10, Math.floor(Math.log10(yMax > 0 ? yMax : 1)));
+        const niceYMax = yMax > 0 ? Math.ceil(yMax / magnitude) * magnitude : 10;
+        const yScale = (val: number) => chartHeight - (val / niceYMax) * chartHeight;
+        const bandWidth = chartWidth / chartMetrics.length;
+        const yAxisTicks = Array.from({ length: 6 }, (_, i) => ({ value: (niceYMax / 5) * i, y: yScale((niceYMax / 5) * i) }));
+        return { margin, chartWidth, chartHeight, bandWidth, yScale, yAxisTicks };
+    }, [chartMetrics, width, height]);
+
+    if (loading) return <div style={{height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><Loader /></div>
+    if (error) return <ErrorMessage error={error} />;
+    if (!stats || chartMetrics.length === 0) {
+        return (
+            <div ref={containerRef} style={{ height: dimensions.height, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div className="info-message">
+                    <strong>No Overall Activity Data Found</strong>
+                </div>
             </div>
+        );
+    }
+
+    return (
+        <div className="stats-chart-container" ref={containerRef} style={{minHeight: height}}>
+            {width > 0 ? (
+                <>
+                    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+                        <g transform={`translate(${margin.left}, ${margin.top})`}>
+                            {yScale && yAxisTicks.map(tick => (
+                                <g key={tick.value}>
+                                    <line className="grid-line" x1={0} x2={chartWidth} y1={tick.y} y2={tick.y} />
+                                    <text className="axis-label" x={-10} y={tick.y} dy="0.32em" textAnchor="end">
+                                        {tick.value >= 1000 ? `${(tick.value / 1000).toFixed(tick.value % 1000 !== 0 ? 1 : 0)}k` : tick.value}
+                                    </text>
+                                </g>
+                            ))}
+                            {yScale && chartMetrics.map((d, i) => {
+                                const barWidth = bandWidth * 0.6;
+                                const barX = i * bandWidth + (bandWidth - barWidth) / 2;
+                                const barY = yScale(d.value);
+                                const barHeight = chartHeight - barY;
+                                return (
+                                    <g key={d.label}>
+                                        <rect
+                                            x={barX} y={barY} width={barWidth} height={barHeight} fill={d.color} rx={3} ry={3}
+                                            style={{ opacity: tooltip && tooltip.label !== d.label ? 0.6 : 1, transition: 'opacity 0.2s' }}
+                                            onMouseMove={() => setTooltip({ label: d.label, value: d.value, x: margin.left + barX + barWidth / 2, y: margin.top + barY, color: d.color })}
+                                            onMouseLeave={() => setTooltip(null)}
+                                        />
+                                        <text className="axis-label" x={barX + barWidth / 2} y={chartHeight + 20} textAnchor="middle">{d.label}</text>
+                                    </g>
+                                );
+                            })}
+                        </g>
+                    </svg>
+                    {tooltip && (
+                        <div className="chart-tooltip" style={{ left: tooltip.x, top: tooltip.y, transform: 'translate(-50%, -110%)' }}>
+                            <div className="tooltip-item">
+                                <span className="color-swatch" style={{ backgroundColor: tooltip.color }}></span>
+                                <span className="label">{tooltip.label}:</span>
+                                <span className="value">{tooltip.value.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    )}
+                </>
+            ) : (
+                 <div style={{height: `${height}px`, display: 'flex', alignItems: 'center', justifyContent: 'center'}}><Loader /></div>
+            )}
         </div>
     );
 };
@@ -757,6 +962,11 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
     }), [duration]);
 
     const { data: aggregateStats, loading: aggregateLoading, error: aggregateError } = useApiV4(`/statistics`, apiKey, apiParams);
+    const { data: overallStats, loading: overallLoading, error: overallError } = useApiV4(
+        `/statistics`, 
+        apiKey, 
+        { from: formatDateForApiV4(getPastDateByYears(20)) }
+    );
     
     useEffect(() => {
         const fetchDailyData = async () => {
@@ -818,7 +1028,7 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
                     <div style={{height: '350px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><Loader /></div>
                 ) : (
                     <div className="stats-chart-wrapper">
-                      <StatsChart data={dailyData} width={800} height={350} />
+                      <StatsChart data={dailyData} />
                     </div>
                 )}
             </div>
@@ -855,6 +1065,13 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
                     </AccountDataCard>
                 </div>
             )}
+            
+            <div className="content-header" style={{borderTop: '1px solid var(--border-color)', marginTop: '2.5rem', paddingTop: '2.5rem', marginBottom: '1.5rem'}}>
+                <h2 style={{margin: 0}}>Overall Activity Snapshot</h2>
+            </div>
+            <div className="card">
+                <OverallActivityChart stats={overallStats} loading={overallLoading} error={overallError} />
+            </div>
         </>
     );
 };
@@ -866,6 +1083,35 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const [newApiKey, setNewApiKey] = useState(user.elastic_email_api_key || '');
     const [isSaving, setIsSaving] = useState(false);
     const [status, setStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
+    const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            e.preventDefault();
+            console.log('`beforeinstallprompt` event fired.');
+            setInstallPrompt(e);
+        };
+
+        window.addEventListener('beforeinstallprompt', handler);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handler);
+        };
+    }, []);
+    
+    const handleInstallClick = () => {
+        if (!installPrompt) return;
+        
+        installPrompt.prompt();
+        installPrompt.userChoice.then((choiceResult: { outcome: string }) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the A2HS prompt');
+            } else {
+                console.log('User dismissed the A2HS prompt');
+            }
+            setInstallPrompt(null);
+        });
+    };
 
     const handleSaveKey = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -955,6 +1201,16 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                         <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>Choose how MegaMail looks to you. Select a theme or sync with your system.</p>
                         <ThemeSwitcher />
                     </div>
+
+                    {installPrompt && (
+                        <div>
+                            <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>Install App</h4>
+                            <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>Install MegaMail on your device for quick access and a native-like experience.</p>
+                            <button className="btn btn-secondary" onClick={handleInstallClick} style={{width: '100%'}}>
+                                <Icon path={ICONS.DOWNLOAD} /> Install MegaMail
+                            </button>
+                        </div>
+                    )}
                     
                     {!isApiKeyUser && (
                         <div>
@@ -3254,6 +3510,16 @@ const MainApp = () => {
 const App = () => {
     const { loading, isAuthenticated } = useAuth();
     const [authView, setAuthView] = useState<'login' | 'register'>('login');
+
+    useEffect(() => {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => console.log('ServiceWorker registration successful:', registration.scope))
+                    .catch(err => console.log('ServiceWorker registration failed:', err));
+            });
+        }
+    }, []);
 
     if (loading) {
         return (
