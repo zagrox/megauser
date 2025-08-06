@@ -42,7 +42,7 @@ const ICONS = {
     PRICE_TAG: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7H7.01",
     SEGMENTS: "M20.5 11H19v-2.14a2.5 2.5 0 0 0-2.5-2.5H14V4.5a2.5 2.5 0 0 0-2.5-2.5h-3A2.5 2.5 0 0 0 6 4.5V6H3.5a2.5 2.5 0 0 0-2.5 2.5V11H2.5a2.5 2.5 0 0 1 0 5H1v2.14a2.5 2.5 0 0 0 2.5 2.5H6V23.5a2.5 2.5 0 0 0 2.5 2.5h3A2.5 2.5 0 0 0 14 23.5V22h2.5a2.5 2.5 0 0 0 2.5-2.5V17h1.5a2.5 2.5 0 0 1 0-5z",
     SEND_EMAIL: "m22 2-7 20-4-9-9-4 20-7Zm0 0L11 13 2 9l20-7Z",
-    SMTP: "M23 12H1m22-6H1m0 12H1M6 6v12M18 6v12",
+    SMTP: "M5 2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2zM9 6h6m-6 4h6m-6 4h6M9 18h.01",
     STATISTICS: "M23 6l-9.5 9.5-5-5L1 18",
     TRENDING_UP: "M23 6l-9.5 9.5-5-5L1 18",
     UPLOAD: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m14-7l-5-5-5 5m5-5v12",
@@ -862,6 +862,7 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
 const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const { updateUser, logout } = useAuth();
     const { data, loading, error } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
+    const { data: contactsCountData, loading: contactsCountLoading } = useApi('/contact/count', apiKey, { allContacts: true }, apiKey ? 1 : 0);
     const [newApiKey, setNewApiKey] = useState(user.elastic_email_api_key || '');
     const [isSaving, setIsSaving] = useState(false);
     const [status, setStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
@@ -884,7 +885,7 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     if (!apiKey) return (
         <CenteredMessage>
             <div className="info-message">
-                <strong>No Elastic Email API Key found.</strong>
+                <strong>No Mailzila API Key found.</strong>
                 <p>Please add your key in the form above to view your account details.</p>
             </div>
         </CenteredMessage>
@@ -960,13 +961,13 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                              <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>API Key</h4>
                              <form onSubmit={handleSaveKey} style={{padding: 0}}>
                                 <div className="form-group">
-                                    <label htmlFor="api-key-input">Your Elastic Email API Key</label>
+                                    <label htmlFor="api-key-input">Your Mailzila API Key</label>
                                     <input
                                         id="api-key-input"
                                         type="password"
                                         value={newApiKey}
                                         onChange={(e) => setNewApiKey(e.target.value)}
-                                        placeholder="Enter your Elastic Email API Key"
+                                        placeholder="Enter your Mailzila API Key"
                                         required
                                     />
                                 </div>
@@ -1001,6 +1002,12 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                 </AccountDataCard>
                 <AccountDataCard title="Daily Send Limit" iconPath={ICONS.SEND_EMAIL}>
                     {(data.dailysendlimit ?? 0).toLocaleString()}
+                </AccountDataCard>
+                 <AccountDataCard title="Remaining Credits" iconPath={ICONS.BUY_CREDITS}>
+                    {(data?.emailcredits === undefined) ? 'N/A' : Number(data.emailcredits).toLocaleString()}
+                </AccountDataCard>
+                <AccountDataCard title="Total Contacts" iconPath={ICONS.CONTACTS}>
+                    {contactsCountLoading ? '...' : (contactsCountData?.toLocaleString() ?? '0')}
                 </AccountDataCard>
             </div>
         </div>
@@ -1206,7 +1213,7 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 };
 
 const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => void, apiKey: string, user: any }) => {
-    const apiParams = useMemo(() => ({ from: formatDateForApiV4(getPastDateByDays(30)) }), []);
+    const apiParams = useMemo(() => ({ from: formatDateForApiV4(getPastDateByDays(365)) }), []);
     const { data: statsData, loading: statsLoading, error: statsError } = useApiV4(`/statistics`, apiKey, apiParams);
     const { data: accountData, loading: accountLoading } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
     const { data: contactsCountData, loading: contactsCountLoading } = useApi('/contact/count', apiKey, { allContacts: true }, apiKey ? 1 : 0);
@@ -1236,7 +1243,10 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
                     <p>Here's a quick overview of your MegaMail account. Ready to launch your next campaign?</p>
                 </div>
                 <div className="dashboard-actions">
-                    <button className="btn" onClick={() => setView('Contacts')}><Icon path={ICONS.CONTACTS} /> Manage Contacts</button>
+                    <button className="btn btn-credits" onClick={() => setView('Buy Credits')}>
+                        <Icon path={ICONS.BUY_CREDITS} />
+                        {accountLoading ? 'Loading Credits...' : `Credits: ${Number(accountData?.emailcredits ?? 0).toLocaleString()}`}
+                    </button>
                     <button className="btn btn-primary" onClick={() => setView('Send Email')}><Icon path={ICONS.SEND_EMAIL} /> Send an Email</button>
                 </div>
             </div>
@@ -1245,11 +1255,8 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
                  <AccountDataCard title="Sending Reputation" iconPath={ICONS.TRENDING_UP}>
                     {accountLoading ? '...' : (accountData?.reputation ? `${accountData.reputation}%` : 'N/A')}
                 </AccountDataCard>
-                <AccountDataCard title="Emails Sent (30d)" iconPath={ICONS.MAIL}>
+                <AccountDataCard title="Emails Sent (365d)" iconPath={ICONS.MAIL}>
                     {statsLoading ? '...' : (statsData?.EmailTotal?.toLocaleString() ?? '0')}
-                </AccountDataCard>
-                <AccountDataCard title="Remaining Credits" iconPath={ICONS.BUY_CREDITS}>
-                    {accountLoading ? '...' : (accountData?.emailcredits === undefined) ? 'N/A' : Number(accountData.emailcredits).toLocaleString()}
                 </AccountDataCard>
                  <AccountDataCard title="Total Contacts" iconPath={ICONS.CONTACTS}>
                     {contactsCountLoading ? '...' : (contactsCountData?.toLocaleString() ?? '0')}
@@ -1816,6 +1823,15 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
 
 
             <div className="view-header">
+                 <div className="search-bar">
+                    <Icon path={ICONS.SEARCH} />
+                    <input
+                        type="search"
+                        placeholder="Search lists..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
                 <form className="create-list-form" onSubmit={handleCreateList}>
                     <input
                         type="text"
@@ -1828,15 +1844,6 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                         {isSubmitting ? <Loader /> : <><Icon path={ICONS.PLUS}/> Create List</>}
                     </button>
                 </form>
-                 <div className="search-bar">
-                    <Icon path={ICONS.SEARCH} />
-                    <input
-                        type="search"
-                        placeholder="Search lists..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
             </div>
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
@@ -2386,35 +2393,6 @@ const SendEmailView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     );
 };
 
-const CampaignCardSkeleton = () => (
-    <div className="campaign-card-skeleton">
-        <div className="campaign-card-header">
-            <div className="skeleton skeleton-title" style={{ width: '60%', height: '24px' }}></div>
-            <div className="skeleton" style={{ width: '80px', height: '24px', borderRadius: '99px' }}></div>
-        </div>
-        <div className="campaign-card-body">
-            <div className="skeleton skeleton-text" style={{ width: '90%', height: '16px' }}></div>
-        </div>
-        <div className="campaign-stats">
-            <div>
-                <div className="skeleton skeleton-text" style={{ width: '70%', height: '12px', margin: '0 auto 0.5rem' }}></div>
-                <div className="skeleton skeleton-stat" style={{ width: '40px', height: '28px', margin: '0 auto' }}></div>
-            </div>
-            <div>
-                <div className="skeleton skeleton-text" style={{ width: '50%', height: '12px', margin: '0 auto 0.5rem' }}></div>
-                <div className="skeleton skeleton-stat" style={{ width: '40px', height: '28px', margin: '0 auto' }}></div>
-            </div>
-            <div>
-                <div className="skeleton skeleton-text" style={{ width: '50%', height: '12px', margin: '0 auto 0.5rem' }}></div>
-                <div className="skeleton skeleton-stat" style={{ width: '40px', height: '28px', margin: '0 auto' }}></div>
-            </div>
-        </div>
-        <div className="campaign-card-footer">
-            <div className="skeleton skeleton-text" style={{width: '40%', height: '14px'}}></div>
-        </div>
-    </div>
-);
-
 const CampaignStatsModal = ({ isOpen, onClose, campaignName, apiKey }: { isOpen: boolean; onClose: () => void; campaignName: string | null; apiKey: string; }) => {
     // Only fetch if the modal is open and has a campaign name
     const shouldFetch = isOpen && !!campaignName;
@@ -2482,28 +2460,6 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
         );
     }, [campaigns, searchQuery]);
 
-    if (loading) {
-        return (
-             <div>
-                <div className="view-header">
-                     <div className="search-bar">
-                        <Icon path={ICONS.SEARCH} />
-                        <input type="search" placeholder="Search campaigns..." disabled />
-                    </div>
-                </div>
-                <div className="campaign-grid">
-                    {Array.from({ length: 6 }).map((_, index) => <CampaignCardSkeleton key={index} />)}
-                </div>
-            </div>
-        );
-    }
-    
-    if (error) return <ErrorMessage error={error} />;
-    
-    if (!Array.isArray(campaigns) || campaigns.length === 0) {
-        return <CenteredMessage>No campaigns found.</CenteredMessage>;
-    }
-
     return (
         <div>
             <CampaignStatsModal 
@@ -2520,38 +2476,44 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
                         placeholder="Search campaigns by name or subject..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        disabled={loading}
                     />
                 </div>
             </div>
 
-            {!loading && filteredCampaigns.length === 0 && (
-                <CenteredMessage>
-                    {searchQuery ? `No campaigns found for "${searchQuery}".` : "You haven't sent any campaigns yet."}
-                </CenteredMessage>
-            )}
+            {loading && <CenteredMessage><Loader /></CenteredMessage>}
+            {error && <ErrorMessage error={error} />}
 
-            <div className="campaign-grid">
-                {filteredCampaigns.map((campaign: any) => {
-                    return (
-                        <div key={campaign.Name} className="campaign-card">
-                            <div className="campaign-card-header">
-                                <h3>{campaign.Name}</h3>
-                                <div className="action-buttons">
-                                    <button className="btn-icon" onClick={() => setCampaignNameToViewStats(campaign.Name)} aria-label="View campaign statistics">
-                                        <Icon path={ICONS.TRENDING_UP} />
-                                    </button>
-                                    <Badge text={campaign.Status ?? 'Unknown'} type={getBadgeTypeForStatus(campaign.Status)} />
+            {!loading && !error && (
+                 (!Array.isArray(campaigns) || campaigns.length === 0) ? (
+                    <CenteredMessage>No campaigns found.</CenteredMessage>
+                ) : filteredCampaigns.length === 0 ? (
+                    <CenteredMessage>
+                        {searchQuery ? `No campaigns found for "${searchQuery}".` : "You haven't sent any campaigns yet."}
+                    </CenteredMessage>
+                ) : (
+                    <div className="campaign-grid">
+                        {filteredCampaigns.map((campaign: any) => (
+                            <div key={campaign.Name} className="campaign-card">
+                                <div className="campaign-card-header">
+                                    <h3>{campaign.Name}</h3>
+                                    <div className="action-buttons">
+                                        <button className="btn-icon" onClick={() => setCampaignNameToViewStats(campaign.Name)} aria-label="View campaign statistics">
+                                            <Icon path={ICONS.TRENDING_UP} />
+                                        </button>
+                                        <Badge text={campaign.Status ?? 'Unknown'} type={getBadgeTypeForStatus(campaign.Status)} />
+                                    </div>
+                                </div>
+                                <div className="campaign-card-body">
+                                    <p className="campaign-subject">
+                                        {campaign.Content?.[0]?.Subject || 'No Subject'}
+                                    </p>
                                 </div>
                             </div>
-                            <div className="campaign-card-body">
-                                <p className="campaign-subject">
-                                    {campaign.Content?.[0]?.Subject || 'No Subject'}
-                                </p>
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
+                        ))}
+                    </div>
+                )
+            )}
         </div>
     );
 };
@@ -3091,10 +3053,10 @@ const LoginPage = ({ setView }: { setView: (view: 'login' | 'register') => void 
                 ) : (
                      <>
                         <h1 className="logo-font">Continue with Key</h1>
-                        <p>Enter your Elastic Email API Key to access the dashboard.</p>
+                        <p>Enter your Mailzila API Key to access the dashboard. </p>
                         <form className="auth-form" onSubmit={handleApiKeySubmit}>
                             <div className="input-group">
-                                <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Elastic Email API Key" required disabled={loading} />
+                                <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Mailzila API Key" required disabled={loading} />
                             </div>
                              {error && <div className="action-status error" style={{textAlign:'center', marginTop: '1rem'}}>{error}</div>}
                             <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -3199,14 +3161,14 @@ const OnboardingView = () => {
         <div className="auth-container">
             <div className="auth-box">
                 <h1 className="logo-font">One Last Step, {user?.first_name}!</h1>
-                <p>To power up your account, please enter your Elastic Email API Key.</p>
+                <p>To power up your account, please enter your Mailzila API Key.</p>
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="input-group">
                          <input
                             type={showKey ? 'text' : 'password'}
                             value={apiKey}
                             onChange={(e) => setApiKey(e.target.value)}
-                            placeholder="Your Elastic Email API Key"
+                            placeholder="Your Mailzila API Key"
                             aria-label="API Key"
                             disabled={loading}
                         />
@@ -3215,7 +3177,7 @@ const OnboardingView = () => {
                         </button>
                     </div>
                     <small style={{textAlign: 'center', margin: '1rem 0', display: 'block', color: 'var(--subtle-text-color)'}}>
-                        You can find this in your Elastic Email dashboard under Settings. You can update this later in your profile.
+                        You can find this in your https://app.mailzila.com dashboard under Settings. You can update this later in your profile.
                     </small>
                     {error && <div className="action-status error" style={{textAlign:'center'}}>{error}</div>}
                     <button type="submit" className="btn btn-primary" disabled={loading}>
