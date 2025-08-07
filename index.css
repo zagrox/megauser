@@ -944,7 +944,6 @@ html[data-theme='dark'] .form-group select:focus {
     justify-content: flex-end;
     align-items: center;
     gap: 1rem;
-    margin-top: 1.5rem;
 }
 .form-actions .btn {
     margin-top: 0;
@@ -2035,75 +2034,6 @@ html[data-theme='dark'] .chart-tooltip {
     font-size: 2rem;
 }
 
-.packages-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
-}
-.package-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 1rem;
-    position: relative;
-    overflow: hidden;
-}
-.package-card.popular {
-    border-color: var(--secondary-color);
-    box-shadow: 0 0 0 2px var(--secondary-color);
-}
-.popular-badge {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background-color: var(--secondary-color);
-    color: white;
-    padding: 0.25rem 2rem;
-    transform: rotate(45deg) translate(25%, -25%);
-    transform-origin: center;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.package-icon-wrapper {
-    flex-shrink: 0;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background-color: #E9F1FF;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 1rem;
-}
-.package-icon-wrapper .icon {
-    width: 32px;
-    height: 32px;
-    color: var(--secondary-color);
-}
-html[data-theme='dark'] .package-icon-wrapper {
-    background-color: rgba(59, 130, 246, 0.15);
-}
-
-.package-info .package-credits {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--primary-color);
-}
-.package-info p {
-    color: var(--subtle-text-color);
-    margin: 0;
-}
-.package-price {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-color);
-}
-.package-card .btn {
-    width: 100%;
-    margin-top: auto;
-}
 .webhook-info {
     font-size: 0.8rem;
     color: var(--subtle-text-color);

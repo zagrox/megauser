@@ -5,10 +5,7 @@ const APP_SHELL_URLS = [
   '/',
   '/index.html',
   '/index.css',
-  '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  '/icons/maskable-icon-512x512.png'
+  '/manifest.json'
 ];
 
 // URLs for runtime caching using a stale-while-revalidate strategy

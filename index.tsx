@@ -1420,15 +1420,6 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
 const PURCHASE_WEBHOOK_URL = 'https://auto.zagrox.com/webhook-test/emailpack'; // As requested, URL is here for easy changes.
 
-const creditPackages = [
-    { credits: 10000, price: 500000 }, { credits: 20000, price: 950000 },
-    { credits: 30000, price: 1350000 }, { credits: 40000, price: 1700000 },
-    { credits: 50000, price: 2000000, popular: true }, { credits: 60000, price: 2340000 },
-    { credits: 70000, price: 2660000 }, { credits: 80000, price: 2960000 },
-    { credits: 100000, price: 3500000 }, { credits: 125000, price: 4250000 },
-    { credits: 150000, price: 5000000 }, { credits: 200000, price: 6000000 },
-];
-
 const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onClose: () => void, apiKey: string }) => {
     const refetchIndex = isOpen ? 1 : 0;
     const { data: history, loading, error } = useApi('/account/loadsubaccountsemailcreditshistory', apiKey, {}, refetchIndex);
@@ -1501,25 +1492,62 @@ const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onCl
 
 
 const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
-    const [isSubmitting, setIsSubmitting] = useState<number | null>(null); // track which package is submitting
+    const [isSubmitting, setIsSubmitting] = useState<number | null>(null);
     const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '' });
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    
+    const [packages, setPackages] = useState<any[]>([]);
+    const [packagesLoading, setPackagesLoading] = useState(true);
+    const [packagesError, setPackagesError] = useState<string | null>(null);
 
     const { data: accountData, loading: creditLoading, error: creditError } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
+    
+    useEffect(() => {
+        const fetchPackages = async () => {
+            setPackagesLoading(true);
+            setPackagesError(null);
+            try {
+                // Using native fetch to call the public endpoint directly without auth headers.
+                const response = await fetch('https://app.megamail.ir/items/credits');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch packages: ${response.status} ${response.statusText}`);
+                }
+                const responseData = await response.json();
 
-    const handlePurchase = async (pkg: {credits: number, price: number}) => {
+                if (responseData && Array.isArray(responseData.data)) {
+                    setPackages(responseData.data);
+                } else {
+                    throw new Error('Invalid response structure from credits endpoint.');
+                }
+            } catch (err: any) {
+                // Craft a more user-friendly error message for network issues.
+                if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+                    setPackagesError(`Network error: Could not connect to the API at https://app.megamail.ir. Please check the URL and your network connection.`);
+                } else {
+                    setPackagesError(err.message || 'Failed to load credit packages.');
+                }
+                console.error(err);
+            } finally {
+                setPackagesLoading(false);
+            }
+        };
+
+        fetchPackages();
+    }, []);
+
+    const handlePurchase = async (pkg: any) => {
         if (!user || !user.email) {
             setModalState({ isOpen: true, title: 'Error', message: 'User information is not available. Cannot proceed with purchase.' });
             return;
         }
 
-        setIsSubmitting(pkg.credits);
+        setIsSubmitting(pkg.id);
 
         const params = new URLSearchParams({
             userapikey: apiKey,
             useremail: user.email,
-            amount: pkg.credits.toString(),
-            totalprice: pkg.price.toString(),
+            amount: pkg.creditnumber.toString(),
+            totalprice: pkg.creditamount.toString(),
         });
         
         const requestUrl = `${PURCHASE_WEBHOOK_URL}?${params.toString()}`;
@@ -1537,7 +1565,7 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             setModalState({
                 isOpen: true,
                 title: 'Purchase Initiated',
-                message: `You have selected the ${pkg.credits.toLocaleString()} credit package. You will be redirected to complete your payment.`
+                message: `You have selected the ${pkg.creditnumber.toLocaleString()} credit package. You will be redirected to complete your payment.`
             });
 
         } catch (error: any) {
@@ -1585,28 +1613,46 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     </small>
                 )}
             </Modal>
-            <div className="packages-grid">
-                {creditPackages.map((pkg) => (
-                    <div key={pkg.credits} className={`package-card ${pkg.popular ? 'popular' : ''}`}>
-                        {pkg.popular && <div className="popular-badge">Most Popular</div>}
-                        <div className="package-icon-wrapper">
-                             <Icon path={ICONS.PRICE_TAG} />
-                        </div>
-                        <div className="package-info">
-                             <div className="package-credits">{pkg.credits.toLocaleString()}</div>
-                             <p>Email Credits</p>
-                        </div>
-                        <div className="package-price">{pkg.price.toLocaleString()} IRT</div>
-                        <button
-                            className="btn btn-primary"
-                            onClick={() => handlePurchase(pkg)}
-                            disabled={isSubmitting !== null}
-                        >
-                            {isSubmitting === pkg.credits ? <Loader /> : 'Purchase Now'}
-                        </button>
-                    </div>
-                ))}
-            </div>
+            
+            {packagesLoading && <CenteredMessage><Loader/></CenteredMessage>}
+            {packagesError && <ErrorMessage error={{endpoint: '/items/credits', message: packagesError}} />}
+            
+            {!packagesLoading && !packagesError && (
+                 <div className="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Package</th>
+                                <th>Credits</th>
+                                <th>Price (IRT)</th>
+                                <th>Price Per Credit (IRT)</th>
+                                <th style={{ textAlign: 'right' }}>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {packages.map((pkg: any) => (
+                                <tr key={pkg.id}>
+                                    <td><strong>{pkg.creditpack}</strong></td>
+                                    <td>{pkg.creditnumber.toLocaleString()}</td>
+                                    <td>{pkg.creditamount.toLocaleString()}</td>
+                                    <td>{pkg.creditrate}</td>
+                                    <td style={{ textAlign: 'right' }}>
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={() => handlePurchase(pkg)}
+                                            disabled={isSubmitting !== null}
+                                            style={{ margin: 0 }}
+                                        >
+                                            {isSubmitting === pkg.id ? <Loader /> : 'Order'}
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
             <div className="webhook-info">
                 <p>
                     <strong>Developer Note:</strong> To change the purchase webhook URL, edit the <code>PURCHASE_WEBHOOK_URL</code> constant at the top of the <code>BuyCreditsView</code> component in <code>index.tsx</code>.
@@ -3644,7 +3690,7 @@ const App = () => {
     useEffect(() => {
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('sw.js')
                     .then(registration => console.log('ServiceWorker registration successful:', registration.scope))
                     .catch(err => console.log('ServiceWorker registration failed:', err));
             });
