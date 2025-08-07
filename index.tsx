@@ -827,40 +827,32 @@ const StatsChart = ({ data }: { data: any[] }) => {
 
 const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: boolean, error: any }) => {
     const containerRef = React.useRef<HTMLDivElement>(null);
-    const [dimensions, setDimensions] = useState({ width: 0, height: 400 });
+    const [dimensions, setDimensions] = useState({ width: 0, height: 450 });
     const [tooltip, setTooltip] = useState<{ label: string, value: number, x: number, y: number, color: string } | null>(null);
 
     useEffect(() => {
-        // If we are loading, the container ref isn't available yet for measurement.
-        // This effect will re-run when loading becomes false, and then we can measure.
-        if (loading) {
-            return;
-        }
+        if (loading) return;
 
         const container = containerRef.current;
         if (!container) return;
         
         const resizeObserver = new ResizeObserver(() => {
-            // Check the ref again inside the observer callback
             if (containerRef.current) {
-                setDimensions({ width: containerRef.current.clientWidth, height: 400 });
+                setDimensions({ width: containerRef.current.clientWidth, height: 450 });
             }
         });
         resizeObserver.observe(container);
         
-        // Set initial dimensions now that the container is rendered and has a width
         if (container.clientWidth > 0) {
-            setDimensions({ width: container.clientWidth, height: 400 });
+            setDimensions({ width: container.clientWidth, height: 450 });
         }
         
         return () => { 
-            // The ref might be null if the component is unmounted.
-            // Ensure we use the ref's current value for cleanup.
             if(containerRef.current) {
                 resizeObserver.unobserve(containerRef.current);
             }
         };
-    }, [loading]); // Rerun this effect when the loading state changes.
+    }, [loading]);
 
 
     const chartMetrics = useMemo(() => {
@@ -877,7 +869,10 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
 
     const { width, height } = dimensions;
     const { margin, chartWidth, chartHeight, bandWidth, yScale, yAxisTicks } = useMemo(() => {
-        const margin = { top: 20, right: 20, bottom: 50, left: 70 };
+        const tempChartWidth = width - 70 - 20; // left + right margins
+        const shouldRotateLabels = chartMetrics.length > 0 && tempChartWidth > 0 && (tempChartWidth / chartMetrics.length < 80);
+    
+        const margin = { top: 20, right: 20, bottom: shouldRotateLabels ? 80 : 50, left: 70 };
         if (width <= 0 || chartMetrics.length === 0) return { margin, chartWidth: 0, chartHeight: 0, bandWidth: 0, yScale: null, yAxisTicks: [] };
         const chartWidth = width - margin.left - margin.right;
         const chartHeight = height - margin.top - margin.bottom;
@@ -889,12 +884,14 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
         const yAxisTicks = Array.from({ length: 6 }, (_, i) => ({ value: (niceYMax / 5) * i, y: yScale((niceYMax / 5) * i) }));
         return { margin, chartWidth, chartHeight, bandWidth, yScale, yAxisTicks };
     }, [chartMetrics, width, height]);
+    
+    const containerStyle = { height: `${height}px`, display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
-    if (loading) return <div style={{height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><Loader /></div>
-    if (error) return <ErrorMessage error={error} />;
+    if (loading) return <div style={containerStyle}><Loader /></div>
+    if (error) return <div style={containerStyle}><ErrorMessage error={error} /></div>;
     if (!stats || chartMetrics.length === 0) {
         return (
-            <div ref={containerRef} style={{ height: dimensions.height, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+            <div ref={containerRef} style={containerStyle}>
                 <div className="info-message">
                     <strong>No Overall Activity Data Found</strong>
                 </div>
@@ -903,7 +900,7 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
     }
 
     return (
-        <div className="stats-chart-container" ref={containerRef} style={{minHeight: height}}>
+        <div className="stats-chart-container" ref={containerRef} style={{height: height}}>
             {width > 0 ? (
                 <>
                     <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
@@ -929,7 +926,15 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
                                             onMouseMove={() => setTooltip({ label: d.label, value: d.value, x: margin.left + barX + barWidth / 2, y: margin.top + barY, color: d.color })}
                                             onMouseLeave={() => setTooltip(null)}
                                         />
-                                        <text className="axis-label" x={barX + barWidth / 2} y={chartHeight + 20} textAnchor="middle">{d.label}</text>
+                                        <text 
+                                            className="axis-label" 
+                                            x={barX + barWidth / 2} 
+                                            y={chartHeight + 20} 
+                                            textAnchor={bandWidth < 80 ? 'end' : 'middle'} 
+                                            transform={bandWidth < 80 ? `rotate(-45, ${barX + barWidth / 2}, ${chartHeight + 20})` : 'none'}
+                                        >
+                                            {d.label}
+                                        </text>
                                     </g>
                                 );
                             })}
@@ -946,11 +951,100 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
                     )}
                 </>
             ) : (
-                 <div style={{height: `${height}px`, display: 'flex', alignItems: 'center', justifyContent: 'center'}}><Loader /></div>
+                 <div style={containerStyle}><Loader /></div>
             )}
         </div>
     );
 };
+
+const ChannelStatsTable = ({ apiKey }: { apiKey: string }) => {
+    const { data: channelsData, loading, error } = useApiV4('/statistics/channels', apiKey, {}, apiKey ? 1 : 0);
+    const [selectedChannel, setSelectedChannel] = useState('');
+
+    const channels = useMemo(() => Array.isArray(channelsData) ? channelsData : [], [channelsData]);
+
+    useEffect(() => {
+        if (channels.length > 0 && !selectedChannel) {
+            setSelectedChannel(channels[0].ChannelName);
+        }
+    }, [channels, selectedChannel]);
+
+    const containerStyle = { minHeight: '450px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' };
+
+    if (loading) return <div style={{...containerStyle, minHeight: '450px'}}><Loader /></div>;
+    
+    if (error && error.message.toLowerCase().includes('http error! status: 404')) {
+        return (
+             <div style={containerStyle}>
+                <div className="info-message warning" style={{maxWidth: 'none', alignItems: 'flex-start'}}>
+                    <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0, marginTop: '0.2rem'}} />
+                    <div>
+                        <strong>Channels Feature Not Available</strong>
+                        <p style={{color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0}}>
+                           This feature may not be enabled for your account plan.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) return <div style={containerStyle}><ErrorMessage error={error} /></div>;
+
+    if (channels.length === 0) {
+        return (
+            <div style={containerStyle}>
+                <div className="info-message">
+                    <strong>No Channel Data Found</strong>
+                </div>
+            </div>
+        );
+    }
+
+    const selectedData = channels.find(c => c.ChannelName === selectedChannel);
+
+    const statsToDisplay = selectedData ? [
+        { label: 'Recipients', value: selectedData.Recipients },
+        { label: 'Emails Sent', value: selectedData.EmailTotal },
+        { label: 'Delivered', value: selectedData.Delivered },
+        { label: 'Opened', value: selectedData.Opened },
+        { label: 'Clicked', value: selectedData.Clicked },
+        { label: 'Bounced', value: selectedData.Bounced },
+        { label: 'Unsubscribed', value: selectedData.Unsubscribed },
+        { label: 'Complaints', value: selectedData.Complaints },
+    ].filter(item => Number(item.value) > 0) : [];
+
+
+    return (
+        <div className="channel-stats-container">
+            <div className="channel-selector-header">
+                <h4>Channel Performance</h4>
+                <select value={selectedChannel} onChange={e => setSelectedChannel(e.target.value)} disabled={channels.length <= 1}>
+                    {channels.map((channel: any) => (
+                        <option key={channel.ChannelName} value={channel.ChannelName}>
+                            {channel.ChannelName}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            {selectedData && (
+                <div className="table-container-simple">
+                    <table>
+                        <tbody>
+                            {statsToDisplay.map(stat => (
+                                <tr key={stat.label}>
+                                    <td>{stat.label}</td>
+                                    <td>{Number(stat.value || 0).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const StatisticsView = ({ apiKey }: { apiKey: string }) => {
     const [duration, setDuration] = useState('3months');
@@ -1066,11 +1160,16 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
                 </div>
             )}
             
-            <div className="content-header" style={{borderTop: '1px solid var(--border-color)', marginTop: '2.5rem', paddingTop: '2.5rem', marginBottom: '1.5rem'}}>
-                <h2 style={{margin: 0}}>Overall Activity Snapshot</h2>
-            </div>
-            <div className="card">
-                <OverallActivityChart stats={overallStats} loading={overallLoading} error={overallError} />
+            <div className="overall-snapshot-grid" style={{borderTop: '1px solid var(--border-color)', marginTop: '2.5rem', paddingTop: '2.5rem'}}>
+                <div className="card">
+                    <div className="channel-selector-header">
+                        <h4>Activity Overview</h4>
+                    </div>
+                    <OverallActivityChart stats={overallStats} loading={overallLoading} error={overallError} />
+                </div>
+                <div className="card">
+                     <ChannelStatsTable apiKey={apiKey} />
+                </div>
             </div>
         </>
     );
