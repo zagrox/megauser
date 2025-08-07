@@ -57,8 +57,40 @@ const ICONS = {
     DESKTOP: "M9 17v2m6-2v2M9 15h6M4 3h16a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z"
 };
 
-// --- API Helpers ---
+// --- API Types ---
+type Contact = {
+    Email: string;
+    FirstName: string;
+    LastName: string;
+    Status: 'Active' | 'Transactional' | 'Engaged' | 'Inactive' | 'Abuse' | 'Bounced' | 'Unsubscribed';
+    Source: string;
+    DateAdded: string;
+    DateUpdated?: string;
+    StatusChangeDate?: string;
+    Activity?: {
+        TotalSent?: number;
+        TotalOpened?: number;
+        TotalClicked?: number;
+        TotalFailed?: number;
+        LastSent?: string;
+        LastOpened?: string;
+        LastClicked?: string;
+        LastFailed?: string;
+    };
+    CustomFields?: Record<string, any>;
+};
+type List = {
+    ListName: string;
+    DateAdded: string;
+};
+type Segment = {
+    Name: string;
+    Rule: string;
+    ContactsCount: number;
+    DateAdded: string;
+};
 
+// --- API Helpers ---
 const directusFetch = async (endpoint: string, options: RequestInit = {}) => {
     const url = `${DIRECTUS_URL}${endpoint}`;
     const token = localStorage.getItem('directus_access_token');
@@ -536,7 +568,7 @@ const Badge = ({ text, type = 'default' }: {text: string, type?: string}) => (
     <span className={`badge badge-${type}`}>{text}</span>
 );
 
-const AccountDataCard = ({ iconPath, title, children }: { iconPath: string; title: string; children?: ReactNode }) => (
+const AccountDataCard = React.memo(({ iconPath, title, children }: { iconPath: string; title: string; children?: ReactNode }) => (
     <div className="card account-card">
         <div className="card-icon-wrapper">
             <Icon path={iconPath} />
@@ -546,7 +578,7 @@ const AccountDataCard = ({ iconPath, title, children }: { iconPath: string; titl
             <div className="card-content">{children}</div>
         </div>
     </div>
-);
+));
 
 const ThemeSwitcher = () => {
     const { theme, setTheme } = useTheme();
@@ -1018,7 +1050,7 @@ const ChannelStatsTable = ({ apiKey }: { apiKey: string }) => {
     return (
         <div className="channel-stats-container">
             <div className="channel-selector-header">
-                <h4>Channel Performance</h4>
+                <h4>Send Channels</h4>
                 <select value={selectedChannel} onChange={e => setSelectedChannel(e.target.value)} disabled={channels.length <= 1}>
                     {channels.map((channel: any) => (
                         <option key={channel.ChannelName} value={channel.ChannelName}>
@@ -1066,19 +1098,36 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
         const fetchDailyData = async () => {
             if (!apiKey) return;
             setIsChartLoading(true);
+            
             const fromDate = durationOptions[duration].from();
             const toDate = new Date();
             const promises = [];
+
+            const diffTime = Math.abs(toDate.getTime() - fromDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
-            for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
-                const day = new Date(d);
-                const from = formatDateForApiV4(new Date(day.setHours(0,0,0,0))) + 'Z';
-                const to = formatDateForApiV4(new Date(day.setHours(23,59,59,999))) + 'Z';
+            let intervalDays = 1; // Daily
+            if (diffDays > 180) { // More than ~6 months
+                intervalDays = 30; // Monthly
+            } else if (diffDays > 30) { // More than 1 month
+                intervalDays = 7; // Weekly
+            }
+
+            for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + intervalDays)) {
+                const startOfPeriod = new Date(d);
+                const endOfPeriod = new Date(startOfPeriod);
+                endOfPeriod.setDate(endOfPeriod.getDate() + intervalDays - 1);
+                
+                // Ensure the last period doesn't go beyond today
+                const finalEndOfPeriod = endOfPeriod > toDate ? toDate : endOfPeriod;
+
+                const from = formatDateForApiV4(new Date(startOfPeriod.setHours(0,0,0,0))) + 'Z';
+                const to = formatDateForApiV4(new Date(finalEndOfPeriod.setHours(23,59,59,999))) + 'Z';
                 
                 promises.push(
                     apiFetchV4(`/statistics`, apiKey, { params: { from, to } })
-                        .then(res => ({ ...res, date: day.toISOString().split('T')[0] }))
-                        .catch(() => ({ Delivered: 0, Opened: 0, Clicked: 0, date: day.toISOString().split('T')[0] }))
+                        .then(res => ({ ...res, date: startOfPeriod.toISOString().split('T')[0] }))
+                        .catch(() => ({ Delivered: 0, Opened: 0, Clicked: 0, date: startOfPeriod.toISOString().split('T')[0] }))
                 );
             }
             
@@ -1635,7 +1684,7 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
             </div>
 
             <div className="dashboard-branding-footer">
-                <p>MegaMail by <strong>ZAGROX</strong> & Powered by <strong>Mailzila.com</strong></p>
+                <p>MegaMail App by <strong>ZAGROX.com</strong></p>
             </div>
         </div>
     );
@@ -1643,7 +1692,7 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
 
 // --- START OF IMPLEMENTED VIEWS ---
 
-const ContactDetailModal = ({ isOpen, onClose, contactData, isLoading, error }: { isOpen: boolean; onClose: () => void; contactData: any; isLoading: boolean; error: string | null; }) => {
+const ContactDetailModal = ({ isOpen, onClose, contactData, isLoading, error }: { isOpen: boolean; onClose: () => void; contactData: Contact | null; isLoading: boolean; error: string | null; }) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={isLoading ? "Loading..." : contactData?.Email || "Contact Details"}>
             {isLoading && <CenteredMessage><Loader /></CenteredMessage>}
@@ -1777,7 +1826,7 @@ const ImportContactsModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { 
                      <label htmlFor="listName">Add to list (optional)</label>
                      <select id="listName" value={listName} onChange={e => setListName(e.target.value)} disabled={listsLoading}>
                          <option value="">Don't add to a list</option>
-                         {lists?.map((l: any) => <option key={l.ListName} value={l.ListName}>{l.ListName}</option>)}
+                         {lists?.map((l: List) => <option key={l.ListName} value={l.ListName}>{l.ListName}</option>)}
                      </select>
                 </div>
                 <div className="form-actions" style={{marginTop: '1rem'}}>
@@ -1790,7 +1839,7 @@ const ImportContactsModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { 
     );
 }
 
-const ContactCard = ({ contact, onView, onDelete }: { contact: any; onView: (email: string) => void; onDelete: (email: string) => void; }) => (
+const ContactCard = React.memo(({ contact, onView, onDelete }: { contact: Contact; onView: (email: string) => void; onDelete: (email: string) => void; }) => (
     <div className="card contact-card">
         <div className="contact-card-main">
             <div className="contact-card-info">
@@ -1813,7 +1862,7 @@ const ContactCard = ({ contact, onView, onDelete }: { contact: any; onView: (ema
             </div>
         </div>
     </div>
-);
+));
 
 const ContactsView = ({ apiKey }: { apiKey: string }) => {
     const [refetchIndex, setRefetchIndex] = useState(0);
@@ -1823,7 +1872,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [selectedContactDetails, setSelectedContactDetails] = useState<any>(null);
+    const [selectedContactDetails, setSelectedContactDetails] = useState<Contact | null>(null);
     const [isDetailLoading, setIsDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
 
@@ -1843,7 +1892,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
         }
     };
     
-    const handleDeleteContact = async (email: string) => {
+    const handleDeleteContact = useCallback(async (email: string) => {
         if (!window.confirm(`Are you sure you want to delete ${email}?`)) return;
         try {
             await apiFetchV4(`/contacts/${encodeURIComponent(email)}`, apiKey, { method: 'DELETE' });
@@ -1852,9 +1901,9 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
         } catch (err: any) {
             setActionStatus({ type: 'error', message: `Failed to delete contact: ${err.message}` });
         }
-    };
+    }, [apiKey]);
 
-    const handleViewContact = async (email: string) => {
+    const handleViewContact = useCallback(async (email: string) => {
         setIsDetailModalOpen(true);
         setIsDetailLoading(true);
         setDetailError(null);
@@ -1867,7 +1916,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
         } finally {
             setIsDetailLoading(false);
         }
-    };
+    }, [apiKey]);
 
     return (
         <div>
@@ -1927,7 +1976,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                 <>
                     {contacts?.length > 0 ? (
                         <div className="contacts-grid">
-                            {contacts.map((contact: any) => (
+                            {contacts.map((contact: Contact) => (
                                 <ContactCard 
                                     key={contact.Email} 
                                     contact={contact} 
@@ -1990,34 +2039,34 @@ const AddContactForm = ({ onSubmit }: { onSubmit: (data: {Email: string, FirstNa
     );
 };
 
-const RenameListModal = ({ isOpen, onClose, listName, onSubmit }: { isOpen: boolean, onClose: () => void, listName: string, onSubmit: (newName: string) => Promise<void> }) => {
+const RenameModal = ({ isOpen, onClose, entityName, entityType, onSubmit }: { isOpen: boolean, onClose: () => void, entityName: string, entityType: string, onSubmit: (newName: string) => Promise<void> }) => {
     const [newName, setNewName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
-            setNewName(listName);
+            setNewName(entityName);
         }
-    }, [isOpen, listName]);
+    }, [isOpen, entityName]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newName || newName === listName) return;
+        if (!newName || newName === entityName) return;
         setIsSubmitting(true);
         await onSubmit(newName);
         setIsSubmitting(false);
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Rename List "${listName}"`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Rename ${entityType} "${entityName}"`}>
             <form onSubmit={handleSubmit} className="modal-form">
                 <div className="form-group">
-                    <label htmlFor="new-list-name">New List Name</label>
-                    <input id="new-list-name" type="text" value={newName} onChange={e => setNewName(e.target.value)} required disabled={isSubmitting} />
+                    <label htmlFor="new-entity-name">New {entityType} Name</label>
+                    <input id="new-entity-name" type="text" value={newName} onChange={e => setNewName(e.target.value)} required disabled={isSubmitting} />
                 </div>
                 <div className="form-actions" style={{ marginTop: '1rem' }}>
                     <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" disabled={isSubmitting || !newName || newName === listName}>
+                    <button type="submit" className="btn btn-primary" disabled={isSubmitting || !newName || newName === entityName}>
                         {isSubmitting ? <Loader /> : 'Save Changes'}
                     </button>
                 </div>
@@ -2062,7 +2111,7 @@ const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: bool
                             </thead>
                             <tbody>
                                 {contacts && contacts.length > 0 ? (
-                                    contacts.map((c: any) => (
+                                    contacts.map((c: Contact) => (
                                         <tr key={c.Email}>
                                             <td>{c.Email}</td>
                                             <td>{`${c.FirstName || ''} ${c.LastName || ''}`.trim() || '-'}</td>
@@ -2102,8 +2151,8 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
     const [newListName, setNewListName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const [listToRename, setListToRename] = useState<any>(null);
-    const [listToView, setListToView] = useState<any>(null);
+    const [listToRename, setListToRename] = useState<List | null>(null);
+    const [listToView, setListToView] = useState<List | null>(null);
 
     const { data: lists, loading, error } = useApiV4('/lists', apiKey, {}, refetchIndex);
     const refetch = () => setRefetchIndex(i => i + 1);
@@ -2150,7 +2199,7 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
         }
     };
 
-    const filteredLists = lists?.filter((list: any) => 
+    const filteredLists: List[] = lists?.filter((list: List) => 
         list.ListName.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
 
@@ -2159,10 +2208,11 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
             <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
 
             {listToRename && (
-                <RenameListModal 
+                <RenameModal 
                     isOpen={!!listToRename}
                     onClose={() => setListToRename(null)}
-                    listName={listToRename.ListName}
+                    entityName={listToRename.ListName}
+                    entityType="List"
                     onSubmit={handleRenameList}
                 />
             )}
@@ -2208,7 +2258,7 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                 </CenteredMessage>
             )}
             <div className="card-grid list-grid">
-                {filteredLists.map((list: any) => (
+                {filteredLists.map((list: List) => (
                     <div key={list.ListName} className="card list-card">
                         <div className="list-card-header">
                             <h3>{list.ListName}</h3>
@@ -2233,42 +2283,6 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                 ))}
             </div>
         </div>
-    );
-};
-
-const RenameSegmentModal = ({ isOpen, onClose, segmentName, onSubmit }: { isOpen: boolean, onClose: () => void, segmentName: string, onSubmit: (newName: string) => Promise<void> }) => {
-    const [newName, setNewName] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    useEffect(() => {
-        if (isOpen) {
-            setNewName(segmentName);
-        }
-    }, [isOpen, segmentName]);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newName || newName === segmentName) return;
-        setIsSubmitting(true);
-        await onSubmit(newName);
-        setIsSubmitting(false);
-    };
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Rename Segment "${segmentName}"`}>
-            <form onSubmit={handleSubmit} className="modal-form">
-                <div className="form-group">
-                    <label htmlFor="new-segment-name">New Segment Name</label>
-                    <input id="new-segment-name" type="text" value={newName} onChange={e => setNewName(e.target.value)} required disabled={isSubmitting} />
-                </div>
-                <div className="form-actions" style={{ marginTop: '1rem' }}>
-                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" disabled={isSubmitting || !newName || newName === segmentName}>
-                        {isSubmitting ? <Loader /> : 'Save Changes'}
-                    </button>
-                </div>
-            </form>
-        </Modal>
     );
 };
 
@@ -2308,7 +2322,7 @@ const SegmentContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: b
                             </thead>
                             <tbody>
                                 {contacts && contacts.length > 0 ? (
-                                    contacts.map((c: any) => (
+                                    contacts.map((c: Contact) => (
                                         <tr key={c.Email}>
                                             <td>{c.Email}</td>
                                             <td>{`${c.FirstName || ''} ${c.LastName || ''}`.trim() || '-'}</td>
@@ -2346,8 +2360,8 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     
-    const [segmentToRename, setSegmentToRename] = useState<any>(null);
-    const [segmentToView, setSegmentToView] = useState<any>(null);
+    const [segmentToRename, setSegmentToRename] = useState<Segment | null>(null);
+    const [segmentToView, setSegmentToView] = useState<Segment | null>(null);
 
     const { data: segments, loading, error } = useApiV4('/segments', apiKey, {}, refetchIndex);
     const refetch = () => setRefetchIndex(i => i + 1);
@@ -2390,7 +2404,7 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
         }
     };
 
-    const filteredSegments = segments?.filter((segment: any) =>
+    const filteredSegments: Segment[] = segments?.filter((segment: Segment) =>
         segment.Name.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
 
@@ -2417,10 +2431,11 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
             </Modal>
             
             {segmentToRename && (
-                <RenameSegmentModal 
+                <RenameModal 
                     isOpen={!!segmentToRename}
                     onClose={() => setSegmentToRename(null)}
-                    segmentName={segmentToRename.Name}
+                    entityName={segmentToRename.Name}
+                    entityType="Segment"
                     onSubmit={handleRenameSegment}
                 />
             )}
@@ -2442,7 +2457,7 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
                 </CenteredMessage>
             )}
             <div className="card-grid">
-                {filteredSegments.map((segment: any) => (
+                {filteredSegments.map((segment: Segment) => (
                     <div key={segment.Name} className="card segment-card">
                         <div className="segment-card-header">
                             <h3>{segment.Name}</h3>
@@ -2718,7 +2733,7 @@ const SendEmailView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                          <label htmlFor="targetName">Select List</label>
                          <select id="targetName" name="targetName" value={formData.targetName} onChange={handleChange} required>
                              <option value="">-- Choose a list --</option>
-                             {lists?.map((l: any) => <option key={l.ListName} value={l.ListName}>{l.ListName}</option>)}
+                             {lists?.map((l: List) => <option key={l.ListName} value={l.ListName}>{l.ListName}</option>)}
                          </select>
                         </>
                     )}
@@ -2727,7 +2742,7 @@ const SendEmailView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                         <label htmlFor="targetName">Select Segment</label>
                         <select id="targetName" name="targetName" value={formData.targetName} onChange={handleChange} required>
                             <option value="">-- Choose a segment --</option>
-                             {segments?.map((s: any) => <option key={s.Name} value={s.Name}>{s.Name}</option>)}
+                             {segments?.map((s: Segment) => <option key={s.Name} value={s.Name}>{s.Name}</option>)}
                         </select>
                         </>
                     )}
@@ -3545,18 +3560,32 @@ const OnboardingView = () => {
     );
 }
 
+const VIEWS = {
+    DASHBOARD: 'Dashboard',
+    STATISTICS: 'Statistics',
+    ACCOUNT: 'Account',
+    CONTACTS: 'Contacts',
+    EMAIL_LISTS: 'Email Lists',
+    SEGMENTS: 'Segments',
+    SEND_EMAIL: 'Send Email',
+    CAMPAIGNS: 'Campaigns',
+    DOMAINS: 'Domains',
+    SMTP: 'SMTP',
+    BUY_CREDITS: 'Buy Credits'
+};
+
 const views: { [key: string]: React.ComponentType<any> } = {
-    Dashboard: DashboardView,
-    Statistics: StatisticsView,
-    Account: AccountView,
-    Contacts: ContactsView,
-    'Email Lists': EmailListView,
-    Segments: SegmentsView,
-    'Send Email': SendEmailView,
-    Campaigns: CampaignsView,
-    Domains: DomainsView,
-    SMTP: SmtpView,
-    'Buy Credits': BuyCreditsView
+    [VIEWS.DASHBOARD]: DashboardView,
+    [VIEWS.STATISTICS]: StatisticsView,
+    [VIEWS.ACCOUNT]: AccountView,
+    [VIEWS.CONTACTS]: ContactsView,
+    [VIEWS.EMAIL_LISTS]: EmailListView,
+    [VIEWS.SEGMENTS]: SegmentsView,
+    [VIEWS.SEND_EMAIL]: SendEmailView,
+    [VIEWS.CAMPAIGNS]: CampaignsView,
+    [VIEWS.DOMAINS]: DomainsView,
+    [VIEWS.SMTP]: SmtpView,
+    [VIEWS.BUY_CREDITS]: BuyCreditsView
 };
 
 const getIconForView = (viewName: string) => {
@@ -3566,7 +3595,7 @@ const getIconForView = (viewName: string) => {
 
 const MainApp = () => {
     const { user, logout } = useAuth();
-    const [view, setView] = useState('Dashboard');
+    const [view, setView] = useState(VIEWS.DASHBOARD);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     
     // The apiKey for the entire app now comes from the authenticated user's profile
@@ -3596,9 +3625,11 @@ const MainApp = () => {
                     onMenuClick={() => setMobileMenuOpen(true)}
                 />
                 <div className="content">
-                    <div className="content-header">
-                        <h2>{view}</h2>
-                    </div>
+                    {view !== VIEWS.DASHBOARD && (
+                        <div className="content-header">
+                            <h2>{view}</h2>
+                        </div>
+                    )}
                     {renderView()}
                 </div>
             </main>
@@ -3638,7 +3669,7 @@ const App = () => {
 };
 
 const Sidebar = ({ view, setView, logout }: { view: string, setView: (view: string) => void, logout: () => void }) => {
-    const mainNavItems = ['Dashboard', 'Statistics', 'Contacts', 'Email Lists', 'Segments', 'Send Email', 'Campaigns', 'Domains', 'SMTP'];
+    const mainNavItems = Object.values(VIEWS).filter(v => ![VIEWS.ACCOUNT, VIEWS.BUY_CREDITS].includes(v));
 
     return (
         <aside className="sidebar">
@@ -3654,11 +3685,11 @@ const Sidebar = ({ view, setView, logout }: { view: string, setView: (view: stri
                 </nav>
             </div>
             <div className="sidebar-footer-nav">
-                 <button onClick={() => setView('Account')} className={`nav-btn ${view === 'Account' ? 'active' : ''}`}>
+                 <button onClick={() => setView(VIEWS.ACCOUNT)} className={`nav-btn ${view === VIEWS.ACCOUNT ? 'active' : ''}`}>
                     <Icon path={ICONS.ACCOUNT} />
                     <span>User Profile</span>
                 </button>
-                <button onClick={() => setView('Buy Credits')} className={`nav-btn ${view === 'Buy Credits' ? 'active' : ''}`}>
+                <button onClick={() => setView(VIEWS.BUY_CREDITS)} className={`nav-btn ${view === VIEWS.BUY_CREDITS ? 'active' : ''}`}>
                     <Icon path={ICONS.BUY_CREDITS} />
                     <span>Buy Credits</span>
                 </button>
