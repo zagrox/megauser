@@ -1635,7 +1635,7 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
             </div>
 
             <div className="dashboard-branding-footer">
-                <p>Mailzila by <strong>ZAGROX</strong> & Powered by <strong>Mailzila.com</strong></p>
+                <p>Mailzila app by <strong>ZAGROX</strong></p>
             </div>
         </div>
     );
