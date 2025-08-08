@@ -1297,16 +1297,16 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                 <div className="card-body" style={{padding: '0 1.25rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '2.5rem'}}>
                     <div>
                         <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>Display Mode</h4>
-                        <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>Choose how MegaMail looks to you. Select a theme or sync with your system.</p>
+                        <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>Choose how Mailzila looks to you. Select a theme or sync with your system.</p>
                         <ThemeSwitcher />
                     </div>
 
                     {installPrompt && (
                         <div>
                             <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>Install App</h4>
-                            <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>Install MegaMail on your device for quick access and a native-like experience.</p>
+                            <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>Install Mailzila on your device for quick access and a native-like experience.</p>
                             <button className="btn btn-secondary" onClick={handleInstallClick} style={{width: '100%'}}>
-                                <Icon path={ICONS.DOWNLOAD} /> Install MegaMail
+                                <Icon path={ICONS.DOWNLOAD} /> Install Mailzila
                             </button>
                         </div>
                     )}
@@ -1369,7 +1369,7 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     );
 };
 
-const PURCHASE_WEBHOOK_URL = 'https://auto.zagrox.com/webhook-test/emailpack'; // As requested, URL is here for easy changes.
+const PURCHASE_WEBHOOK_URL = 'https://panel.megamail.ir/items/credits'; // As requested, URL is here for easy changes.
 
 const creditPackages = [
     { credits: 10000, price: 500000 }, { credits: 20000, price: 950000 },
@@ -1595,7 +1595,7 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
             <div className="dashboard-header">
                 <div>
                     <h2>Welcome, {welcomeName}!</h2>
-                    <p>Here's a quick overview of your MegaMail account. Ready to launch your next campaign?</p>
+                    <p>Here's a quick overview of your Mailzila account. Ready to launch your next campaign?</p>
                 </div>
                 <div className="dashboard-actions">
                     <button className="btn btn-credits" onClick={() => setView('Buy Credits')}>
@@ -1621,7 +1621,7 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
             <div className="dashboard-section">
                 <div className="dashboard-section-header">
                     <h3>Explore Your Tools</h3>
-                    <p>Access all of MegaMail's powerful features from one place.</p>
+                    <p>Access all of Mailzila's powerful features from one place.</p>
                 </div>
                 <div className="dashboard-nav-grid">
                     {navItems.map(item => (
@@ -1635,7 +1635,7 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
             </div>
 
             <div className="dashboard-branding-footer">
-                <p>MegaMail by <strong>ZAGROX</strong> & Powered by <strong>Mailzila.com</strong></p>
+                <p>Mailzila by <strong>ZAGROX</strong> & Powered by <strong>Mailzila.com</strong></p>
             </div>
         </div>
     );
@@ -3382,7 +3382,7 @@ const LoginPage = ({ setView }: { setView: (view: 'login' | 'register') => void 
             <div className="auth-box">
                 {mode === 'credentials' ? (
                     <>
-                        <h1 className="logo-font">MegaMail</h1>
+                        <h1 className="logo-font">Mailzila</h1>
                         <p>Welcome back! Please sign in to your account.</p>
                         <form className="auth-form" onSubmit={handleCredentialsSubmit}>
                             <div className="input-group" style={{marginBottom: '1rem'}}>
@@ -3455,7 +3455,7 @@ const RegisterPage = ({ setView }: { setView: (view: 'login' | 'register') => vo
         <div className="auth-container">
             <div className="auth-box">
                 <h1 className="logo-font">Create Your Account</h1>
-                <p>Join MegaMail to supercharge your email marketing.</p>
+                <p>Join Mailzila to supercharge your email marketing.</p>
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="form-grid" style={{gap: '1rem'}}>
                          <div className="input-group">
@@ -3643,7 +3643,7 @@ const Sidebar = ({ view, setView, logout }: { view: string, setView: (view: stri
     return (
         <aside className="sidebar">
             <div>
-                <div className="sidebar-header logo-font">MegaMail</div>
+                <div className="sidebar-header logo-font">Mailzila</div>
                 <nav className="nav">
                     {mainNavItems.map(name => (
                         <button key={name} onClick={() => setView(name)} className={`nav-btn ${view === name ? 'active' : ''}`}>
