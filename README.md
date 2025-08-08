@@ -1,4 +1,4 @@
-# Run and deploy your MegaMail app
+# Run and deploy your Mailzila app
 
 This contains everything you need to run your email app locally.
 
