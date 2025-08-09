@@ -1,10 +1,12 @@
 
-import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext, useMemo, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
+import { useTranslation, I18nextProvider } from 'react-i18next';
+import i18n from './i18n';
 
 // --- CONFIGURATION ---
 // TODO: Replace with your public Directus instance URL
-const DIRECTUS_URL = 'https://panel.megamail.ir'; 
+const DIRECTUS_URL = 'https://accounting.mailzila.com'; 
 const ELASTIC_EMAIL_API_BASE = 'https://api.elasticemail.com/v2';
 const ELASTIC_EMAIL_API_V4_BASE = 'https://api.elasticemail.com/v4';
 
@@ -54,11 +56,44 @@ const ICONS = {
     SEARCH: "M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.35-4.35",
     SUN: "M12 1v2M4.93 4.93l1.41 1.41M1 12h2M4.93 19.07l1.41-1.41M12 23v-2M19.07 19.07l-1.41-1.41M23 12h-2M19.07 4.93l-1.41-1.41M12 6a6 6 0 100 12 6 6 0 000-12z",
     MOON: "M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z",
-    DESKTOP: "M9 17v2m6-2v2M9 15h6M4 3h16a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z"
+    DESKTOP: "M9 17v2m6-2v2M9 15h6M4 3h16a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z",
+    LANGUAGE: "M20 12a8 8 0 10-16 0 8 8 0 0016 0zM2 12h2M10 2v2M10 20v2M14 4.5l-1.8-1.8M14 19.5l-1.8 1.8M4.5 14l-1.8 1.8M19.5 14l1.8 1.8"
+};
+
+// --- API Types ---
+type Contact = {
+    Email: string;
+    FirstName: string;
+    LastName: string;
+    Status: 'Active' | 'Transactional' | 'Engaged' | 'Inactive' | 'Abuse' | 'Bounced' | 'Unsubscribed';
+    Source: string;
+    DateAdded: string;
+    DateUpdated?: string;
+    StatusChangeDate?: string;
+    Activity?: {
+        TotalSent?: number;
+        TotalOpened?: number;
+        TotalClicked?: number;
+        TotalFailed?: number;
+        LastSent?: string;
+        LastOpened?: string;
+        LastClicked?: string;
+        LastFailed?: string;
+    };
+    CustomFields?: Record<string, any>;
+};
+type List = {
+    ListName: string;
+    DateAdded: string;
+};
+type Segment = {
+    Name: string;
+    Rule: string;
+    ContactsCount: number;
+    DateAdded: string;
 };
 
 // --- API Helpers ---
-
 const directusFetch = async (endpoint: string, options: RequestInit = {}) => {
     const url = `${DIRECTUS_URL}${endpoint}`;
     const token = localStorage.getItem('directus_access_token');
@@ -520,11 +555,14 @@ const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose:
 };
 
 
-const ErrorMessage = ({ error }: {error: {endpoint: string, message: string}}) => (
-  <div className="error-message">
-    <strong>API Error on <code>{error.endpoint}</code>:</strong> {error.message}
-  </div>
-);
+const ErrorMessage = ({ error }: {error: {endpoint: string, message: string}}) => {
+  const { t } = useTranslation();
+  return (
+    <div className="error-message">
+        <strong>{t('apiErrorOn', { endpoint: error.endpoint })}</strong> {error.message}
+    </div>
+  );
+}
 
 const CenteredMessage = ({ children, style }: { children?: ReactNode, style?: React.CSSProperties }) => (
     <div className="centered-container" style={{height: '200px', ...style}}>
@@ -536,7 +574,7 @@ const Badge = ({ text, type = 'default' }: {text: string, type?: string}) => (
     <span className={`badge badge-${type}`}>{text}</span>
 );
 
-const AccountDataCard = ({ iconPath, title, children }: { iconPath: string; title: string; children?: ReactNode }) => (
+const AccountDataCard = React.memo(({ iconPath, title, children }: { iconPath: string; title: string; children?: ReactNode }) => (
     <div className="card account-card">
         <div className="card-icon-wrapper">
             <Icon path={iconPath} />
@@ -546,14 +584,15 @@ const AccountDataCard = ({ iconPath, title, children }: { iconPath: string; titl
             <div className="card-content">{children}</div>
         </div>
     </div>
-);
+));
 
 const ThemeSwitcher = () => {
+    const { t } = useTranslation();
     const { theme, setTheme } = useTheme();
     const options: { value: Theme; label: string; icon: string; }[] = [
-        { value: 'light', label: 'Light', icon: ICONS.SUN },
-        { value: 'dark', label: 'Dark', icon: ICONS.MOON },
-        { value: 'auto', label: 'System', icon: ICONS.DESKTOP },
+        { value: 'light', label: t('themeLight'), icon: ICONS.SUN },
+        { value: 'dark', label: t('themeDark'), icon: ICONS.MOON },
+        { value: 'auto', label: t('themeSystem'), icon: ICONS.DESKTOP },
     ];
 
     return (
@@ -563,7 +602,7 @@ const ThemeSwitcher = () => {
                     key={option.value}
                     className={`theme-btn ${theme === option.value ? 'active' : ''}`}
                     onClick={() => setTheme(option.value)}
-                    aria-label={`Switch to ${option.label} theme`}
+                    aria-label={t('switchToTheme', { theme: option.label })}
                 >
                     <Icon path={option.icon} />
                     <span>{option.label}</span>
@@ -572,6 +611,29 @@ const ThemeSwitcher = () => {
         </div>
     );
 };
+
+const LanguageSwitcher = () => {
+    const { i18n } = useTranslation();
+    const options = [
+        { value: 'en', label: 'English' },
+        { value: 'fa', label: 'فارسی' },
+    ];
+
+    return (
+        <div className="language-switcher">
+            {options.map(option => (
+                <button
+                    key={option.value}
+                    className={`language-btn ${i18n.language === option.value ? 'active' : ''}`}
+                    onClick={() => i18n.changeLanguage(option.value)}
+                >
+                    <span>{option.label}</span>
+                </button>
+            ))}
+        </div>
+    );
+};
+
 
 // --- Helper Functions ---
 const getPastDateByDays = (days: number) => {
@@ -592,10 +654,10 @@ const getPastDateByYears = (years: number) => {
     date.setFullYear(date.getFullYear() - years);
     return date;
 };
-const formatDateForDisplay = (dateString: string | undefined) => {
+const formatDateForDisplay = (dateString: string | undefined, locale = 'en-US') => {
     if (!dateString) return 'N/A';
     try {
-        return new Date(dateString).toLocaleDateString('en-US', {
+        return new Date(dateString).toLocaleDateString(locale, {
             year: 'numeric',
             month: 'long',
             day: 'numeric'
@@ -607,22 +669,14 @@ const formatDateForDisplay = (dateString: string | undefined) => {
 
 // --- View Components ---
 
-const durationOptions: {[key: string]: {label: string, from: () => Date}} = {
-    '7days': { label: 'Last 7 days', from: () => getPastDateByDays(7) },
-    '14days': { label: 'Last 14 days', from: () => getPastDateByDays(14) },
-    '30days': { label: 'Last 30 days', from: () => getPastDateByDays(30) },
-    '3months': { label: 'Last 3 months', from: () => getPastDateByMonths(3) },
-    '6months': { label: 'Last 6 months', from: () => getPastDateByMonths(6) },
-    '1year': { label: 'Last year', from: () => getPastDateByYears(1) },
-};
-
 const StatsChart = ({ data }: { data: any[] }) => {
+    const { t, i18n } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [tooltip, setTooltip] = useState<any>(null);
     const svgRef = React.useRef<SVGSVGElement>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 350 });
-
+    
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
@@ -645,15 +699,15 @@ const StatsChart = ({ data }: { data: any[] }) => {
 
     const chartData = useMemo(() => data.map(d => ({ ...d, date: new Date(d.date) })), [data]);
     const metrics = useMemo(() => [
-        { key: 'Delivered', color: 'var(--info-color)' },
-        { key: 'Opened', color: 'var(--success-color)' },
-        { key: 'Clicked', color: 'var(--warning-color)' },
-    ], []);
+        { key: 'Delivered', label: t('delivered'), color: 'var(--info-color)' },
+        { key: 'Opened', label: t('opened'), color: 'var(--success-color)' },
+        { key: 'Clicked', label: t('clicked'), color: 'var(--warning-color)' },
+    ], [t]);
 
     const { width, height } = dimensions;
 
     const { margin, chartWidth, chartHeight, xScale, yScale, lineGenerators, areaGenerator, yAxisTicks, xAxisTicks } = useMemo(() => {
-        const margin = { top: 20, right: 20, bottom: 50, left: 60 };
+        const margin = { top: 20, right: i18n.dir() === 'rtl' ? 60 : 20, bottom: 50, left: i18n.dir() === 'rtl' ? 20 : 60 };
         
         if (width <= 0 || chartData.length < 2) {
             return { margin, chartWidth: 0, chartHeight: 0, xScale: null, yScale: null, lineGenerators: {}, areaGenerator: '', yAxisTicks: [], xAxisTicks: [] };
@@ -692,7 +746,7 @@ const StatsChart = ({ data }: { data: any[] }) => {
         const xAxisTicks = chartData.filter((_, i) => i % tickIncrement === 0);
 
         return { margin, chartWidth, chartHeight, xScale, yScale, lineGenerators, areaGenerator, yAxisTicks, xAxisTicks };
-    }, [chartData, width, height, metrics]);
+    }, [chartData, width, height, metrics, i18n.language]);
     
     const handleMouseMove = (event: React.MouseEvent<SVGRectElement>) => {
         if (!svgRef.current || !xScale || !chartWidth || chartData.length === 0) return;
@@ -737,9 +791,9 @@ const StatsChart = ({ data }: { data: any[] }) => {
                 <div className="info-message" style={{maxWidth: 'none', alignItems: 'flex-start'}}>
                     <Icon path={ICONS.STATISTICS} style={{flexShrink: 0, marginTop: '0.2rem'}} />
                     <div>
-                        <strong>Not Enough Data</strong>
+                        <strong>{t('notEnoughData')}</strong>
                         <p style={{color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0}}>
-                            At least two data points are needed to draw a chart. Please select a wider date range.
+                           {t('notEnoughDataSubtitle')}
                         </p>
                     </div>
                 </div>
@@ -747,6 +801,15 @@ const StatsChart = ({ data }: { data: any[] }) => {
         );
     }
     
+    const tooltipTransform = useMemo(() => {
+        if (!tooltip) return 'translateX(10%)';
+        if (i18n.dir() === 'rtl') {
+            return tooltip.x > width / 2 ? 'translateX(10%)' : 'translateX(-110%)';
+        }
+        return tooltip.x > width / 2 ? 'translateX(-110%)' : 'translateX(10%)';
+    }, [tooltip, width, i18n.language]);
+
+
     return (
         <div className="stats-chart-container" ref={containerRef}>
             {width > 0 && (
@@ -763,7 +826,7 @@ const StatsChart = ({ data }: { data: any[] }) => {
                         {yScale && yAxisTicks.map(tick => (
                             <g key={tick.value}>
                                 <line className="grid-line" x1={0} x2={chartWidth} y1={tick.y} y2={tick.y} />
-                                <text className="axis-label" x={-10} y={tick.y} dy="0.32em" textAnchor="end">
+                                <text className="axis-label" x={i18n.dir() === 'rtl' ? chartWidth + 10 : -10} y={tick.y} dy="0.32em" textAnchor={i18n.dir() === 'rtl' ? "start" : "end"}>
                                     {tick.value >= 1000 ? `${(tick.value / 1000).toFixed(tick.value % 1000 !== 0 ? 1 : 0)}k` : tick.value}
                                 </text>
                             </g>
@@ -771,7 +834,7 @@ const StatsChart = ({ data }: { data: any[] }) => {
                         {/* X-axis labels */}
                         {xScale && xAxisTicks.map(d => (
                             <text className="axis-label" key={d.date.toISOString()} x={xScale(d.date)} y={chartHeight + 20} textAnchor="middle">
-                                {d.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {d.date.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}
                             </text>
                         ))}
                         
@@ -800,13 +863,13 @@ const StatsChart = ({ data }: { data: any[] }) => {
                     </g>
                 </svg>
                 {tooltip && (
-                    <div className="chart-tooltip" style={{ left: tooltip.x, top: tooltip.y, transform: `translateX(${tooltip.x > width / 2 ? '-110%' : '10%'})`}}>
-                        <div className="tooltip-date">{new Date(tooltip.data.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
+                    <div className="chart-tooltip" style={{ left: tooltip.x, top: tooltip.y, transform: tooltipTransform }}>
+                        <div className="tooltip-date">{new Date(tooltip.data.date).toLocaleDateString(i18n.language, { weekday: 'long', month: 'short', day: 'numeric' })}</div>
                         {metrics.map(metric => (
                             <div key={metric.key} className="tooltip-item">
                                 <span className="color-swatch" style={{ backgroundColor: metric.color }}></span>
-                                <span className="label">{metric.key}:</span>
-                                <span className="value">{(tooltip.data[metric.key] || 0).toLocaleString()}</span>
+                                <span className="label">{metric.label}:</span>
+                                <span className="value">{(tooltip.data[metric.key] || 0).toLocaleString(i18n.language)}</span>
                             </div>
                         ))}
                     </div>
@@ -815,7 +878,7 @@ const StatsChart = ({ data }: { data: any[] }) => {
                     {metrics.map(metric => (
                         <div key={metric.key} className="legend-item">
                             <span className="color-swatch" style={{ backgroundColor: metric.color }}></span>
-                            <span>{metric.key}</span>
+                            <span>{metric.label}</span>
                         </div>
                     ))}
                 </div>
@@ -826,6 +889,7 @@ const StatsChart = ({ data }: { data: any[] }) => {
 };
 
 const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: boolean, error: any }) => {
+    const { t, i18n } = useTranslation();
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 450 });
     const [tooltip, setTooltip] = useState<{ label: string, value: number, x: number, y: number, color: string } | null>(null);
@@ -858,21 +922,23 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
     const chartMetrics = useMemo(() => {
         if (!stats) return [];
         return [
-            { label: 'Delivered', value: stats.Delivered || 0, color: 'var(--info-color)' },
-            { label: 'Opened', value: stats.Opened || 0, color: 'var(--success-color)' },
-            { label: 'Clicked', value: stats.Clicked || 0, color: 'var(--warning-color)' },
-            { label: 'Unsubscribed', value: stats.Unsubscribed || 0, color: '#64748B' },
-            { label: 'Complaints', value: stats.Complaints || 0, color: 'var(--danger-color)' },
-            { label: 'Bounced', value: stats.Bounced || 0, color: '#94A3B8' },
+            { label: t('delivered'), value: stats.Delivered || 0, color: 'var(--info-color)' },
+            { label: t('opened'), value: stats.Opened || 0, color: 'var(--success-color)' },
+            { label: t('clicked'), value: stats.Clicked || 0, color: 'var(--warning-color)' },
+            { label: t('unsubscribed'), value: stats.Unsubscribed || 0, color: '#64748B' },
+            { label: t('complaints'), value: stats.Complaints || 0, color: 'var(--danger-color)' },
+            { label: t('bounced'), value: stats.Bounced || 0, color: '#94A3B8' },
         ].filter(d => d.value > 0).sort((a, b) => b.value - a.value);
-    }, [stats]);
+    }, [stats, t]);
 
     const { width, height } = dimensions;
     const { margin, chartWidth, chartHeight, bandWidth, yScale, yAxisTicks } = useMemo(() => {
-        const tempChartWidth = width - 70 - 20; // left + right margins
+        const leftMargin = i18n.dir() === 'rtl' ? 20 : 70;
+        const rightMargin = i18n.dir() === 'rtl' ? 70 : 20;
+        const tempChartWidth = width - leftMargin - rightMargin;
         const shouldRotateLabels = chartMetrics.length > 0 && tempChartWidth > 0 && (tempChartWidth / chartMetrics.length < 80);
     
-        const margin = { top: 20, right: 20, bottom: shouldRotateLabels ? 80 : 50, left: 70 };
+        const margin = { top: 20, right: rightMargin, bottom: shouldRotateLabels ? 80 : 50, left: leftMargin };
         if (width <= 0 || chartMetrics.length === 0) return { margin, chartWidth: 0, chartHeight: 0, bandWidth: 0, yScale: null, yAxisTicks: [] };
         const chartWidth = width - margin.left - margin.right;
         const chartHeight = height - margin.top - margin.bottom;
@@ -883,7 +949,7 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
         const bandWidth = chartWidth / chartMetrics.length;
         const yAxisTicks = Array.from({ length: 6 }, (_, i) => ({ value: (niceYMax / 5) * i, y: yScale((niceYMax / 5) * i) }));
         return { margin, chartWidth, chartHeight, bandWidth, yScale, yAxisTicks };
-    }, [chartMetrics, width, height]);
+    }, [chartMetrics, width, height, i18n.language]);
     
     const containerStyle = { height: `${height}px`, display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
@@ -893,7 +959,7 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
         return (
             <div ref={containerRef} style={containerStyle}>
                 <div className="info-message">
-                    <strong>No Overall Activity Data Found</strong>
+                    <strong>{t('noOverallActivity')}</strong>
                 </div>
             </div>
         );
@@ -908,8 +974,8 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
                             {yScale && yAxisTicks.map(tick => (
                                 <g key={tick.value}>
                                     <line className="grid-line" x1={0} x2={chartWidth} y1={tick.y} y2={tick.y} />
-                                    <text className="axis-label" x={-10} y={tick.y} dy="0.32em" textAnchor="end">
-                                        {tick.value >= 1000 ? `${(tick.value / 1000).toFixed(tick.value % 1000 !== 0 ? 1 : 0)}k` : tick.value}
+                                    <text className="axis-label" x={i18n.dir() === 'rtl' ? chartWidth + 10 : -10} y={tick.y} dy="0.32em" textAnchor={i18n.dir() === 'rtl' ? 'start' : 'end'}>
+                                        {tick.value >= 1000 ? `${(tick.value / 1000).toLocaleString(i18n.language)}k` : tick.value.toLocaleString(i18n.language)}
                                     </text>
                                 </g>
                             ))}
@@ -945,7 +1011,7 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
                             <div className="tooltip-item">
                                 <span className="color-swatch" style={{ backgroundColor: tooltip.color }}></span>
                                 <span className="label">{tooltip.label}:</span>
-                                <span className="value">{tooltip.value.toLocaleString()}</span>
+                                <span className="value">{tooltip.value.toLocaleString(i18n.language)}</span>
                             </div>
                         </div>
                     )}
@@ -958,6 +1024,7 @@ const OverallActivityChart = ({ stats, loading, error }: { stats: any, loading: 
 };
 
 const ChannelStatsTable = ({ apiKey }: { apiKey: string }) => {
+    const { t, i18n } = useTranslation();
     const { data: channelsData, loading, error } = useApiV4('/statistics/channels', apiKey, {}, apiKey ? 1 : 0);
     const [selectedChannel, setSelectedChannel] = useState('');
 
@@ -979,9 +1046,9 @@ const ChannelStatsTable = ({ apiKey }: { apiKey: string }) => {
                 <div className="info-message warning" style={{maxWidth: 'none', alignItems: 'flex-start'}}>
                     <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0, marginTop: '0.2rem'}} />
                     <div>
-                        <strong>Channels Feature Not Available</strong>
+                        <strong>{t('channelsNotAvailable')}</strong>
                         <p style={{color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0}}>
-                           This feature may not be enabled for your account plan.
+                           {t('channelsNotAvailableSubtitle')}
                         </p>
                     </div>
                 </div>
@@ -995,7 +1062,7 @@ const ChannelStatsTable = ({ apiKey }: { apiKey: string }) => {
         return (
             <div style={containerStyle}>
                 <div className="info-message">
-                    <strong>No Channel Data Found</strong>
+                    <strong>{t('noChannelData')}</strong>
                 </div>
             </div>
         );
@@ -1004,21 +1071,21 @@ const ChannelStatsTable = ({ apiKey }: { apiKey: string }) => {
     const selectedData = channels.find(c => c.ChannelName === selectedChannel);
 
     const statsToDisplay = selectedData ? [
-        { label: 'Recipients', value: selectedData.Recipients },
-        { label: 'Emails Sent', value: selectedData.EmailTotal },
-        { label: 'Delivered', value: selectedData.Delivered },
-        { label: 'Opened', value: selectedData.Opened },
-        { label: 'Clicked', value: selectedData.Clicked },
-        { label: 'Bounced', value: selectedData.Bounced },
-        { label: 'Unsubscribed', value: selectedData.Unsubscribed },
-        { label: 'Complaints', value: selectedData.Complaints },
+        { label: t('recipients'), value: selectedData.Recipients },
+        { label: t('emailsSent'), value: selectedData.EmailTotal },
+        { label: t('delivered'), value: selectedData.Delivered },
+        { label: t('opened'), value: selectedData.Opened },
+        { label: t('clicked'), value: selectedData.Clicked },
+        { label: t('bounced'), value: selectedData.Bounced },
+        { label: t('unsubscribed'), value: selectedData.Unsubscribed },
+        { label: t('complaints'), value: selectedData.Complaints },
     ].filter(item => Number(item.value) > 0) : [];
 
 
     return (
         <div className="channel-stats-container">
             <div className="channel-selector-header">
-                <h4>Channel Performance</h4>
+                <h4>{t('sendChannels')}</h4>
                 <select value={selectedChannel} onChange={e => setSelectedChannel(e.target.value)} disabled={channels.length <= 1}>
                     {channels.map((channel: any) => (
                         <option key={channel.ChannelName} value={channel.ChannelName}>
@@ -1034,7 +1101,7 @@ const ChannelStatsTable = ({ apiKey }: { apiKey: string }) => {
                             {statsToDisplay.map(stat => (
                                 <tr key={stat.label}>
                                     <td>{stat.label}</td>
-                                    <td>{Number(stat.value || 0).toLocaleString()}</td>
+                                    <td>{Number(stat.value || 0).toLocaleString(i18n.language)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -1047,13 +1114,23 @@ const ChannelStatsTable = ({ apiKey }: { apiKey: string }) => {
 
 
 const StatisticsView = ({ apiKey }: { apiKey: string }) => {
+    const { t, i18n } = useTranslation();
     const [duration, setDuration] = useState('3months');
     const [dailyData, setDailyData] = useState<any[]>([]);
     const [isChartLoading, setIsChartLoading] = useState(true);
 
+    const durationOptions: {[key: string]: {label: string, from: () => Date}} = useMemo(() => ({
+        '7days': { label: t('last7Days'), from: () => getPastDateByDays(7) },
+        '14days': { label: t('last14Days'), from: () => getPastDateByDays(14) },
+        '30days': { label: t('last30Days'), from: () => getPastDateByDays(30) },
+        '3months': { label: t('last3Months'), from: () => getPastDateByMonths(3) },
+        '6months': { label: t('last6Months'), from: () => getPastDateByMonths(6) },
+        '1year': { label: t('lastYear'), from: () => getPastDateByYears(1) },
+    }), [t]);
+
     const apiParams = useMemo(() => ({
         from: formatDateForApiV4(durationOptions[duration].from()),
-    }), [duration]);
+    }), [duration, durationOptions]);
 
     const { data: aggregateStats, loading: aggregateLoading, error: aggregateError } = useApiV4(`/statistics`, apiKey, apiParams);
     const { data: overallStats, loading: overallLoading, error: overallError } = useApiV4(
@@ -1066,19 +1143,36 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
         const fetchDailyData = async () => {
             if (!apiKey) return;
             setIsChartLoading(true);
+            
             const fromDate = durationOptions[duration].from();
             const toDate = new Date();
             const promises = [];
+
+            const diffTime = Math.abs(toDate.getTime() - fromDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
-            for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
-                const day = new Date(d);
-                const from = formatDateForApiV4(new Date(day.setHours(0,0,0,0))) + 'Z';
-                const to = formatDateForApiV4(new Date(day.setHours(23,59,59,999))) + 'Z';
+            let intervalDays = 1; // Daily
+            if (diffDays > 180) { // More than ~6 months
+                intervalDays = 30; // Monthly
+            } else if (diffDays > 30) { // More than 1 month
+                intervalDays = 7; // Weekly
+            }
+
+            for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + intervalDays)) {
+                const startOfPeriod = new Date(d);
+                const endOfPeriod = new Date(startOfPeriod);
+                endOfPeriod.setDate(endOfPeriod.getDate() + intervalDays - 1);
+                
+                // Ensure the last period doesn't go beyond today
+                const finalEndOfPeriod = endOfPeriod > toDate ? toDate : endOfPeriod;
+
+                const from = formatDateForApiV4(new Date(startOfPeriod.setHours(0,0,0,0))) + 'Z';
+                const to = formatDateForApiV4(new Date(finalEndOfPeriod.setHours(23,59,59,999))) + 'Z';
                 
                 promises.push(
                     apiFetchV4(`/statistics`, apiKey, { params: { from, to } })
-                        .then(res => ({ ...res, date: day.toISOString().split('T')[0] }))
-                        .catch(() => ({ Delivered: 0, Opened: 0, Clicked: 0, date: day.toISOString().split('T')[0] }))
+                        .then(res => ({ ...res, date: startOfPeriod.toISOString().split('T')[0] }))
+                        .catch(() => ({ Delivered: 0, Opened: 0, Clicked: 0, date: startOfPeriod.toISOString().split('T')[0] }))
                 );
             }
             
@@ -1094,11 +1188,11 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
         };
         
         fetchDailyData();
-    }, [apiKey, duration]);
+    }, [apiKey, duration, durationOptions]);
 
     const filterControl = (
         <div className="view-controls">
-            <label htmlFor="duration-select">Date Range:</label>
+            <label htmlFor="duration-select">{t('dateRange')}:</label>
             <select id="duration-select" value={duration} onChange={(e) => setDuration(e.target.value)}>
                 {Object.entries(durationOptions).map(([key, { label }]) => (
                     <option key={key} value={key}>{label}</option>
@@ -1130,32 +1224,32 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
             {aggregateLoading ? (
                 <CenteredMessage><Loader /></CenteredMessage>
             ) : (!aggregateStats || Object.keys(aggregateStats).length === 0) ? (
-                <CenteredMessage>No statistics data found for the {durationOptions[duration].label.toLowerCase()}.</CenteredMessage>
+                <CenteredMessage>{t('noStatsForPeriod', { period: durationOptions[duration].label.toLowerCase() })}</CenteredMessage>
             ) : (
                 <div className="card-grid account-grid">
-                    <AccountDataCard title="Total Emails" iconPath={ICONS.MAIL}>
-                        {aggregateStats.EmailTotal?.toLocaleString() ?? '0'}
+                    <AccountDataCard title={t('totalEmails')} iconPath={ICONS.MAIL}>
+                        {aggregateStats.EmailTotal?.toLocaleString(i18n.language) ?? '0'}
                     </AccountDataCard>
-                    <AccountDataCard title="Recipients" iconPath={ICONS.CONTACTS}>
-                        {aggregateStats.Recipients?.toLocaleString() ?? '0'}
+                    <AccountDataCard title={t('recipients')} iconPath={ICONS.CONTACTS}>
+                        {aggregateStats.Recipients?.toLocaleString(i18n.language) ?? '0'}
                     </AccountDataCard>
-                    <AccountDataCard title="Delivered" iconPath={ICONS.VERIFY}>
-                        {aggregateStats.Delivered?.toLocaleString() ?? '0'}
+                    <AccountDataCard title={t('delivered')} iconPath={ICONS.VERIFY}>
+                        {aggregateStats.Delivered?.toLocaleString(i18n.language) ?? '0'}
                     </AccountDataCard>
-                    <AccountDataCard title="Opened" iconPath={ICONS.EYE}>
-                        {aggregateStats.Opened?.toLocaleString() ?? '0'}
+                    <AccountDataCard title={t('opened')} iconPath={ICONS.EYE}>
+                        {aggregateStats.Opened?.toLocaleString(i18n.language) ?? '0'}
                     </AccountDataCard>
-                    <AccountDataCard title="Clicked" iconPath={ICONS.CLICK}>
-                        {aggregateStats.Clicked?.toLocaleString() ?? '0'}
+                    <AccountDataCard title={t('clicked')} iconPath={ICONS.CLICK}>
+                        {aggregateStats.Clicked?.toLocaleString(i18n.language) ?? '0'}
                     </AccountDataCard>
-                    <AccountDataCard title="Unsubscribed" iconPath={ICONS.LOGOUT}>
-                        {aggregateStats.Unsubscribed?.toLocaleString() ?? '0'}
+                    <AccountDataCard title={t('unsubscribed')} iconPath={ICONS.LOGOUT}>
+                        {aggregateStats.Unsubscribed?.toLocaleString(i18n.language) ?? '0'}
                     </AccountDataCard>
-                    <AccountDataCard title="Complaints" iconPath={ICONS.COMPLAINT}>
-                        {aggregateStats.Complaints?.toLocaleString() ?? '0'}
+                    <AccountDataCard title={t('complaints')} iconPath={ICONS.COMPLAINT}>
+                        {aggregateStats.Complaints?.toLocaleString(i18n.language) ?? '0'}
                     </AccountDataCard>
-                     <AccountDataCard title="Bounced" iconPath={ICONS.BOUNCED}>
-                        {aggregateStats.Bounced?.toLocaleString() ?? '0'}
+                     <AccountDataCard title={t('bounced')} iconPath={ICONS.BOUNCED}>
+                        {aggregateStats.Bounced?.toLocaleString(i18n.language) ?? '0'}
                     </AccountDataCard>
                 </div>
             )}
@@ -1163,7 +1257,7 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
             <div className="overall-snapshot-grid" style={{borderTop: '1px solid var(--border-color)', marginTop: '2.5rem', paddingTop: '2.5rem'}}>
                 <div className="card">
                     <div className="channel-selector-header">
-                        <h4>Activity Overview</h4>
+                        <h4>{t('activityOverview')}</h4>
                     </div>
                     <OverallActivityChart stats={overallStats} loading={overallLoading} error={overallError} />
                 </div>
@@ -1176,6 +1270,7 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
 };
 
 const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
+    const { t, i18n } = useTranslation();
     const { updateUser, logout } = useAuth();
     const { data, loading, error } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
     const { data: contactsCountData, loading: contactsCountLoading } = useApi('/contact/count', apiKey, { allContacts: true }, apiKey ? 1 : 0);
@@ -1219,9 +1314,9 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
         try {
             await apiFetch('/account/load', newApiKey);
             await updateUser({ elastic_email_api_key: newApiKey });
-            setStatus({ type: 'success', message: 'API Key updated successfully!' });
+            setStatus({ type: 'success', message: t('apiKeyUpdateSuccess') });
         } catch (err: any) {
-            setStatus({ type: 'error', message: err.message || 'Invalid API Key or connection issue.' });
+            setStatus({ type: 'error', message: err.message || t('apiKeyUpdateError') });
         } finally {
             setIsSaving(false);
         }
@@ -1230,14 +1325,14 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     if (!apiKey) return (
         <CenteredMessage>
             <div className="info-message">
-                <strong>No Mailzila API Key found.</strong>
-                <p>Please add your key in the form above to view your account details.</p>
+                <strong>{t('noApiKeyFound')}</strong>
+                <p>{t('addKeyToViewAccount')}</p>
             </div>
         </CenteredMessage>
     );
     if (loading) return <CenteredMessage><Loader /></CenteredMessage>;
     if (error) return <ErrorMessage error={error} />;
-    if (!data) return <CenteredMessage>No account data found.</CenteredMessage>;
+    if (!data) return <CenteredMessage>{t('noAccountData')}</CenteredMessage>;
 
     const getStatusType = (status: string) => {
         const cleanStatus = String(status || '').toLowerCase().replace(/\s/g, '');
@@ -1249,11 +1344,11 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
     const getReputationInfo = (reputation: number) => {
         const score = Number(reputation || 0);
-        if (score >= 80) return { text: 'Excellent', className: 'good' };
-        if (score >= 60) return { text: 'Good', className: 'good' };
-        if (score >= 40) return { text: 'Average', className: 'medium' };
-        if (score >= 20) return { text: 'Poor', className: 'bad' };
-        return { text: 'Very Poor', className: 'bad' };
+        if (score >= 80) return { text: t('reputationExcellent'), className: 'good' };
+        if (score >= 60) return { text: t('reputationGood'), className: 'good' };
+        if (score >= 40) return { text: t('reputationAverage'), className: 'medium' };
+        if (score >= 20) return { text: t('reputationPoor'), className: 'bad' };
+        return { text: t('reputationVeryPoor'), className: 'bad' };
     };
     
     const accountStatus = data.status || 'Active';
@@ -1270,20 +1365,20 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                         <Icon path={ICONS.ACCOUNT} />
                     </div>
                     <div className="profile-info">
-                        <h3>{fullName || 'User Profile'}</h3>
+                        <h3>{fullName || t('userProfile')}</h3>
                         <p className="profile-email">{data.email}</p>
                         <div className="profile-meta">
                             <div className="meta-item">
-                                <label>Public ID</label>
+                                <label>{t('publicId')}</label>
                                 <span>{data.publicaccountid || 'N/A'}</span>
                             </div>
                             <div className="meta-item">
-                                <label>Joined</label>
-                                <span>{formatDateForDisplay(data.datecreated)}</span>
+                                <label>{t('joined')}</label>
+                                <span>{formatDateForDisplay(data.datecreated, i18n.language)}</span>
                             </div>
                             <div className="meta-item">
-                                <label>Last Activity</label>
-                                <span>{formatDateForDisplay(data.lastactivity)}</span>
+                                <label>{t('lastActivity')}</label>
+                                <span>{formatDateForDisplay(data.lastactivity, i18n.language)}</span>
                             </div>
                         </div>
                     </div>
@@ -1292,44 +1387,50 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             
             <div className="card">
                 <div className="card-header" style={{padding: '1.25rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem'}}>
-                    <h3 style={{margin:0, fontSize: '1.25rem'}}>Settings</h3>
+                    <h3 style={{margin:0, fontSize: '1.25rem'}}>{t('settings')}</h3>
                 </div>
                 <div className="card-body" style={{padding: '0 1.25rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '2.5rem'}}>
                     <div>
-                        <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>Display Mode</h4>
-                        <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>Choose how Mailzila looks to you. Select a theme or sync with your system.</p>
+                        <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>{t('displayMode')}</h4>
+                        <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>{t('displayModeSubtitle')}</p>
                         <ThemeSwitcher />
+                    </div>
+                    
+                    <div>
+                        <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>{t('language')}</h4>
+                        <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>{t('languageSubtitle')}</p>
+                        <LanguageSwitcher />
                     </div>
 
                     {installPrompt && (
                         <div>
-                            <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>Install App</h4>
-                            <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>Install Mailzila on your device for quick access and a native-like experience.</p>
+                            <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>{t('installApp')}</h4>
+                            <p style={{color: 'var(--subtle-text-color)', marginTop: 0, marginBottom: '1rem', fontSize: '0.9rem'}}>{t('installAppSubtitle')}</p>
                             <button className="btn btn-secondary" onClick={handleInstallClick} style={{width: '100%'}}>
-                                <Icon path={ICONS.DOWNLOAD} /> Install Mailzila
+                                <Icon path={ICONS.DOWNLOAD} /> {t('installMegaMail')}
                             </button>
                         </div>
                     )}
                     
                     {!isApiKeyUser && (
                         <div>
-                             <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>API Key</h4>
+                             <h4 style={{fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem'}}>{t('apiKey')}</h4>
                              <form onSubmit={handleSaveKey} style={{padding: 0}}>
                                 <div className="form-group">
-                                    <label htmlFor="api-key-input">Your Mailzila API Key</label>
+                                    <label htmlFor="api-key-input">{t('yourApiKey')}</label>
                                     <input
                                         id="api-key-input"
                                         type="password"
                                         value={newApiKey}
                                         onChange={(e) => setNewApiKey(e.target.value)}
-                                        placeholder="Enter your Mailzila API Key"
+                                        placeholder={t('enterYourApiKey')}
                                         required
                                     />
                                 </div>
                                 {status && <ActionStatus status={status} onDismiss={() => setStatus(null)}/>}
                                 <div className="form-actions" style={{justifyContent: 'flex-end', marginTop: '1rem', padding: 0}}>
                                     <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                                        {isSaving ? <Loader /> : 'Save & Verify Key'}
+                                        {isSaving ? <Loader /> : t('saveAndVerifyKey')}
                                     </button>
                                 </div>
                              </form>
@@ -1341,46 +1442,37 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             {isApiKeyUser && (
                  <div className="info-message" style={{textAlign: 'left'}}>
                     <p>
-                        You are signed in using an API key. Account details are shown below. <br/>
-                        To create and manage a user profile, please <button className="link-button" onClick={logout}>log out</button> and register.
+                        {t('apiKeySignInMessage')} <button className="link-button" onClick={logout}>{t('logOut')}</button> {t('andRegister')}
                     </p>
                 </div>
             )}
 
             <div className="card-grid account-grid">
-                <AccountDataCard title="Account Status" iconPath={ICONS.VERIFY}>
+                <AccountDataCard title={t('accountStatus')} iconPath={ICONS.VERIFY}>
                     <Badge text={accountStatus} type={statusType} />
                 </AccountDataCard>
-                <AccountDataCard title="Reputation" iconPath={ICONS.TRENDING_UP}>
+                <AccountDataCard title={t('reputation')} iconPath={ICONS.TRENDING_UP}>
                     <span className={`reputation-score ${reputation.className}`}>{data.reputation ?? 0}%</span>
                     <span className="reputation-text">{reputation.text}</span>
                 </AccountDataCard>
-                <AccountDataCard title="Daily Send Limit" iconPath={ICONS.SEND_EMAIL}>
-                    {(data.dailysendlimit ?? 0).toLocaleString()}
+                <AccountDataCard title={t('dailySendLimit')} iconPath={ICONS.SEND_EMAIL}>
+                    {(data.dailysendlimit ?? 0).toLocaleString(i18n.language)}
                 </AccountDataCard>
-                 <AccountDataCard title="Remaining Credits" iconPath={ICONS.BUY_CREDITS}>
-                    {(data?.emailcredits === undefined) ? 'N/A' : Number(data.emailcredits).toLocaleString()}
+                 <AccountDataCard title={t('remainingCredits')} iconPath={ICONS.BUY_CREDITS}>
+                    {(data?.emailcredits === undefined) ? 'N/A' : Number(data.emailcredits).toLocaleString(i18n.language)}
                 </AccountDataCard>
-                <AccountDataCard title="Total Contacts" iconPath={ICONS.CONTACTS}>
-                    {contactsCountLoading ? '...' : (contactsCountData?.toLocaleString() ?? '0')}
+                <AccountDataCard title={t('totalContacts')} iconPath={ICONS.CONTACTS}>
+                    {contactsCountLoading ? '...' : (contactsCountData?.toLocaleString(i18n.language) ?? '0')}
                 </AccountDataCard>
             </div>
         </div>
     );
 };
 
-const PURCHASE_WEBHOOK_URL = 'https://panel.megamail.ir/items/credits'; // As requested, URL is here for easy changes.
-
-const creditPackages = [
-    { credits: 10000, price: 500000 }, { credits: 20000, price: 950000 },
-    { credits: 30000, price: 1350000 }, { credits: 40000, price: 1700000 },
-    { credits: 50000, price: 2000000, popular: true }, { credits: 60000, price: 2340000 },
-    { credits: 70000, price: 2660000 }, { credits: 80000, price: 2960000 },
-    { credits: 100000, price: 3500000 }, { credits: 125000, price: 4250000 },
-    { credits: 150000, price: 5000000 }, { credits: 200000, price: 6000000 },
-];
+const PURCHASE_WEBHOOK_URL = 'https://auto.zagrox.com/webhook-test/emailpack'; // As requested, URL is here for easy changes.
 
 const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onClose: () => void, apiKey: string }) => {
+    const { t, i18n } = useTranslation();
     const refetchIndex = isOpen ? 1 : 0;
     const { data: history, loading, error } = useApi('/account/loadsubaccountsemailcreditshistory', apiKey, {}, refetchIndex);
     
@@ -1397,16 +1489,16 @@ const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onCl
 
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Credit Purchase History">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('creditHistoryTitle')}>
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && (
                 isAccessDenied ? (
                     <div className="info-message warning" style={{maxWidth: 'none', alignItems: 'flex-start'}}>
                         <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0, marginTop: '0.2rem'}} />
                         <div>
-                            <strong>Feature Not Available</strong>
+                            <strong>{t('featureNotAvailable')}</strong>
                             <p style={{color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0}}>
-                               Viewing credit history is not available for this account. This might be due to your account's plan or API key permissions.
+                                {t('creditHistoryNotAvailable')}
                             </p>
                         </div>
                     </div>
@@ -1419,26 +1511,26 @@ const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onCl
                     <table className="credit-history-table">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Description</th>
-                                <th style={{ textAlign: 'right' }}>Amount</th>
+                                <th>{t('date')}</th>
+                                <th>{t('description')}</th>
+                                <th style={{ textAlign: i18n.dir() === 'rtl' ? 'left' : 'right' }}>{t('amount')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {historyItems.length > 0 ? (
                                 historyItems.map((item: any, index: number) => (
                                     <tr key={index}>
-                                        <td>{formatDateForDisplay(item.Date || item.historydate)}</td>
+                                        <td>{formatDateForDisplay(item.Date || item.historydate, i18n.language)}</td>
                                         <td>{item.Notes || item.notes}</td>
                                         <td className="credit-history-amount">
-                                            +{item.Amount?.toLocaleString() ?? item.amount?.toLocaleString() ?? '0'}
+                                            +{(item.Amount?.toLocaleString(i18n.language) ?? item.amount?.toLocaleString(i18n.language) ?? '0')}
                                         </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
                                     <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>
-                                        No credit purchase history found.
+                                        {t('noCreditHistory')}
                                     </td>
                                 </tr>
                             )}
@@ -1452,25 +1544,63 @@ const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onCl
 
 
 const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
-    const [isSubmitting, setIsSubmitting] = useState<number | null>(null); // track which package is submitting
+    const { t, i18n } = useTranslation();
+    const [isSubmitting, setIsSubmitting] = useState<number | null>(null);
     const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '' });
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    
+    const [packages, setPackages] = useState<any[]>([]);
+    const [packagesLoading, setPackagesLoading] = useState(true);
+    const [packagesError, setPackagesError] = useState<string | null>(null);
 
     const { data: accountData, loading: creditLoading, error: creditError } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
+    
+    useEffect(() => {
+        const fetchPackages = async () => {
+            setPackagesLoading(true);
+            setPackagesError(null);
+            try {
+                // Using native fetch to call the public endpoint directly without auth headers.
+                const response = await fetch('https://accounting.mailzila.com/items/credits');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch packages: ${response.status} ${response.statusText}`);
+                }
+                const responseData = await response.json();
 
-    const handlePurchase = async (pkg: {credits: number, price: number}) => {
+                if (responseData && Array.isArray(responseData.data)) {
+                    setPackages(responseData.data);
+                } else {
+                    throw new Error('Invalid response structure from credits endpoint.');
+                }
+            } catch (err: any) {
+                // Craft a more user-friendly error message for network issues.
+                if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+                    setPackagesError(`Network error: Could not connect to the API at https://accounting.mailzila.com. Please check the URL and your network connection.`);
+                } else {
+                    setPackagesError(err.message || 'Failed to load credit packages.');
+                }
+                console.error(err);
+            } finally {
+                setPackagesLoading(false);
+            }
+        };
+
+        fetchPackages();
+    }, []);
+
+    const handlePurchase = async (pkg: any) => {
         if (!user || !user.email) {
-            setModalState({ isOpen: true, title: 'Error', message: 'User information is not available. Cannot proceed with purchase.' });
+            setModalState({ isOpen: true, title: t('error'), message: t('userInfoUnavailable') });
             return;
         }
 
-        setIsSubmitting(pkg.credits);
+        setIsSubmitting(pkg.id);
 
         const params = new URLSearchParams({
             userapikey: apiKey,
             useremail: user.email,
-            amount: pkg.credits.toString(),
-            totalprice: pkg.price.toString(),
+            amount: pkg.creditnumber.toString(),
+            totalprice: pkg.creditamount.toString(),
         });
         
         const requestUrl = `${PURCHASE_WEBHOOK_URL}?${params.toString()}`;
@@ -1487,16 +1617,16 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
             setModalState({
                 isOpen: true,
-                title: 'Purchase Initiated',
-                message: `You have selected the ${pkg.credits.toLocaleString()} credit package. You will be redirected to complete your payment.`
+                title: t('purchaseInitiated'),
+                message: t('purchaseInitiatedMessage', { count: pkg.creditnumber.toLocaleString(i18n.language) })
             });
 
         } catch (error: any) {
             console.error('Purchase webhook error:', error);
             setModalState({
                 isOpen: true,
-                title: 'Purchase Failed',
-                message: `There was an error processing your request. Please try again later. (Error: ${error.message})`
+                title: t('purchaseFailed'),
+                message: t('purchaseFailedMessage', { error: error.message })
             });
         } finally {
             setIsSubmitting(null);
@@ -1512,55 +1642,73 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     <Icon path={ICONS.BUY_CREDITS} />
                 </div>
                 <div className="card-details">
-                    <div className="card-title">Your Current Balance</div>
+                    <div className="card-title">{t('yourCurrentBalance')}</div>
                     <div className="card-content">
-                        {creditLoading ? <Loader /> : (creditError || accountData?.emailcredits === undefined) ? 'N/A' : Number(accountData.emailcredits).toLocaleString()}
+                        {creditLoading ? <Loader /> : (creditError || accountData?.emailcredits === undefined) ? 'N/A' : Number(accountData.emailcredits).toLocaleString(i18n.language)}
                     </div>
                 </div>
             </div>
             
             <div className="view-header">
-                <h3>Choose a Package</h3>
+                <h3>{t('choosePackage')}</h3>
                 <button className="btn" onClick={() => setIsHistoryOpen(true)}>
                     <Icon path={ICONS.CALENDAR} />
-                    View History
+                    {t('viewHistory')}
                 </button>
             </div>
             <CreditHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} apiKey={apiKey} />
 
             <Modal isOpen={modalState.isOpen} onClose={closeModal} title={modalState.title}>
                 <p style={{whiteSpace: "pre-wrap"}}>{modalState.message}</p>
-                 {modalState.title === 'Purchase Initiated' && (
+                 {modalState.title === t('purchaseInitiated') && (
                     <small style={{display: 'block', marginTop: '1rem', color: 'var(--subtle-text-color)'}}>
-                        This is a test environment. No real payment will be processed.
+                        {t('testEnvironmentNotice')}
                     </small>
                 )}
             </Modal>
-            <div className="packages-grid">
-                {creditPackages.map((pkg) => (
-                    <div key={pkg.credits} className={`package-card ${pkg.popular ? 'popular' : ''}`}>
-                        {pkg.popular && <div className="popular-badge">Most Popular</div>}
-                        <div className="package-icon-wrapper">
-                             <Icon path={ICONS.PRICE_TAG} />
-                        </div>
-                        <div className="package-info">
-                             <div className="package-credits">{pkg.credits.toLocaleString()}</div>
-                             <p>Email Credits</p>
-                        </div>
-                        <div className="package-price">{pkg.price.toLocaleString()} IRT</div>
-                        <button
-                            className="btn btn-primary"
-                            onClick={() => handlePurchase(pkg)}
-                            disabled={isSubmitting !== null}
-                        >
-                            {isSubmitting === pkg.credits ? <Loader /> : 'Purchase Now'}
-                        </button>
-                    </div>
-                ))}
-            </div>
+            
+            {packagesLoading && <CenteredMessage><Loader/></CenteredMessage>}
+            {packagesError && <ErrorMessage error={{endpoint: '/items/credits', message: packagesError}} />}
+            
+            {!packagesLoading && !packagesError && (
+                 <div className="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>{t('package')}</th>
+                                <th>{t('credits')}</th>
+                                <th>{t('priceIRT')}</th>
+                                <th>{t('pricePerCreditIRT')}</th>
+                                <th style={{ textAlign: i18n.dir() === 'rtl' ? 'left' : 'right' }}>{t('action')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {packages.map((pkg: any) => (
+                                <tr key={pkg.id}>
+                                    <td><strong>{pkg.creditpack}</strong></td>
+                                    <td>{pkg.creditnumber.toLocaleString(i18n.language)}</td>
+                                    <td>{pkg.creditamount.toLocaleString(i18n.language)}</td>
+                                    <td>{pkg.creditrate}</td>
+                                    <td style={{ textAlign: i18n.dir() === 'rtl' ? 'left' : 'right' }}>
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={() => handlePurchase(pkg)}
+                                            disabled={isSubmitting !== null}
+                                            style={{ margin: 0 }}
+                                        >
+                                            {isSubmitting === pkg.id ? <Loader /> : t('order')}
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
             <div className="webhook-info">
                 <p>
-                    <strong>Developer Note:</strong> To change the purchase webhook URL, edit the <code>PURCHASE_WEBHOOK_URL</code> constant at the top of the <code>BuyCreditsView</code> component in <code>index.tsx</code>.
+                    <strong>{t('developerNote')}:</strong> {t('webhookInfoText')} <code>PURCHASE_WEBHOOK_URL</code> {t('inComponent')} <code>BuyCreditsView</code> {t('in')} <code>index.tsx</code>.
                 </p>
             </div>
         </div>
@@ -1568,60 +1716,60 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 };
 
 const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => void, apiKey: string, user: any }) => {
+    const { t, i18n } = useTranslation();
     const apiParams = useMemo(() => ({ from: formatDateForApiV4(getPastDateByDays(365)) }), []);
     const { data: statsData, loading: statsLoading, error: statsError } = useApiV4(`/statistics`, apiKey, apiParams);
     const { data: accountData, loading: accountLoading } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
     const { data: contactsCountData, loading: contactsCountLoading } = useApi('/contact/count', apiKey, { allContacts: true }, apiKey ? 1 : 0);
 
     const navItems = [
-        { name: 'Statistics', icon: ICONS.STATISTICS, desc: 'View detailed sending statistics and analytics.', view: 'Statistics' },
-        { name: 'Contacts', icon: ICONS.CONTACTS, desc: 'Manage all of your individual contacts.', view: 'Contacts' },
-        { name: 'Email Lists', icon: ICONS.EMAIL_LISTS, desc: 'Organize contacts into subscriber lists.', view: 'Email Lists' },
-        { name: 'Segments', icon: ICONS.SEGMENTS, desc: 'Create dynamic segments for targeted sending.', view: 'Segments' },
-        { name: 'Send Email', icon: ICONS.SEND_EMAIL, desc: 'Compose and send a new email campaign.', view: 'Send Email' },
-        { name: 'Campaigns', icon: ICONS.CAMPAIGNS, desc: 'Review your past and ongoing campaigns.', view: 'Campaigns' },
-        { name: 'Domains', icon: ICONS.DOMAINS, desc: 'Manage and verify your sending domains.', view: 'Domains' },
-        { name: 'SMTP', icon: ICONS.SMTP, desc: 'Get your SMTP credentials for integration.', view: 'SMTP' },
-        { name: 'Buy Credits', icon: ICONS.BUY_CREDITS, desc: 'Purchase more email credits for your account.', view: 'Buy Credits' },
+        { name: t('statistics'), icon: ICONS.STATISTICS, desc: t('statisticsDesc'), view: 'Statistics' },
+        { name: t('contacts'), icon: ICONS.CONTACTS, desc: t('contactsDesc'), view: 'Contacts' },
+        { name: t('emailLists'), icon: ICONS.EMAIL_LISTS, desc: t('emailListsDesc'), view: 'Email Lists' },
+        { name: t('segments'), icon: ICONS.SEGMENTS, desc: t('segmentsDesc'), view: 'Segments' },
+        { name: t('sendEmail'), icon: ICONS.SEND_EMAIL, desc: t('sendEmailDesc'), view: 'Send Email' },
+        { name: t('campaigns'), icon: ICONS.CAMPAIGNS, desc: t('campaignsDesc'), view: 'Campaigns' },
+        { name: t('domains'), icon: ICONS.DOMAINS, desc: t('domainsDesc'), view: 'Domains' },
+        { name: t('smtp'), icon: ICONS.SMTP, desc: t('smtpDesc'), view: 'SMTP' },
     ];
     
     if (!user) return <CenteredMessage><Loader /></CenteredMessage>;
     if (statsError) console.warn("Could not load dashboard stats:", statsError);
 
-    const welcomeName = user?.first_name || 'User';
+    const welcomeName = user?.first_name || t('user');
 
     return (
         <div className="dashboard-container">
             <div className="dashboard-header">
                 <div>
-                    <h2>Welcome, {welcomeName}!</h2>
-                    <p>Here's a quick overview of your Mailzila account. Ready to launch your next campaign?</p>
+                    <h2>{t('welcomeMessage', { name: welcomeName })}</h2>
+                    <p>{t('dashboardSubtitle')}</p>
                 </div>
                 <div className="dashboard-actions">
                     <button className="btn btn-credits" onClick={() => setView('Buy Credits')}>
                         <Icon path={ICONS.BUY_CREDITS} />
-                        {accountLoading ? 'Loading Credits...' : `Credits: ${Number(accountData?.emailcredits ?? 0).toLocaleString()}`}
+                        {accountLoading ? t('loadingCredits') : `${t('credits')}: ${Number(accountData?.emailcredits ?? 0).toLocaleString(i18n.language)}`}
                     </button>
-                    <button className="btn btn-primary" onClick={() => setView('Send Email')}><Icon path={ICONS.SEND_EMAIL} /> Send an Email</button>
+                    <button className="btn btn-primary" onClick={() => setView('Send Email')}><Icon path={ICONS.SEND_EMAIL} /> {t('sendAnEmail')}</button>
                 </div>
             </div>
 
             <div className="dashboard-stats-grid">
-                 <AccountDataCard title="Sending Reputation" iconPath={ICONS.TRENDING_UP}>
+                 <AccountDataCard title={t('sendingReputation')} iconPath={ICONS.TRENDING_UP}>
                     {accountLoading ? '...' : (accountData?.reputation ? `${accountData.reputation}%` : 'N/A')}
                 </AccountDataCard>
-                <AccountDataCard title="Emails Sent (365d)" iconPath={ICONS.MAIL}>
-                    {statsLoading ? '...' : (statsData?.EmailTotal?.toLocaleString() ?? '0')}
+                <AccountDataCard title={t('emailsSent365d')} iconPath={ICONS.MAIL}>
+                    {statsLoading ? '...' : (statsData?.EmailTotal?.toLocaleString(i18n.language) ?? '0')}
                 </AccountDataCard>
-                 <AccountDataCard title="Total Contacts" iconPath={ICONS.CONTACTS}>
-                    {contactsCountLoading ? '...' : (contactsCountData?.toLocaleString() ?? '0')}
+                 <AccountDataCard title={t('totalContacts')} iconPath={ICONS.CONTACTS}>
+                    {contactsCountLoading ? '...' : (contactsCountData?.toLocaleString(i18n.language) ?? '0')}
                 </AccountDataCard>
             </div>
 
             <div className="dashboard-section">
                 <div className="dashboard-section-header">
-                    <h3>Explore Your Tools</h3>
-                    <p>Access all of Mailzila's powerful features from one place.</p>
+                    <h3>{t('exploreYourTools')}</h3>
+                    <p>{t('exploreYourToolsSubtitle')}</p>
                 </div>
                 <div className="dashboard-nav-grid">
                     {navItems.map(item => (
@@ -1635,7 +1783,7 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
             </div>
 
             <div className="dashboard-branding-footer">
-                <p>Mailzila app by <strong>ZAGROX</strong></p>
+                <p>Mailzila App by <strong>ZAGROX.com</strong></p>
             </div>
         </div>
     );
@@ -1643,34 +1791,35 @@ const DashboardView = ({ setView, apiKey, user }: { setView: (view: string) => v
 
 // --- START OF IMPLEMENTED VIEWS ---
 
-const ContactDetailModal = ({ isOpen, onClose, contactData, isLoading, error }: { isOpen: boolean; onClose: () => void; contactData: any; isLoading: boolean; error: string | null; }) => {
+const ContactDetailModal = ({ isOpen, onClose, contactData, isLoading, error }: { isOpen: boolean; onClose: () => void; contactData: Contact | null; isLoading: boolean; error: string | null; }) => {
+    const { t, i18n } = useTranslation();
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={isLoading ? "Loading..." : contactData?.Email || "Contact Details"}>
+        <Modal isOpen={isOpen} onClose={onClose} title={isLoading ? t('loading') : contactData?.Email || t('contactDetails')}>
             {isLoading && <CenteredMessage><Loader /></CenteredMessage>}
-            {error && <ErrorMessage error={{ endpoint: 'GET /contacts/{email}', message: error || "An unknown error occurred" }} />}
+            {error && <ErrorMessage error={{ endpoint: 'GET /contacts/{email}', message: error || t('unknownError') }} />}
             {contactData && (
                 <div className="contact-details-grid">
-                    <dt>Email</dt><dd>{contactData.Email}</dd>
-                    <dt>Status</dt><dd><Badge text={contactData.Status} type={contactData.Status === 'Active' ? 'success' : 'default'}/></dd>
-                    <dt>First Name</dt><dd>{contactData.FirstName || '-'}</dd>
-                    <dt>Last Name</dt><dd>{contactData.LastName || '-'}</dd>
-                    <dt>Source</dt><dd>{contactData.Source || '-'}</dd>
-                    <dt>Date Added</dt><dd>{formatDateForDisplay(contactData.DateAdded)}</dd>
-                    <dt>Date Updated</dt><dd>{formatDateForDisplay(contactData.DateUpdated)}</dd>
-                    <dt>Status Changed</dt><dd>{formatDateForDisplay(contactData.StatusChangeDate)}</dd>
+                    <dt>{t('email')}</dt><dd>{contactData.Email}</dd>
+                    <dt>{t('status')}</dt><dd><Badge text={contactData.Status} type={contactData.Status === 'Active' ? 'success' : 'default'}/></dd>
+                    <dt>{t('firstName')}</dt><dd>{contactData.FirstName || '-'}</dd>
+                    <dt>{t('lastName')}</dt><dd>{contactData.LastName || '-'}</dd>
+                    <dt>{t('source')}</dt><dd>{contactData.Source || '-'}</dd>
+                    <dt>{t('dateAdded')}</dt><dd>{formatDateForDisplay(contactData.DateAdded, i18n.language)}</dd>
+                    <dt>{t('dateUpdated')}</dt><dd>{formatDateForDisplay(contactData.DateUpdated, i18n.language)}</dd>
+                    <dt>{t('statusChangeDate')}</dt><dd>{formatDateForDisplay(contactData.StatusChangeDate, i18n.language)}</dd>
                     
-                    <div className="grid-separator"><h4>Activity</h4></div>
+                    <div className="grid-separator"><h4>{t('activity')}</h4></div>
                     
-                    <dt>Total Sent</dt><dd>{contactData.Activity?.TotalSent?.toLocaleString() ?? '0'}</dd>
-                    <dt>Total Opened</dt><dd>{contactData.Activity?.TotalOpened?.toLocaleString() ?? '0'}</dd>
-                    <dt>Total Clicked</dt><dd>{contactData.Activity?.TotalClicked?.toLocaleString() ?? '0'}</dd>
-                    <dt>Total Failed</dt><dd>{contactData.Activity?.TotalFailed?.toLocaleString() ?? '0'}</dd>
-                    <dt>Last Sent</dt><dd>{formatDateForDisplay(contactData.Activity?.LastSent)}</dd>
-                    <dt>Last Opened</dt><dd>{formatDateForDisplay(contactData.Activity?.LastOpened)}</dd>
-                    <dt>Last Clicked</dt><dd>{formatDateForDisplay(contactData.Activity?.LastClicked)}</dd>
-                    <dt>Last Failed</dt><dd>{formatDateForDisplay(contactData.Activity?.LastFailed)}</dd>
+                    <dt>{t('totalSent')}</dt><dd>{contactData.Activity?.TotalSent?.toLocaleString(i18n.language) ?? '0'}</dd>
+                    <dt>{t('totalOpened')}</dt><dd>{contactData.Activity?.TotalOpened?.toLocaleString(i18n.language) ?? '0'}</dd>
+                    <dt>{t('totalClicked')}</dt><dd>{contactData.Activity?.TotalClicked?.toLocaleString(i18n.language) ?? '0'}</dd>
+                    <dt>{t('totalFailed')}</dt><dd>{contactData.Activity?.TotalFailed?.toLocaleString(i18n.language) ?? '0'}</dd>
+                    <dt>{t('lastSent')}</dt><dd>{formatDateForDisplay(contactData.Activity?.LastSent, i18n.language)}</dd>
+                    <dt>{t('lastOpened')}</dt><dd>{formatDateForDisplay(contactData.Activity?.LastOpened, i18n.language)}</dd>
+                    <dt>{t('lastClicked')}</dt><dd>{formatDateForDisplay(contactData.Activity?.LastClicked, i18n.language)}</dd>
+                    <dt>{t('lastFailed')}</dt><dd>{formatDateForDisplay(contactData.Activity?.LastFailed, i18n.language)}</dd>
 
-                    <div className="grid-separator"><h4>Custom Fields</h4></div>
+                    <div className="grid-separator"><h4>{t('customFields')}</h4></div>
                     
                     {contactData.CustomFields && Object.keys(contactData.CustomFields).length > 0 ? (
                          Object.entries(contactData.CustomFields).map(([key, value]) => (
@@ -1680,7 +1829,7 @@ const ContactDetailModal = ({ isOpen, onClose, contactData, isLoading, error }: 
                              </React.Fragment>
                          ))
                     ) : (
-                        <dd className="full-width-dd">No custom fields found.</dd>
+                        <dd className="full-width-dd">{t('noCustomFields')}</dd>
                     )}
                 </div>
             )}
@@ -1689,6 +1838,7 @@ const ContactDetailModal = ({ isOpen, onClose, contactData, isLoading, error }: 
 };
 
 const ImportContactsModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { isOpen: boolean; onClose: () => void; apiKey: string; onSuccess: () => void; onError: (msg: string) => void; }) => {
+    const { t } = useTranslation();
     const [file, setFile] = useState<File | null>(null);
     const [listName, setListName] = useState('');
     const [isUploading, setIsUploading] = useState(false);
@@ -1700,7 +1850,7 @@ const ImportContactsModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { 
             if (files[0].type === 'text/csv' || files[0].name.endsWith('.csv')) {
                 setFile(files[0]);
             } else {
-                onError('Invalid file type. Please select a CSV file.');
+                onError(t('invalidFileType'));
             }
         }
     };
@@ -1748,10 +1898,10 @@ const ImportContactsModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { 
     }, [isOpen]);
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Import Contacts from CSV">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('importContactsTitle')}>
             <form onSubmit={handleSubmit} className="modal-form">
                 <div className="form-group">
-                    <label>Upload CSV File</label>
+                    <label>{t('uploadCsvFile')}</label>
                     <div
                         className={`file-dropzone ${dragOver ? 'drag-over' : ''}`}
                         onClick={() => document.getElementById('csv-input')?.click()}
@@ -1766,23 +1916,23 @@ const ImportContactsModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { 
                             style={{ display: 'none' }}
                         />
                          {file ? (
-                            <p className="file-name">Selected: {file.name}</p>
+                            <p className="file-name">{t('selectedFile', { fileName: file.name })}</p>
                         ) : (
-                            <p><strong>Click to browse</strong> or drag & drop your file here.</p>
+                            <p><strong>{t('clickToBrowse')}</strong> {t('orDragAndDrop')}</p>
                         )}
                     </div>
                 </div>
 
                 <div className="form-group">
-                     <label htmlFor="listName">Add to list (optional)</label>
+                     <label htmlFor="listName">{t('addToListOptional')}</label>
                      <select id="listName" value={listName} onChange={e => setListName(e.target.value)} disabled={listsLoading}>
-                         <option value="">Don't add to a list</option>
-                         {lists?.map((l: any) => <option key={l.ListName} value={l.ListName}>{l.ListName}</option>)}
+                         <option value="">{t('dontAddToList')}</option>
+                         {lists?.map((l: List) => <option key={l.ListName} value={l.ListName}>{l.ListName}</option>)}
                      </select>
                 </div>
                 <div className="form-actions" style={{marginTop: '1rem'}}>
                      <button type="submit" className="btn btn-primary full-width" disabled={!file || isUploading}>
-                        {isUploading ? <Loader /> : 'Start Import'}
+                        {isUploading ? <Loader /> : t('startImport')}
                     </button>
                 </div>
             </form>
@@ -1790,32 +1940,36 @@ const ImportContactsModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { 
     );
 }
 
-const ContactCard = ({ contact, onView, onDelete }: { contact: any; onView: (email: string) => void; onDelete: (email: string) => void; }) => (
-    <div className="card contact-card">
-        <div className="contact-card-main">
-            <div className="contact-card-info">
-                <h4 className="contact-card-name">{contact.FirstName || contact.LastName ? `${contact.FirstName || ''} ${contact.LastName || ''}`.trim() : contact.Email}</h4>
-                <p className="contact-card-email">{contact.Email}</p>
+const ContactCard = React.memo(({ contact, onView, onDelete }: { contact: Contact; onView: (email: string) => void; onDelete: (email: string) => void; }) => {
+    const { t, i18n } = useTranslation();
+    return (
+        <div className="card contact-card">
+            <div className="contact-card-main">
+                <div className="contact-card-info">
+                    <h4 className="contact-card-name">{contact.FirstName || contact.LastName ? `${contact.FirstName || ''} ${contact.LastName || ''}`.trim() : contact.Email}</h4>
+                    <p className="contact-card-email">{contact.Email}</p>
+                </div>
+                <div className="contact-card-status">
+                    <Badge text={contact.Status} type={contact.Status === 'Active' ? 'success' : 'default'} />
+                </div>
             </div>
-            <div className="contact-card-status">
-                <Badge text={contact.Status} type={contact.Status === 'Active' ? 'success' : 'default'} />
+            <div className="contact-card-footer">
+                <small>{t('added')}: {formatDateForDisplay(contact.DateAdded, i18n.language)}</small>
+                <div className="action-buttons">
+                    <button className="btn-icon" onClick={() => onView(contact.Email)} aria-label={t('viewContactDetails')}>
+                        <Icon path={ICONS.EYE} />
+                    </button>
+                    <button className="btn-icon btn-icon-danger" onClick={() => onDelete(contact.Email)} aria-label={t('deleteContact')}>
+                        <Icon path={ICONS.DELETE} />
+                    </button>
+                </div>
             </div>
         </div>
-        <div className="contact-card-footer">
-            <small>Added: {formatDateForDisplay(contact.DateAdded)}</small>
-            <div className="action-buttons">
-                <button className="btn-icon" onClick={() => onView(contact.Email)} aria-label="View contact details">
-                    <Icon path={ICONS.EYE} />
-                </button>
-                <button className="btn-icon btn-icon-danger" onClick={() => onDelete(contact.Email)} aria-label="Delete contact">
-                    <Icon path={ICONS.DELETE} />
-                </button>
-            </div>
-        </div>
-    </div>
-);
+    );
+});
 
 const ContactsView = ({ apiKey }: { apiKey: string }) => {
+    const { t } = useTranslation();
     const [refetchIndex, setRefetchIndex] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
     const [offset, setOffset] = useState(0);
@@ -1823,7 +1977,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [selectedContactDetails, setSelectedContactDetails] = useState<any>(null);
+    const [selectedContactDetails, setSelectedContactDetails] = useState<Contact | null>(null);
     const [isDetailLoading, setIsDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
 
@@ -1835,26 +1989,26 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
     const handleAddContact = async (contactData: {Email: string, FirstName: string, LastName: string}) => {
         try {
             await apiFetchV4('/contacts', apiKey, { method: 'POST', body: [contactData] });
-            setActionStatus({ type: 'success', message: `Contact ${contactData.Email} added successfully!` });
+            setActionStatus({ type: 'success', message: t('contactAddedSuccess', { email: contactData.Email }) });
             setIsAddModalOpen(false);
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to add contact: ${err.message}` });
+            setActionStatus({ type: 'error', message: t('contactAddedError', { error: err.message }) });
         }
     };
     
-    const handleDeleteContact = async (email: string) => {
-        if (!window.confirm(`Are you sure you want to delete ${email}?`)) return;
+    const handleDeleteContact = useCallback(async (email: string) => {
+        if (!window.confirm(t('confirmDeleteContact', { email }))) return;
         try {
             await apiFetchV4(`/contacts/${encodeURIComponent(email)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: `Contact ${email} deleted successfully!` });
+            setActionStatus({ type: 'success', message: t('contactDeletedSuccess', { email }) });
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to delete contact: ${err.message}` });
+            setActionStatus({ type: 'error', message: t('contactDeletedError', { error: err.message }) });
         }
-    };
+    }, [apiKey, t]);
 
-    const handleViewContact = async (email: string) => {
+    const handleViewContact = useCallback(async (email: string) => {
         setIsDetailModalOpen(true);
         setIsDetailLoading(true);
         setDetailError(null);
@@ -1863,11 +2017,11 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
             const details = await apiFetchV4(`/contacts/${encodeURIComponent(email)}`, apiKey);
             setSelectedContactDetails(details);
         } catch (err: any) {
-            setDetailError(err.message || 'Failed to fetch contact details.');
+            setDetailError(err.message || t('contactDetailsError'));
         } finally {
             setIsDetailLoading(false);
         }
-    };
+    }, [apiKey, t]);
 
     return (
         <div>
@@ -1876,7 +2030,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                 <div className="search-bar">
                     <input
                         type="search"
-                        placeholder="Search contacts by email, name..."
+                        placeholder={t('searchContactsPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => {
                             setSearchQuery(e.target.value);
@@ -1886,10 +2040,10 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                 </div>
                 <div className="header-actions">
                     <button className="btn" onClick={() => setIsImportModalOpen(true)}>
-                        <Icon path={ICONS.UPLOAD} /> Import Contacts
+                        <Icon path={ICONS.UPLOAD} /> {t('importContacts')}
                     </button>
                     <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-                        <Icon path={ICONS.USER_PLUS} /> Add Contact
+                        <Icon path={ICONS.USER_PLUS} /> {t('addContact')}
                     </button>
                 </div>
             </div>
@@ -1900,15 +2054,15 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                 apiKey={apiKey}
                 onSuccess={() => {
                     setIsImportModalOpen(false);
-                    setActionStatus({ type: 'success', message: 'Contacts are being imported. This may take a few moments to reflect.' });
+                    setActionStatus({ type: 'success', message: t('importSuccessMessage') });
                     setTimeout(refetch, 2000); // Refetch after a small delay
                 }}
                 onError={(message) => {
-                    setActionStatus({ type: 'error', message: `Import failed: ${message}` });
+                    setActionStatus({ type: 'error', message: t('importFailedError', { error: message }) });
                 }}
             />
 
-            <Modal title="Add New Contact" isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)}>
+            <Modal title={t('addNewContact')} isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)}>
                 <AddContactForm onSubmit={handleAddContact} />
             </Modal>
 
@@ -1927,7 +2081,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                 <>
                     {contacts?.length > 0 ? (
                         <div className="contacts-grid">
-                            {contacts.map((contact: any) => (
+                            {contacts.map((contact: Contact) => (
                                 <ContactCard 
                                     key={contact.Email} 
                                     contact={contact} 
@@ -1938,18 +2092,18 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                         </div>
                     ) : (
                         <CenteredMessage>
-                           {searchQuery ? `No contacts found for "${searchQuery}".` : "No contacts found."}
+                           {searchQuery ? t('noContactsForQuery', { query: searchQuery }) : t('noContactsFound')}
                         </CenteredMessage>
                     )}
 
                     {contacts && contacts.length > 0 && (
                         <div className="pagination-controls">
                             <button onClick={() => setOffset(o => Math.max(0, o - CONTACTS_PER_PAGE))} disabled={offset === 0 || loading}>
-                                Previous
+                                {t('previous')}
                             </button>
-                            <span>Page {offset / CONTACTS_PER_PAGE + 1}</span>
+                            <span>{t('page', { page: offset / CONTACTS_PER_PAGE + 1 })}</span>
                             <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={contacts.length < CONTACTS_PER_PAGE || loading}>
-                                Next
+                                {t('next')}
                             </button>
                         </div>
                     )}
@@ -1960,6 +2114,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
 };
 
 const AddContactForm = ({ onSubmit }: { onSubmit: (data: {Email: string, FirstName: string, LastName: string}) => void }) => {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -1972,53 +2127,54 @@ const AddContactForm = ({ onSubmit }: { onSubmit: (data: {Email: string, FirstNa
     return (
         <form onSubmit={handleSubmit} className="modal-form">
             <div className="form-group">
-                <label htmlFor="email">Email Address</label>
+                <label htmlFor="email">{t('emailAddress')}</label>
                 <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
             <div className="form-grid">
                  <div className="form-group">
-                    <label htmlFor="firstName">First Name</label>
+                    <label htmlFor="firstName">{t('firstName')}</label>
                     <input id="firstName" type="text" value={firstName} onChange={e => setFirstName(e.target.value)} />
                 </div>
                  <div className="form-group">
-                    <label htmlFor="lastName">Last Name</label>
+                    <label htmlFor="lastName">{t('lastName')}</label>
                     <input id="lastName" type="text" value={lastName} onChange={e => setLastName(e.target.value)} />
                 </div>
             </div>
-            <button type="submit" className="btn btn-primary full-width">Add Contact</button>
+            <button type="submit" className="btn btn-primary full-width">{t('addContact')}</button>
         </form>
     );
 };
 
-const RenameListModal = ({ isOpen, onClose, listName, onSubmit }: { isOpen: boolean, onClose: () => void, listName: string, onSubmit: (newName: string) => Promise<void> }) => {
+const RenameModal = ({ isOpen, onClose, entityName, entityType, onSubmit }: { isOpen: boolean, onClose: () => void, entityName: string, entityType: string, onSubmit: (newName: string) => Promise<void> }) => {
+    const { t } = useTranslation();
     const [newName, setNewName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
-            setNewName(listName);
+            setNewName(entityName);
         }
-    }, [isOpen, listName]);
+    }, [isOpen, entityName]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newName || newName === listName) return;
+        if (!newName || newName === entityName) return;
         setIsSubmitting(true);
         await onSubmit(newName);
         setIsSubmitting(false);
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Rename List "${listName}"`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={t('renameEntityType', { type: entityType, name: entityName })}>
             <form onSubmit={handleSubmit} className="modal-form">
                 <div className="form-group">
-                    <label htmlFor="new-list-name">New List Name</label>
-                    <input id="new-list-name" type="text" value={newName} onChange={e => setNewName(e.target.value)} required disabled={isSubmitting} />
+                    <label htmlFor="new-entity-name">{t('newEntityName', { type: entityType })}</label>
+                    <input id="new-entity-name" type="text" value={newName} onChange={e => setNewName(e.target.value)} required disabled={isSubmitting} />
                 </div>
                 <div className="form-actions" style={{ marginTop: '1rem' }}>
-                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" disabled={isSubmitting || !newName || newName === listName}>
-                        {isSubmitting ? <Loader /> : 'Save Changes'}
+                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>{t('cancel')}</button>
+                    <button type="submit" className="btn btn-primary" disabled={isSubmitting || !newName || newName === entityName}>
+                        {isSubmitting ? <Loader /> : t('saveChanges')}
                     </button>
                 </div>
             </form>
@@ -2027,6 +2183,7 @@ const RenameListModal = ({ isOpen, onClose, listName, onSubmit }: { isOpen: bool
 };
 
 const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: boolean, onClose: () => void, listName: string, apiKey: string }) => {
+    const { t } = useTranslation();
     const [offset, setOffset] = useState(0);
     const [refetchIndex, setRefetchIndex] = useState(0);
     const CONTACTS_PER_PAGE = 15;
@@ -2046,7 +2203,7 @@ const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: bool
     );
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Contacts in "${listName}"`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={t('contactsInList', { listName })}>
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
             {!loading && !error && (
@@ -2055,14 +2212,14 @@ const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: bool
                         <table className="simple-table">
                             <thead>
                                 <tr>
-                                    <th>Email</th>
-                                    <th>Name</th>
-                                    <th>Status</th>
+                                    <th>{t('email')}</th>
+                                    <th>{t('name')}</th>
+                                    <th>{t('status')}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {contacts && contacts.length > 0 ? (
-                                    contacts.map((c: any) => (
+                                    contacts.map((c: Contact) => (
                                         <tr key={c.Email}>
                                             <td>{c.Email}</td>
                                             <td>{`${c.FirstName || ''} ${c.LastName || ''}`.trim() || '-'}</td>
@@ -2071,7 +2228,7 @@ const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: bool
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>This list has no contacts.</td>
+                                        <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>{t('listHasNoContacts')}</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -2080,11 +2237,11 @@ const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: bool
                     {contacts && (contacts.length > 0 || offset > 0) && (
                          <div className="pagination-controls" style={{borderTop: 'none', marginTop: '1rem'}}>
                             <button onClick={() => setOffset(o => Math.max(0, o - CONTACTS_PER_PAGE))} disabled={offset === 0 || loading}>
-                                Previous
+                                {t('previous')}
                             </button>
-                            <span>Page {offset / CONTACTS_PER_PAGE + 1}</span>
+                            <span>{t('page', { page: offset / CONTACTS_PER_PAGE + 1 })}</span>
                             <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={contacts.length < CONTACTS_PER_PAGE || loading}>
-                                Next
+                                {t('next')}
                             </button>
                         </div>
                     )}
@@ -2096,14 +2253,15 @@ const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: bool
 
 
 const EmailListView = ({ apiKey }: { apiKey: string }) => {
+    const { t, i18n } = useTranslation();
     const [refetchIndex, setRefetchIndex] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [newListName, setNewListName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const [listToRename, setListToRename] = useState<any>(null);
-    const [listToView, setListToView] = useState<any>(null);
+    const [listToRename, setListToRename] = useState<List | null>(null);
+    const [listToView, setListToView] = useState<List | null>(null);
 
     const { data: lists, loading, error } = useApiV4('/lists', apiKey, {}, refetchIndex);
     const refetch = () => setRefetchIndex(i => i + 1);
@@ -2114,24 +2272,24 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
         setIsSubmitting(true);
         try {
             await apiFetchV4('/lists', apiKey, { method: 'POST', body: { ListName: newListName } });
-            setActionStatus({ type: 'success', message: `List "${newListName}" created.` });
+            setActionStatus({ type: 'success', message: t('listCreatedSuccess', { listName: newListName }) });
             setNewListName('');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to create list: ${err.message}` });
+            setActionStatus({ type: 'error', message: t('listCreatedError', { error: err.message }) });
         } finally {
             setIsSubmitting(false);
         }
     };
     
     const handleDeleteList = async (listName: string) => {
-        if (!window.confirm(`Are you sure you want to delete the list "${listName}"? This cannot be undone.`)) return;
+        if (!window.confirm(t('confirmDeleteList', { listName }))) return;
         try {
             await apiFetchV4(`/lists/${encodeURIComponent(listName)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: `List "${listName}" deleted.` });
+            setActionStatus({ type: 'success', message: t('listDeletedSuccess', { listName }) });
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to delete list: ${err.message}` });
+            setActionStatus({ type: 'error', message: t('listDeletedError', { error: err.message }) });
         }
     };
 
@@ -2142,15 +2300,15 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                 method: 'PUT',
                 body: { ListName: newName }
             });
-            setActionStatus({ type: 'success', message: `List renamed to "${newName}".` });
+            setActionStatus({ type: 'success', message: t('listRenamedSuccess', { newName }) });
             setListToRename(null);
             setTimeout(() => refetch(), 1000); // Wait for API to propagate change
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to rename list: ${err.message}` });
+            setActionStatus({ type: 'error', message: t('listRenamedError', { error: err.message }) });
         }
     };
 
-    const filteredLists = lists?.filter((list: any) => 
+    const filteredLists: List[] = lists?.filter((list: List) => 
         list.ListName.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
 
@@ -2159,10 +2317,11 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
             <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
 
             {listToRename && (
-                <RenameListModal 
+                <RenameModal 
                     isOpen={!!listToRename}
                     onClose={() => setListToRename(null)}
-                    listName={listToRename.ListName}
+                    entityName={listToRename.ListName}
+                    entityType={t('list')}
                     onSubmit={handleRenameList}
                 />
             )}
@@ -2182,7 +2341,7 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                     <Icon path={ICONS.SEARCH} />
                     <input
                         type="search"
-                        placeholder="Search lists..."
+                        placeholder={t('searchListsPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -2190,13 +2349,13 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                 <form className="create-list-form" onSubmit={handleCreateList}>
                     <input
                         type="text"
-                        placeholder="New list name..."
+                        placeholder={t('newListNamePlaceholder')}
                         value={newListName}
                         onChange={e => setNewListName(e.target.value)}
                         disabled={isSubmitting}
                     />
                     <button type="submit" className="btn btn-primary" disabled={!newListName || isSubmitting}>
-                        {isSubmitting ? <Loader /> : <><Icon path={ICONS.PLUS}/> Create List</>}
+                        {isSubmitting ? <Loader /> : <><Icon path={ICONS.PLUS}/> {t('createList')}</>}
                     </button>
                 </form>
             </div>
@@ -2204,27 +2363,27 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
             {error && <ErrorMessage error={error} />}
             {!loading && filteredLists.length === 0 && (
                  <CenteredMessage>
-                    {searchQuery ? `No lists found for "${searchQuery}".` : "No email lists found. Create one above to get started."}
+                    {searchQuery ? t('noListsForQuery', { query: searchQuery }) : t('noListsFound')}
                 </CenteredMessage>
             )}
             <div className="card-grid list-grid">
-                {filteredLists.map((list: any) => (
+                {filteredLists.map((list: List) => (
                     <div key={list.ListName} className="card list-card">
                         <div className="list-card-header">
                             <h3>{list.ListName}</h3>
                         </div>
                         <div className="list-card-body">
-                             <p>Date Added: {formatDateForDisplay(list.DateAdded)}</p>
+                             <p>{t('dateAdded')}: {formatDateForDisplay(list.DateAdded, i18n.language)}</p>
                         </div>
                         <div className="list-card-footer">
                            <div className="action-buttons">
-                                <button className="btn-icon" onClick={() => setListToRename(list)} aria-label="Rename list">
+                                <button className="btn-icon" onClick={() => setListToRename(list)} aria-label={t('renameList')}>
                                     <Icon path={ICONS.PENCIL} />
                                 </button>
-                                <button className="btn-icon" onClick={() => setListToView(list)} aria-label="View contacts in list">
+                                <button className="btn-icon" onClick={() => setListToView(list)} aria-label={t('viewContactsInList')}>
                                     <Icon path={ICONS.CONTACTS} />
                                 </button>
-                                <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteList(list.ListName)} aria-label="Delete list">
+                                <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteList(list.ListName)} aria-label={t('deleteList')}>
                                     <Icon path={ICONS.DELETE} />
                                 </button>
                             </div>
@@ -2236,43 +2395,8 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
     );
 };
 
-const RenameSegmentModal = ({ isOpen, onClose, segmentName, onSubmit }: { isOpen: boolean, onClose: () => void, segmentName: string, onSubmit: (newName: string) => Promise<void> }) => {
-    const [newName, setNewName] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    useEffect(() => {
-        if (isOpen) {
-            setNewName(segmentName);
-        }
-    }, [isOpen, segmentName]);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newName || newName === segmentName) return;
-        setIsSubmitting(true);
-        await onSubmit(newName);
-        setIsSubmitting(false);
-    };
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Rename Segment "${segmentName}"`}>
-            <form onSubmit={handleSubmit} className="modal-form">
-                <div className="form-group">
-                    <label htmlFor="new-segment-name">New Segment Name</label>
-                    <input id="new-segment-name" type="text" value={newName} onChange={e => setNewName(e.target.value)} required disabled={isSubmitting} />
-                </div>
-                <div className="form-actions" style={{ marginTop: '1rem' }}>
-                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" disabled={isSubmitting || !newName || newName === segmentName}>
-                        {isSubmitting ? <Loader /> : 'Save Changes'}
-                    </button>
-                </div>
-            </form>
-        </Modal>
-    );
-};
-
 const SegmentContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: boolean, onClose: () => void, listName: string, apiKey: string }) => {
+    const { t } = useTranslation();
     const [offset, setOffset] = useState(0);
     const [refetchIndex, setRefetchIndex] = useState(0);
     const CONTACTS_PER_PAGE = 15;
@@ -2292,7 +2416,7 @@ const SegmentContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: b
     );
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Contacts in "${listName}"`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={t('contactsInSegment', { segmentName: listName })}>
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
             {!loading && !error && (
@@ -2301,14 +2425,14 @@ const SegmentContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: b
                         <table className="simple-table">
                             <thead>
                                 <tr>
-                                    <th>Email</th>
-                                    <th>Name</th>
-                                    <th>Status</th>
+                                    <th>{t('email')}</th>
+                                    <th>{t('name')}</th>
+                                    <th>{t('status')}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {contacts && contacts.length > 0 ? (
-                                    contacts.map((c: any) => (
+                                    contacts.map((c: Contact) => (
                                         <tr key={c.Email}>
                                             <td>{c.Email}</td>
                                             <td>{`${c.FirstName || ''} ${c.LastName || ''}`.trim() || '-'}</td>
@@ -2317,7 +2441,7 @@ const SegmentContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: b
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>This segment has no contacts.</td>
+                                        <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>{t('segmentHasNoContacts')}</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -2326,11 +2450,11 @@ const SegmentContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: b
                     {contacts && (contacts.length > 0 || offset > 0) && (
                          <div className="pagination-controls" style={{borderTop: 'none', marginTop: '1rem'}}>
                             <button onClick={() => setOffset(o => Math.max(0, o - CONTACTS_PER_PAGE))} disabled={offset === 0 || loading}>
-                                Previous
+                                {t('previous')}
                             </button>
-                            <span>Page {offset / CONTACTS_PER_PAGE + 1}</span>
+                            <span>{t('page', { page: offset / CONTACTS_PER_PAGE + 1 })}</span>
                             <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={contacts.length < CONTACTS_PER_PAGE || loading}>
-                                Next
+                                {t('next')}
                             </button>
                         </div>
                     )}
@@ -2341,13 +2465,14 @@ const SegmentContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: b
 };
 
 const SegmentsView = ({ apiKey }: { apiKey: string }) => {
+    const { t } = useTranslation();
     const [refetchIndex, setRefetchIndex] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     
-    const [segmentToRename, setSegmentToRename] = useState<any>(null);
-    const [segmentToView, setSegmentToView] = useState<any>(null);
+    const [segmentToRename, setSegmentToRename] = useState<Segment | null>(null);
+    const [segmentToView, setSegmentToView] = useState<Segment | null>(null);
 
     const { data: segments, loading, error } = useApiV4('/segments', apiKey, {}, refetchIndex);
     const refetch = () => setRefetchIndex(i => i + 1);
@@ -2355,7 +2480,7 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
     const handleCreateSegment = async (segmentData: {Name: string, Rule: string}) => {
         try {
             await apiFetchV4('/segments', apiKey, { method: 'POST', body: segmentData });
-            setActionStatus({ type: 'success', message: `Segment "${segmentData.Name}" created.` });
+            setActionStatus({ type: 'success', message: t('segmentCreatedSuccess', { name: segmentData.Name }) });
             setIsCreateModalOpen(false);
             refetch();
         } catch (err: any) {
@@ -2365,13 +2490,13 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
     };
     
     const handleDeleteSegment = async (segmentName: string) => {
-        if (!window.confirm(`Are you sure you want to delete the segment "${segmentName}"?`)) return;
+        if (!window.confirm(t('confirmDeleteSegment', { segmentName }))) return;
         try {
             await apiFetchV4(`/segments/${encodeURIComponent(segmentName)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: `Segment "${segmentName}" deleted.` });
+            setActionStatus({ type: 'success', message: t('segmentDeletedSuccess', { segmentName }) });
             setTimeout(() => refetch(), 1000);
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to delete segment: ${err.message}` });
+            setActionStatus({ type: 'error', message: t('segmentDeletedError', { error: err.message }) });
         }
     };
     
@@ -2382,15 +2507,15 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
                 method: 'PUT',
                 body: { Name: newName }
             });
-            setActionStatus({ type: 'success', message: `Segment renamed to "${newName}".` });
+            setActionStatus({ type: 'success', message: t('segmentRenamedSuccess', { newName }) });
             setSegmentToRename(null);
             setTimeout(() => refetch(), 1000);
         } catch (err: any) {
-             setActionStatus({ type: 'error', message: `Failed to rename segment: ${err.message}` });
+             setActionStatus({ type: 'error', message: t('segmentRenamedError', { error: err.message }) });
         }
     };
 
-    const filteredSegments = segments?.filter((segment: any) =>
+    const filteredSegments: Segment[] = segments?.filter((segment: Segment) =>
         segment.Name.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
 
@@ -2402,25 +2527,26 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
                     <Icon path={ICONS.SEARCH} />
                     <input
                         type="search"
-                        placeholder="Search segments..."
+                        placeholder={t('searchSegmentsPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
                 <button className="btn btn-primary" onClick={() => setIsCreateModalOpen(true)}>
-                    <Icon path={ICONS.PLUS} /> Create Segment
+                    <Icon path={ICONS.PLUS} /> {t('createSegment')}
                 </button>
             </div>
             
-            <Modal title="Create New Segment" isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
+            <Modal title={t('createNewSegment')} isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
                 <CreateSegmentRuleBuilder onSubmit={handleCreateSegment} />
             </Modal>
             
             {segmentToRename && (
-                <RenameSegmentModal 
+                <RenameModal 
                     isOpen={!!segmentToRename}
                     onClose={() => setSegmentToRename(null)}
-                    segmentName={segmentToRename.Name}
+                    entityName={segmentToRename.Name}
+                    entityType={t('segment')}
                     onSubmit={handleRenameSegment}
                 />
             )}
@@ -2438,32 +2564,32 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
             {error && <ErrorMessage error={error} />}
             {!loading && filteredSegments.length === 0 && (
                  <CenteredMessage>
-                    {searchQuery ? `No segments found for "${searchQuery}".` : "No segments found. Create one to get started."}
+                    {searchQuery ? t('noSegmentsForQuery', { query: searchQuery }) : t('noSegmentsFound')}
                 </CenteredMessage>
             )}
             <div className="card-grid">
-                {filteredSegments.map((segment: any) => (
+                {filteredSegments.map((segment: Segment) => (
                     <div key={segment.Name} className="card segment-card">
                         <div className="segment-card-header">
                             <h3>{segment.Name}</h3>
                              <div className="action-buttons">
-                                <button className="btn-icon" onClick={() => setSegmentToRename(segment)} aria-label="Rename segment">
+                                <button className="btn-icon" onClick={() => setSegmentToRename(segment)} aria-label={t('renameSegment')}>
                                     <Icon path={ICONS.PENCIL} />
                                 </button>
-                                <button className="btn-icon" onClick={() => setSegmentToView(segment)} aria-label="View contacts in segment">
+                                <button className="btn-icon" onClick={() => setSegmentToView(segment)} aria-label={t('viewContactsInSegment')}>
                                     <Icon path={ICONS.EYE} />
                                 </button>
-                                <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteSegment(segment.Name)} aria-label="Delete segment">
+                                <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteSegment(segment.Name)} aria-label={t('deleteSegment')}>
                                     <Icon path={ICONS.DELETE} />
                                 </button>
                             </div>
                         </div>
                         <div className="segment-card-body">
-                             <label>Rule</label>
+                             <label>{t('rule')}</label>
                              <div className="segment-rule">{segment.Rule}</div>
                         </div>
                         <div className="segment-card-footer">
-                           <span>Contacts</span>
+                           <span>{t('contacts')}</span>
                            <strong>{segment.ContactsCount?.toLocaleString() ?? 'N/A'}</strong>
                         </div>
                     </div>
@@ -2513,6 +2639,7 @@ const OPERATORS_CONFIG: Record<'text' | 'number' | 'date', OperatorDef[]> = {
 const ALL_FIELDS = Object.values(SEGMENT_FIELDS_CONFIG).flat();
 
 const CreateSegmentRuleBuilder = ({ onSubmit }: { onSubmit: (data: { Name: string, Rule: string }) => Promise<any> }) => {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [conjunction, setConjunction] = useState('AND');
     const [rules, setRules] = useState<Rule[]>([{ id: Date.now(), field: 'Firstname', op: 'Is', value: '' }]);
@@ -2562,14 +2689,14 @@ const CreateSegmentRuleBuilder = ({ onSubmit }: { onSubmit: (data: { Name: strin
         setError('');
         const ruleString = buildQuery();
         if (!name || !ruleString) {
-            setError('Please provide a name and at least one valid rule.');
+            setError(t('segmentRuleValidationError'));
             return;
         }
         setIsSubmitting(true);
         try {
             await onSubmit({ Name: name, Rule: ruleString });
         } catch(err: any) {
-            setError(err.message || 'An error occurred during submission.');
+            setError(err.message || t('unknownError'));
         } finally {
             setIsSubmitting(false);
         }
@@ -2579,17 +2706,17 @@ const CreateSegmentRuleBuilder = ({ onSubmit }: { onSubmit: (data: { Name: strin
         <form onSubmit={handleSubmit} className="rule-builder-form">
             <div className="info-message" style={{textAlign: 'left', display: 'flex', alignItems: 'center', gap: '1rem'}}>
                <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0}} />
-                <span>Please note, that if you want to use "And" and "Or" in your rule, you need to add a sub-rule.</span>
+                <span>{t('segmentRuleSubRuleNotice')}</span>
             </div>
             <div className="form-group">
-                <label htmlFor="segmentName">Segment Name</label>
+                <label htmlFor="segmentName">{t('segmentName')}</label>
                 <input id="segmentName" type="text" value={name} onChange={e => setName(e.target.value)} required disabled={isSubmitting} />
             </div>
             <div className="rule-builder">
                 <div className="rule-conjunction-toggle">
-                    <label>Match</label>
-                    <button type="button" className={conjunction === 'AND' ? 'active' : ''} onClick={() => setConjunction('AND')}>All (AND)</button>
-                    <label>of the following rules:</label>
+                    <label>{t('match')}</label>
+                    <button type="button" className={conjunction === 'AND' ? 'active' : ''} onClick={() => setConjunction('AND')}>{t('allAnd')}</button>
+                    <label>{t('ofTheFollowing')}:</label>
                 </div>
                 <div className="rule-list">
                     {rules.map((rule, index) => {
@@ -2601,20 +2728,20 @@ const CreateSegmentRuleBuilder = ({ onSubmit }: { onSubmit: (data: { Name: strin
                             <div key={rule.id} className="rule-row">
                                 <select value={rule.field} onChange={e => handleFieldChange(rule.id, e.target.value)} disabled={isSubmitting}>
                                     {Object.entries(SEGMENT_FIELDS_CONFIG).map(([category, fields]) => (
-                                        <optgroup key={category} label={category}>
-                                            {fields.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
+                                        <optgroup key={category} label={t(`segmentFieldCategory_${category.toLowerCase()}`)}>
+                                            {fields.map(f => <option key={f.name} value={f.name}>{t(`segmentField_${f.apiName}`)}</option>)}
                                         </optgroup>
                                     ))}
                                 </select>
                                 <select value={rule.op} onChange={e => updateRule(rule.id, { op: e.target.value })} disabled={isSubmitting}>
-                                    {operators.map(o => <option key={o.name} value={o.name}>{o.name}</option>)}
+                                    {operators.map(o => <option key={o.name} value={o.name}>{t(`segmentOperator_${o.apiOp.replace(/\s/g, '')}`)}</option>)}
                                 </select>
                                 <input
                                     type={fieldDef?.type === 'date' ? 'date' : fieldDef?.type === 'number' ? 'number' : 'text'}
                                     value={rule.value}
                                     onChange={e => updateRule(rule.id, { value: e.target.value })}
                                     disabled={isSubmitting || opDef?.noValue}
-                                    placeholder={opDef?.noValue ? '<no value needed>' : 'Enter value'}
+                                    placeholder={opDef?.noValue ? t('noValueNeeded') : t('enterValue')}
                                 />
                                 <button type="button" className="btn-icon btn-icon-danger remove-rule-btn" onClick={() => removeRule(rule.id)} disabled={rules.length <= 1 || isSubmitting}>
                                     <Icon path={ICONS.DELETE} />
@@ -2625,19 +2752,20 @@ const CreateSegmentRuleBuilder = ({ onSubmit }: { onSubmit: (data: { Name: strin
                 </div>
                 <div className="add-rule-btn-container">
                     <button type="button" className="btn add-rule-btn" onClick={addRule} disabled={isSubmitting}>
-                        <Icon path={ICONS.PLUS}/> Add another rule
+                        <Icon path={ICONS.PLUS}/> {t('addAnotherRule')}
                     </button>
                 </div>
             </div>
             {error && <ActionStatus status={{ type: 'error', message: error }} onDismiss={() => setError('')} />}
             <button type="submit" className="btn btn-primary full-width" disabled={isSubmitting}>
-                {isSubmitting ? <Loader /> : 'Create Segment'}
+                {isSubmitting ? <Loader /> : t('createSegment')}
             </button>
         </form>
     );
 }
 
 const SendEmailView = ({ apiKey, user }: { apiKey: string, user: any }) => {
+    const { t } = useTranslation();
     const [isSending, setIsSending] = useState(false);
     const [sendStatus, setSendStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [formData, setFormData] = useState({
@@ -2679,9 +2807,9 @@ const SendEmailView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
         try {
             await apiFetch('/email/send', apiKey, { method: 'POST', params });
-            setSendStatus({ type: 'success', message: 'Email sent successfully!' });
+            setSendStatus({ type: 'success', message: t('emailSentSuccess') });
         } catch (err: any) {
-            setSendStatus({ type: 'error', message: `Failed to send email: ${err.message}` });
+            setSendStatus({ type: 'error', message: t('emailSentError', { error: err.message }) });
         } finally {
             setIsSending(false);
         }
@@ -2691,56 +2819,56 @@ const SendEmailView = ({ apiKey, user }: { apiKey: string, user: any }) => {
         <form className="form-container" onSubmit={handleSubmit}>
             <div className="form-grid">
                 <div className="form-group full-width">
-                    <label htmlFor="subject">Subject</label>
+                    <label htmlFor="subject">{t('subject')}</label>
                     <input id="subject" name="subject" type="text" value={formData.subject} onChange={handleChange} required />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="from">From Email</label>
+                    <label htmlFor="from">{t('fromEmail')}</label>
                     <input id="from" name="from" type="email" value={formData.from} onChange={handleChange} required />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="fromName">From Name</label>
+                    <label htmlFor="fromName">{t('fromName')}</label>
                     <input id="fromName" name="fromName" type="text" value={formData.fromName} onChange={handleChange} />
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="target">Send To</label>
+                    <label htmlFor="target">{t('sendTo')}</label>
                     <select id="target" name="target" value={formData.target} onChange={handleChange}>
-                        <option value="all">All Contacts</option>
-                        <option value="list">A List</option>
-                        <option value="segment">A Segment</option>
+                        <option value="all">{t('allContacts')}</option>
+                        <option value="list">{t('aList')}</option>
+                        <option value="segment">{t('aSegment')}</option>
                     </select>
                 </div>
 
                 <div className="form-group">
                     {formData.target === 'list' && (
                         <>
-                         <label htmlFor="targetName">Select List</label>
+                         <label htmlFor="targetName">{t('selectList')}</label>
                          <select id="targetName" name="targetName" value={formData.targetName} onChange={handleChange} required>
-                             <option value="">-- Choose a list --</option>
-                             {lists?.map((l: any) => <option key={l.ListName} value={l.ListName}>{l.ListName}</option>)}
+                             <option value="">{t('chooseList')}</option>
+                             {lists?.map((l: List) => <option key={l.ListName} value={l.ListName}>{l.ListName}</option>)}
                          </select>
                         </>
                     )}
                     {formData.target === 'segment' && (
                         <>
-                        <label htmlFor="targetName">Select Segment</label>
+                        <label htmlFor="targetName">{t('selectSegment')}</label>
                         <select id="targetName" name="targetName" value={formData.targetName} onChange={handleChange} required>
-                            <option value="">-- Choose a segment --</option>
-                             {segments?.map((s: any) => <option key={s.Name} value={s.Name}>{s.Name}</option>)}
+                            <option value="">{t('chooseSegment')}</option>
+                             {segments?.map((s: Segment) => <option key={s.Name} value={s.Name}>{s.Name}</option>)}
                         </select>
                         </>
                     )}
                 </div>
 
                 <div className="form-group full-width">
-                    <label htmlFor="bodyHtml">Email Body (HTML)</label>
+                    <label htmlFor="bodyHtml">{t('emailBodyHtml')}</label>
                     <textarea id="bodyHtml" name="bodyHtml" value={formData.bodyHtml} onChange={handleChange} required></textarea>
                 </div>
                 <div className="form-actions">
                     {sendStatus && <div className={`send-status-message ${sendStatus.type}`}>{sendStatus.message}</div>}
                     <button type="submit" className="btn btn-primary" disabled={isSending}>
-                        {isSending ? <Loader /> : 'Send Email'}
+                        {isSending ? <Loader /> : t('sendEmail')}
                     </button>
                 </div>
             </div>
@@ -2749,6 +2877,7 @@ const SendEmailView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 };
 
 const CampaignStatsModal = ({ isOpen, onClose, campaignName, apiKey }: { isOpen: boolean; onClose: () => void; campaignName: string | null; apiKey: string; }) => {
+    const { t, i18n } = useTranslation();
     // Only fetch if the modal is open and has a campaign name
     const shouldFetch = isOpen && !!campaignName;
     const { data: stats, loading, error } = useApiV4(
@@ -2757,23 +2886,23 @@ const CampaignStatsModal = ({ isOpen, onClose, campaignName, apiKey }: { isOpen:
     );
     
     const statItems = stats ? [
-        { title: 'Recipients', value: stats.Recipients, icon: ICONS.CONTACTS },
-        { title: 'Total Emails', value: stats.EmailTotal, icon: ICONS.MAIL },
-        { title: 'Total SMS', value: stats.SmsTotal, icon: ICONS.COMPLAINT },
-        { title: 'Delivered', value: stats.Delivered, icon: ICONS.VERIFY },
-        { title: 'Bounced', value: stats.Bounced, icon: ICONS.BOUNCED },
-        { title: 'In Progress', value: stats.InProgress, icon: ICONS.LOADING_SPINNER },
-        { title: 'Opened', value: stats.Opened, icon: ICONS.EYE },
-        { title: 'Clicked', value: stats.Clicked, icon: ICONS.CLICK },
-        { title: 'Unsubscribed', value: stats.Unsubscribed, icon: ICONS.LOGOUT },
-        { title: 'Complaints', value: stats.Complaints, icon: ICONS.COMPLAINT },
-        { title: 'Manual Cancel', value: stats.ManualCancel, icon: ICONS.X_CIRCLE },
-        { title: 'Not Delivered', value: stats.NotDelivered, icon: ICONS.BOUNCED },
-    ].filter(item => item.title !== 'Total SMS' || Number(item.value) > 0)
+        { title: t('recipients'), value: stats.Recipients, icon: ICONS.CONTACTS },
+        { title: t('totalEmails'), value: stats.EmailTotal, icon: ICONS.MAIL },
+        { title: t('totalSms'), value: stats.SmsTotal, icon: ICONS.COMPLAINT },
+        { title: t('delivered'), value: stats.Delivered, icon: ICONS.VERIFY },
+        { title: t('bounced'), value: stats.Bounced, icon: ICONS.BOUNCED },
+        { title: t('inProgress'), value: stats.InProgress, icon: ICONS.LOADING_SPINNER },
+        { title: t('opened'), value: stats.Opened, icon: ICONS.EYE },
+        { title: t('clicked'), value: stats.Clicked, icon: ICONS.CLICK },
+        { title: t('unsubscribed'), value: stats.Unsubscribed, icon: ICONS.LOGOUT },
+        { title: t('complaints'), value: stats.Complaints, icon: ICONS.COMPLAINT },
+        { title: t('manualCancel'), value: stats.ManualCancel, icon: ICONS.X_CIRCLE },
+        { title: t('notDelivered'), value: stats.NotDelivered, icon: ICONS.BOUNCED },
+    ].filter(item => item.title !== t('totalSms') || Number(item.value) > 0)
     : [];
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Stats for "${campaignName || '...'}"`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={t('statsForCampaign', { campaignName: campaignName || '...' })}>
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
             {!loading && !error && (
@@ -2781,12 +2910,12 @@ const CampaignStatsModal = ({ isOpen, onClose, campaignName, apiKey }: { isOpen:
                     <div className="card-grid account-grid">
                         {statItems.map(item => (
                             <AccountDataCard key={item.title} title={item.title} iconPath={item.icon}>
-                                {(Number(item.value) || 0).toLocaleString()}
+                                {(Number(item.value) || 0).toLocaleString(i18n.language)}
                             </AccountDataCard>
                         ))}
                     </div>
                 ) : (
-                     <CenteredMessage>No statistics data found for this campaign.</CenteredMessage>
+                     <CenteredMessage>{t('noStatsForCampaign')}</CenteredMessage>
                 )
             )}
         </Modal>
@@ -2794,6 +2923,7 @@ const CampaignStatsModal = ({ isOpen, onClose, campaignName, apiKey }: { isOpen:
 };
 
 const CampaignsView = ({ apiKey }: { apiKey: string }) => {
+    const { t } = useTranslation();
     const { data: campaigns, loading, error } = useApiV4('/campaigns', apiKey);
     const [searchQuery, setSearchQuery] = useState('');
     const [campaignNameToViewStats, setCampaignNameToViewStats] = useState<string | null>(null);
@@ -2811,7 +2941,7 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
         if (!Array.isArray(campaigns)) return [];
         return campaigns.filter((c: any) => 
             c.Name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            c.Content?.[0]?.Subject.toLowerCase().includes(searchQuery.toLowerCase())
+            (c.Content?.[0]?.Subject && c.Content[0].Subject.toLowerCase().includes(searchQuery.toLowerCase()))
         );
     }, [campaigns, searchQuery]);
 
@@ -2828,7 +2958,7 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
                     <Icon path={ICONS.SEARCH} />
                     <input
                         type="search"
-                        placeholder="Search campaigns by name or subject..."
+                        placeholder={t('searchCampaignsPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         disabled={loading}
@@ -2841,10 +2971,10 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
 
             {!loading && !error && (
                  (!Array.isArray(campaigns) || campaigns.length === 0) ? (
-                    <CenteredMessage>No campaigns found.</CenteredMessage>
+                    <CenteredMessage>{t('noCampaignsFound')}</CenteredMessage>
                 ) : filteredCampaigns.length === 0 ? (
                     <CenteredMessage>
-                        {searchQuery ? `No campaigns found for "${searchQuery}".` : "You haven't sent any campaigns yet."}
+                        {searchQuery ? t('noCampaignsForQuery', { query: searchQuery }) : t('noCampaignsSent')}
                     </CenteredMessage>
                 ) : (
                     <div className="campaign-grid">
@@ -2853,15 +2983,15 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
                                 <div className="campaign-card-header">
                                     <h3>{campaign.Name}</h3>
                                     <div className="action-buttons">
-                                        <button className="btn-icon" onClick={() => setCampaignNameToViewStats(campaign.Name)} aria-label="View campaign statistics">
+                                        <button className="btn-icon" onClick={() => setCampaignNameToViewStats(campaign.Name)} aria-label={t('viewCampaignStats')}>
                                             <Icon path={ICONS.TRENDING_UP} />
                                         </button>
-                                        <Badge text={campaign.Status ?? 'Unknown'} type={getBadgeTypeForStatus(campaign.Status)} />
+                                        <Badge text={campaign.Status ?? t('unknown')} type={getBadgeTypeForStatus(campaign.Status)} />
                                     </div>
                                 </div>
                                 <div className="campaign-card-body">
                                     <p className="campaign-subject">
-                                        {campaign.Content?.[0]?.Subject || 'No Subject'}
+                                        {campaign.Content?.[0]?.Subject || t('noSubject')}
                                     </p>
                                 </div>
                             </div>
@@ -2907,19 +3037,21 @@ const DNS_RECORDS_CONFIG = {
 type VerificationStatus = 'idle' | 'checking' | 'verified' | 'failed';
 
 const VerificationStatusIndicator = ({ status }: { status: VerificationStatus }) => {
+    const { t } = useTranslation();
     switch (status) {
         case 'checking':
-            return <span className="verification-status status-checking"><Icon path={ICONS.LOADING_SPINNER} className="icon-spinner" /> Checking...</span>;
+            return <span className="verification-status status-checking"><Icon path={ICONS.LOADING_SPINNER} className="icon-spinner" /> {t('checking')}</span>;
         case 'verified':
-            return <span className="verification-status status-verified"><Icon path={ICONS.CHECK} className="icon-success" /> Verified</span>;
+            return <span className="verification-status status-verified"><Icon path={ICONS.CHECK} className="icon-success" /> {t('verified')}</span>;
         case 'failed':
-            return <span className="verification-status status-failed"><Icon path={ICONS.X_CIRCLE} className="icon-danger" /> Not Verified</span>;
+            return <span className="verification-status status-failed"><Icon path={ICONS.X_CIRCLE} className="icon-danger" /> {t('notVerified')}</span>;
         default:
             return null;
     }
 };
 
 const DomainVerificationChecker = ({ domainName }: { domainName: string }) => {
+    const { t } = useTranslation();
     const [statuses, setStatuses] = useState<Record<string, { status: VerificationStatus }>>(
       Object.keys(DNS_RECORDS_CONFIG).reduce((acc, key) => ({ ...acc, [key]: { status: 'idle' } }), {})
     );
@@ -2958,19 +3090,19 @@ const DomainVerificationChecker = ({ domainName }: { domainName: string }) => {
         <div className="domain-verification-checker">
             <button className="btn check-all-btn" onClick={checkAllDns} disabled={isChecking}>
                 {isChecking ? <Loader /> : <Icon path={ICONS.VERIFY} />}
-                {isChecking ? 'Checking DNS...' : 'Check DNS Status'}
+                {isChecking ? t('checkingDns') : t('checkDnsStatus')}
             </button>
             <div className="dns-records-list">
                 {Object.entries(DNS_RECORDS_CONFIG).map(([key, config]) => (
                     <div className="dns-record-item" key={key}>
                         <div className="dns-record-item-header">
-                            <h4>{key} Record</h4>
+                            <h4>{t('recordType', { type: key })}</h4>
                             <VerificationStatusIndicator status={statuses[key]?.status} />
                         </div>
                         <div className="dns-record-details">
-                            <div className="detail"><strong>Host:</strong> <code>{config.host}</code></div>
-                            <div className="detail"><strong>Type:</strong> <code>{config.type}</code></div>
-                            <div className="detail"><strong>Value:</strong> <code>{config.expectedValue}</code></div>
+                            <div className="detail"><strong>{t('host')}:</strong> <code>{config.host}</code></div>
+                            <div className="detail"><strong>{t('type')}:</strong> <code>{config.type}</code></div>
+                            <div className="detail"><strong>{t('value')}:</strong> <code>{config.expectedValue}</code></div>
                         </div>
                     </div>
                 ))}
@@ -2980,6 +3112,7 @@ const DomainVerificationChecker = ({ domainName }: { domainName: string }) => {
 };
 
 const DomainsView = ({ apiKey }: { apiKey: string }) => {
+    const { t } = useTranslation();
     const [refetchIndex, setRefetchIndex] = useState(0);
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [newDomain, setNewDomain] = useState('');
@@ -2998,24 +3131,24 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
         setIsSubmitting(true);
         try {
             await apiFetchV4('/domains', apiKey, { method: 'POST', body: { Domain: newDomain } });
-            setActionStatus({ type: 'success', message: `Domain "${newDomain}" added. Please add DNS records and verify.` });
+            setActionStatus({ type: 'success', message: t('domainAddedSuccess', { domain: newDomain }) });
             setNewDomain('');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to add domain: ${err.message}` });
+            setActionStatus({ type: 'error', message: t('domainAddedError', { error: err.message }) });
         } finally {
             setIsSubmitting(false);
         }
     };
     
     const handleDeleteDomain = async (domainName: string) => {
-        if (!window.confirm(`Are you sure you want to delete "${domainName}"?`)) return;
+        if (!window.confirm(t('confirmDeleteDomain', { domainName }))) return;
         try {
             await apiFetchV4(`/domains/${encodeURIComponent(domainName)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: `Domain "${domainName}" deleted.` });
+            setActionStatus({ type: 'success', message: t('domainDeletedSuccess', { domainName }) });
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to delete domain: ${err.message}` });
+            setActionStatus({ type: 'error', message: t('domainDeletedError', { error: err.message }) });
         }
     };
     
@@ -3036,13 +3169,13 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
                         disabled={isSubmitting}
                     />
                     <button type="submit" className="btn btn-primary" disabled={!newDomain || isSubmitting}>
-                        {isSubmitting ? <Loader /> : <><Icon path={ICONS.PLUS}/> Add Domain</>}
+                        {isSubmitting ? <Loader /> : <><Icon path={ICONS.PLUS}/> {t('addDomain')}</>}
                     </button>
                 </form>
             </div>
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && !isNotFoundError && <ErrorMessage error={error} />}
-            {showNoDomainsMessage && <CenteredMessage>No domains found. Add one to start sending.</CenteredMessage>}
+            {showNoDomainsMessage && <CenteredMessage>{t('noDomainsFound')}</CenteredMessage>}
             
             {domainsList.length > 0 && <div className="card-grid domain-grid">
                 {domainsList.map((domain: any) => {
@@ -3061,21 +3194,21 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
                             <div className="domain-card-header">
                                 <h3>{domainName}</h3>
                                 <div className="action-buttons">
-                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteDomain(domainName)} aria-label={`Delete ${domainName}`}>
+                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteDomain(domainName)} aria-label={t('deleteDomain', { domainName })}>
                                         <Icon path={ICONS.DELETE} />
                                     </button>
                                 </div>
                             </div>
                             <div className="domain-card-body">
                                 <div className="domain-card-statuses">
-                                    <div><span>SPF</span> <Badge text={isSpfVerified ? 'Verified' : 'Missing'} type={isSpfVerified ? 'success' : 'warning'} /></div>
-                                    <div><span>DKIM</span> <Badge text={isDkimVerified ? 'Verified' : 'Missing'} type={isDkimVerified ? 'success' : 'warning'} /></div>
-                                    <div><span>Tracking</span> <Badge text={isTrackingVerified ? 'Verified' : 'Missing'} type={isTrackingVerified ? 'success' : 'warning'} /></div>
-                                    <div><span>MX</span> <Badge text={isMxVerified ? 'Verified' : 'Missing'} type={isMxVerified ? 'success' : 'warning'} /></div>
+                                    <div><span>SPF</span> <Badge text={isSpfVerified ? t('verified') : t('missing')} type={isSpfVerified ? 'success' : 'warning'} /></div>
+                                    <div><span>DKIM</span> <Badge text={isDkimVerified ? t('verified') : t('missing')} type={isDkimVerified ? 'success' : 'warning'} /></div>
+                                    <div><span>Tracking</span> <Badge text={isTrackingVerified ? t('verified') : t('missing')} type={isTrackingVerified ? 'success' : 'warning'} /></div>
+                                    <div><span>MX</span> <Badge text={isMxVerified ? t('verified') : t('missing')} type={isMxVerified ? 'success' : 'warning'} /></div>
                                 </div>
                             </div>
-                            <div className="domain-card-footer" onClick={() => setExpandedDomain(d => d === domainName ? null : d === null ? domainName : null)} role="button" aria-expanded={isExpanded}>
-                                <span>Show DNS & Verify</span>
+                            <div className="domain-card-footer" onClick={() => setExpandedDomain(d => d === domainName ? null : domainName)} role="button" aria-expanded={isExpanded}>
+                                <span>{t('showDnsAndVerify')}</span>
                                 <Icon path={ICONS.CHEVRON_DOWN} className={isExpanded ? 'expanded' : ''} />
                             </div>
                             {isExpanded && <DomainVerificationChecker domainName={domainName} />}
@@ -3088,6 +3221,7 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
 };
 
 const AddSmtpCredentialModal = ({ isOpen, onClose, apiKey, onSuccess }: { isOpen: boolean, onClose: () => void, apiKey: string, onSuccess: (data: any) => void }) => {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -3104,7 +3238,7 @@ const AddSmtpCredentialModal = ({ isOpen, onClose, apiKey, onSuccess }: { isOpen
         e.preventDefault();
         setError('');
         if (!name) {
-            setError('Credential name cannot be empty.');
+            setError(t('credentialNameEmptyError'));
             return;
         }
         setIsSubmitting(true);
@@ -3115,35 +3249,35 @@ const AddSmtpCredentialModal = ({ isOpen, onClose, apiKey, onSuccess }: { isOpen
             });
             onSuccess(newCredential);
         } catch (err: any) {
-            setError(err.message || 'Failed to create credential.');
+            setError(err.message || t('credentialCreateError'));
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Add New SMTP Credential">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('addSmtpCredentialTitle')}>
             <form onSubmit={handleSubmit} className="modal-form">
                 <div className="form-group">
-                    <label htmlFor="credential-name">Credential Name</label>
+                    <label htmlFor="credential-name">{t('credentialName')}</label>
                     <input
                         id="credential-name"
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g., My App Credential"
+                        placeholder={t('credentialNamePlaceholder')}
                         required
                         disabled={isSubmitting}
                     />
                      <small style={{ marginTop: '0.5rem', display: 'block' }}>
-                        A unique name to identify this credential.
+                        {t('credentialNameSubtitle')}
                     </small>
                 </div>
                 {error && <ActionStatus status={{ type: 'error', message: error }} onDismiss={() => setError('')} />}
                 <div className="form-actions" style={{ marginTop: '1rem' }}>
-                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>{t('cancel')}</button>
                     <button type="submit" className="btn btn-primary" disabled={isSubmitting || !name}>
-                        {isSubmitting ? <Loader /> : 'Create Credential'}
+                        {isSubmitting ? <Loader /> : t('createCredential')}
                     </button>
                 </div>
             </form>
@@ -3152,6 +3286,7 @@ const AddSmtpCredentialModal = ({ isOpen, onClose, apiKey, onSuccess }: { isOpen
 };
 
 const ShowNewSmtpKeyModal = ({ isOpen, onClose, credential }: { isOpen: boolean, onClose: () => void, credential: any }) => {
+    const { t } = useTranslation();
     const [copied, setCopied] = useState(false);
     
     useEffect(() => {
@@ -3167,28 +3302,28 @@ const ShowNewSmtpKeyModal = ({ isOpen, onClose, credential }: { isOpen: boolean,
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Credential Created Successfully">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('credentialCreatedSuccessTitle')}>
             <div className="info-message warning">
                 <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0}} />
-                <span>Please copy the API Key below. This is the only time it will be shown.</span>
+                <span>{t('copyApiKeyNotice')}</span>
             </div>
             <div className="new-api-key-display">
                 <div className="form-group">
-                    <label>Credential Name</label>
+                    <label>{t('credentialName')}</label>
                     <input type="text" value={credential.Name} readOnly disabled />
                 </div>
                  <div className="form-group">
-                    <label>API Key (Password)</label>
+                    <label>{t('apiKeyPassword')}</label>
                     <div className="secret-value-wrapper">
                         <input type="text" value={credential.ApiKey} readOnly />
                         <button className="btn" onClick={handleCopy}>
-                            {copied ? 'Copied!' : 'Copy'}
+                            {copied ? t('copied') : t('copy')}
                         </button>
                     </div>
                 </div>
             </div>
             <div className="form-actions" style={{justifyContent: 'flex-end', marginTop: '1.5rem'}}>
-                <button className="btn btn-primary" onClick={onClose}>Done</button>
+                <button className="btn btn-primary" onClick={onClose}>{t('done')}</button>
             </div>
         </Modal>
     );
@@ -3196,6 +3331,7 @@ const ShowNewSmtpKeyModal = ({ isOpen, onClose, credential }: { isOpen: boolean,
 
 
 const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
+    const { t, i18n } = useTranslation();
     const [refetchIndex, setRefetchIndex] = useState(1);
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -3222,7 +3358,7 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
     const handleAddSuccess = (newCredential: any) => {
         setIsAddModalOpen(false);
-        setActionStatus({ type: 'success', message: `Credential "${newCredential.Name}" created.` });
+        setActionStatus({ type: 'success', message: t('credentialCreatedSuccess', { name: newCredential.Name }) });
         setNewlyCreatedCredential(newCredential);
         setIsFeatureUnavailable(false);
     };
@@ -3233,13 +3369,13 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     };
 
     const handleDelete = async (name: string) => {
-        if (!window.confirm(`Are you sure you want to delete the SMTP credential "${name}"? This action cannot be undone.`)) return;
+        if (!window.confirm(t('confirmDeleteCredential', { name }))) return;
         try {
             await apiFetchV4(`/security/smtp/${encodeURIComponent(name)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: `Credential "${name}" deleted successfully.` });
+            setActionStatus({ type: 'success', message: t('credentialDeletedSuccess', { name }) });
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: `Failed to delete credential: ${err.message}` });
+            setActionStatus({ type: 'error', message: t('credentialDeletedError', { error: err.message }) });
         }
     };
     
@@ -3267,431 +3403,338 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
             <div className="card smtp-card main-credential-card">
                 <div className="smtp-card-header">
-                    <h3>Main Account Credentials</h3>
+                    <h3>{t('mainAccountCredentials')}</h3>
                 </div>
                 <div className="smtp-card-body">
-                    <div className="smtp-detail-item"><label>Server</label> <strong>{smtpDetails.server}</strong></div>
-                    <div className="smtp-detail-item"><label>Ports</label> <strong>{smtpDetails.ports}</strong></div>
-                    <div className="smtp-detail-item full-span"><label>Username</label> <strong className="monospace">{user.email}</strong></div>
+                    <div className="smtp-detail-item"><label>{t('server')}</label> <strong>{smtpDetails.server}</strong></div>
+                    <div className="smtp-detail-item"><label>{t('ports')}</label> <strong>{smtpDetails.ports}</strong></div>
+                    <div className="smtp-detail-item full-span"><label>{t('username')}</label> <strong className="monospace">{user.email}</strong></div>
                     <div className="smtp-detail-item full-span">
-                        <label>Password (Main API Key)</label>
+                        <label>{t('passwordMainApiKey')}</label>
                         <div className="secret-value-wrapper">
                             <input type="password" value={apiKey} readOnly />
-                            <button className="btn" onClick={() => navigator.clipboard.writeText(apiKey)}>Copy</button>
+                            <button className="btn" onClick={() => navigator.clipboard.writeText(apiKey)}>{t('copy')}</button>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div className="content-header" style={{borderTop: '1px solid var(--border-color)', marginTop: '2.5rem', paddingTop: '2.5rem'}}>
-                <div className="view-header" style={{marginBottom: 0, paddingBottom: 0, borderBottom: 'none'}}>
-                    <h2 style={{margin: 0}}>Additional Credentials</h2>
-                     {!isFeatureUnavailable && (
-                        <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-                            <Icon path={ICONS.PLUS} /> Add Credential
-                        </button>
-                    )}
-                </div>
+            <div className="view-header" style={{borderTop: '1px solid var(--border-color)', marginTop: '2.5rem', paddingTop: '2.5rem'}}>
+                <h3>{t('additionalCredentials')}</h3>
+                <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)} disabled={isFeatureUnavailable}>
+                    <Icon path={ICONS.PLUS} /> {t('addCredential')}
+                </button>
             </div>
-            
-            {loading ? (
-                <CenteredMessage><Loader /></CenteredMessage>
-            ) : isFeatureUnavailable ? (
-                <div className="info-message warning" style={{maxWidth: 'none', alignItems: 'flex-start'}}>
-                    <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0, marginTop: '0.2rem'}} />
+            {loading && <CenteredMessage><Loader /></CenteredMessage>}
+            {isFeatureUnavailable ? (
+                <div className="info-message warning">
+                    <Icon path={ICONS.COMPLAINT} style={{ flexShrink: 0, marginTop: '0.2rem' }} />
                     <div>
-                        <strong>Feature Not Available</strong>
-                        <p style={{color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0}}>
-                            Managing additional SMTP credentials is not available for this account. This might be due to your account's plan or API key permissions.
+                        <strong>{t('featureNotAvailableTitle')}</strong>
+                        <p style={{ color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0 }}>
+                            {t('smtpFeatureNotAvailable')}
                         </p>
                     </div>
                 </div>
             ) : error ? (
                 <ErrorMessage error={error} />
+            ) : additionalCredentials.length === 0 ? (
+                <CenteredMessage>{t('noAdditionalCredentials')}</CenteredMessage>
             ) : (
-                additionalCredentials.length > 0 ? (
-                    <div className="card-grid smtp-additional-grid">
-                        {additionalCredentials.map((cred: any) => (
-                             <div key={cred.Name} className="card smtp-additional-card">
-                                <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)'}}>
-                                    <h4 style={{wordBreak: 'break-all', margin: 0}}>{cred.Name}</h4>
-                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDelete(cred.Name)} aria-label={`Delete ${cred.Name}`}>
-                                        <Icon path={ICONS.DELETE}/>
+                <div className="card-grid smtp-additional-grid">
+                    {additionalCredentials.map((cred: any) => (
+                        <div key={cred.Name} className="card smtp-additional-card">
+                            <div className="card-header">
+                                <h4>{cred.Name}</h4>
+                                <div className="action-buttons">
+                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDelete(cred.Name)} aria-label={t('delete')}>
+                                        <Icon path={ICONS.DELETE} />
                                     </button>
                                 </div>
-                                <div className="card-body" style={{padding: '1rem 0 0', display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
-                                    <div className="smtp-additional-detail"><label>Access Level</label><span>{cred.AccessLevel}</span></div>
-                                    <div className="smtp-additional-detail"><label>Created</label><span>{formatDateForDisplay(cred.DateCreated)}</span></div>
+                            </div>
+                            <div className="card-body">
+                                <div className="smtp-additional-detail">
+                                    <label>{t('accessLevel')}</label>
+                                    <span>{cred.AccessLevel}</span>
+                                </div>
+                                <div className="smtp-additional-detail">
+                                    <label>{t('dateAdded')}</label>
+                                    <span>{formatDateForDisplay(cred.DateCreated, i18n.language)}</span>
+                                </div>
+                                <div className="smtp-additional-detail">
+                                    <label>{t('lastUsed')}</label>
+                                    <span>{formatDateForDisplay(cred.LastUse, i18n.language)}</span>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <CenteredMessage>No additional SMTP credentials found.</CenteredMessage>
-                )
+                        </div>
+                    ))}
+                </div>
             )}
         </div>
     );
 };
 
+// --- AUTH / ONBOARDING ---
 
-// --- END OF IMPLEMENTED VIEWS ---
-
-
-// --- Main App & Auth Flow ---
-
-const LoginPage = ({ setView }: { setView: (view: 'login' | 'register') => void }) => {
-    const { login, loginWithApiKey } = useAuth();
-    const [mode, setMode] = useState<'credentials' | 'apikey'>('credentials');
-
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [apiKey, setApiKey] = useState('');
-
-    const [loading, setLoading] = useState(false);
+const AuthView = () => {
+    const { login, loginWithApiKey, register } = useAuth();
+    const [isLogin, setIsLogin] = useState(true);
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [isApiKeyLogin, setIsApiKeyLogin] = useState(false);
+    const { t } = useTranslation();
 
-    const handleCredentialsSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
         setLoading(true);
+        const formData = new FormData(e.currentTarget);
+        const data = Object.fromEntries(formData.entries());
+
         try {
-            await login({ email, password });
+            if (isApiKeyLogin) {
+                await loginWithApiKey(data.apikey as string);
+            } else if (isLogin) {
+                await login({ email: data.email, password: data.password });
+            } else {
+                if (data.password !== data.confirm_password) {
+                    throw new Error(t('passwordsDoNotMatch'));
+                }
+                await register({ email: data.email, password: data.password, first_name: data.first_name });
+            }
         } catch (err: any) {
-            setError(err.message || 'Invalid credentials or connection issue.');
+            setError(err.message || t('unknownError'));
         } finally {
             setLoading(false);
         }
     };
     
-    const handleApiKeySubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
-        try {
-            await loginWithApiKey(apiKey);
-        } catch (err: any) {
-            setError(err.message || 'Invalid API Key or connection issue.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     return (
         <div className="auth-container">
             <div className="auth-box">
-                {mode === 'credentials' ? (
-                    <>
-                        <h1 className="logo-font">Mailzila</h1>
-                        <p>Welcome back! Please sign in to your account.</p>
-                        <form className="auth-form" onSubmit={handleCredentialsSubmit}>
-                            <div className="input-group" style={{marginBottom: '1rem'}}>
-                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email Address" required disabled={loading} />
-                            </div>
-                            <div className="input-group">
-                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required disabled={loading} />
-                            </div>
-                            {error && <div className="action-status error" style={{textAlign:'center', marginTop: '1rem'}}>{error}</div>}
-                            <button type="submit" className="btn btn-primary" disabled={loading}>
-                                {loading && <Loader />}
-                                <span>{loading ? 'Signing In...' : 'Sign In'}</span>
-                            </button>
-                        </form>
-                        <div className="auth-separator"><span>OR</span></div>
-                        <button className="btn btn-secondary" onClick={() => { setMode('apikey'); setError(''); }} disabled={loading}>
-                            <Icon path={ICONS.KEY} /> Continue with API Key
-                        </button>
-                        <p className="auth-switch">
-                            Don't have an account? <button onClick={() => setView('register')}>Register</button>
-                        </p>
-                    </>
-                ) : (
-                     <>
-                        <h1 className="logo-font">Continue with Key</h1>
-                        <p>Enter your Mailzila API Key to access the dashboard. </p>
-                        <form className="auth-form" onSubmit={handleApiKeySubmit}>
-                            <div className="input-group">
-                                <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Mailzila API Key" required disabled={loading} />
-                            </div>
-                             {error && <div className="action-status error" style={{textAlign:'center', marginTop: '1rem'}}>{error}</div>}
-                            <button type="submit" className="btn btn-primary" disabled={loading}>
-                                {loading && <Loader />}
-                                <span>{loading ? 'Verifying...' : 'Continue'}</span>
-                            </button>
-                        </form>
-                        <p className="auth-switch">
-                            Want to use email and password? <button onClick={() => { setMode('credentials'); setError(''); }}>Sign In</button>
-                        </p>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-};
+                <h1><span className="logo-font">Mailzila</span></h1>
+                <p>
+                    {isApiKeyLogin ? t('signInWithApiKeySubtitle') : (isLogin ? t('signInSubtitle') : t('createAccountSubtitle'))}
+                </p>
 
-const RegisterPage = ({ setView }: { setView: (view: 'login' | 'register') => void }) => {
-    const { register } = useAuth();
-    const [firstName, setFirstName] = useState('');
-    const [lastName, setLastName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
-        try {
-            await register({ first_name: firstName, last_name: lastName, email, password });
-        } catch (err: any) {
-            setError(err.message || 'Registration failed. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="auth-container">
-            <div className="auth-box">
-                <h1 className="logo-font">Create Your Account</h1>
-                <p>Join Mailzila to supercharge your email marketing.</p>
                 <form className="auth-form" onSubmit={handleSubmit}>
-                    <div className="form-grid" style={{gap: '1rem'}}>
-                         <div className="input-group">
-                            <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First Name" required disabled={loading} />
-                        </div>
+                    {error && <ActionStatus status={{ type: 'error', message: error }} onDismiss={() => setError('')} />}
+
+                    {isApiKeyLogin ? (
                         <div className="input-group">
-                            <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last Name" required disabled={loading} />
+                            <input name="apikey" type={showPassword ? "text" : "password"} placeholder={t('enterYourApiKey')} required />
+                            <button type="button" className="input-icon-btn" onClick={() => setShowPassword(!showPassword)}>
+                                <Icon path={showPassword ? ICONS.EYE_OFF : ICONS.EYE} />
+                            </button>
                         </div>
-                    </div>
-                    <div className="input-group" style={{margin: '1rem 0'}}>
-                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email Address" required disabled={loading} />
-                    </div>
-                    <div className="input-group">
-                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required disabled={loading} />
-                    </div>
-                    {error && <div className="action-status error" style={{textAlign:'center', marginTop: '1rem'}}>{error}</div>}
+                    ) : (
+                        <div className="form-grid" style={{gridTemplateColumns: '1fr', gap: '1rem'}}>
+                            {!isLogin && (
+                                <input name="first_name" type="text" placeholder={t('firstName')} required />
+                            )}
+                            <input name="email" type="email" placeholder={t('emailAddress')} required />
+                            <div className="input-group">
+                                <input name="password" type={showPassword ? "text" : "password"} placeholder={t('password')} required />
+                                <button type="button" className="input-icon-btn" onClick={() => setShowPassword(!showPassword)}>
+                                    <Icon path={showPassword ? ICONS.EYE_OFF : ICONS.EYE} />
+                                </button>
+                            </div>
+                            {!isLogin && (
+                                 <input name="confirm_password" type="password" placeholder={t('confirmPassword')} required />
+                            )}
+                        </div>
+                    )}
+
                     <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading && <Loader />}
-                        <span>{loading ? 'Creating Account...' : 'Register'}</span>
+                        {loading ? <Loader /> : (isLogin ? t('signIn') : t('createAccount'))}
                     </button>
                 </form>
-                <p className="auth-switch">
-                    Already have an account? <button onClick={() => setView('login')}>Sign In</button>
-                </p>
+
+                <div className="auth-separator">{t('or')}</div>
+
+                <button className="btn btn-secondary" onClick={() => setIsApiKeyLogin(!isApiKeyLogin)}>
+                    {isApiKeyLogin ? t('signInWithEmail') : t('signInWithApiKey')}
+                </button>
+
+                <div className="auth-switch">
+                    {isLogin ? t('noAccount') : t('alreadyHaveAccount')}
+                    <button onClick={() => setIsLogin(!isLogin)}>{isLogin ? t('signUp') : t('signIn')}</button>
+                </div>
             </div>
         </div>
     );
 };
 
 const OnboardingView = () => {
-    const { user, updateUser } = useAuth();
+    const { updateUser, user, logout } = useAuth();
     const [apiKey, setApiKey] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [showKey, setShowKey] = useState(false);
-    
+    const { t } = useTranslation();
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
-        if (!apiKey) {
-            setError('API Key cannot be empty.');
-            return;
-        }
         setLoading(true);
+        setError('');
         try {
-            // 1. Validate the key against Elastic Email
-            await apiFetch('/account/load', apiKey);
-            // 2. If valid, save it to the user's profile in Directus
+            await apiFetch('/account/load', apiKey); // Validate key
             await updateUser({ elastic_email_api_key: apiKey });
         } catch (err: any) {
-            setError(err.message || 'Invalid API Key or connection issue.');
+            setError(err.message || t('invalidApiKey'));
         } finally {
             setLoading(false);
         }
     };
-
+    
     return (
         <div className="auth-container">
             <div className="auth-box">
-                <h1 className="logo-font">One Last Step, {user?.first_name}!</h1>
-                <p>To power up your account, please enter your Mailzila API Key.</p>
-                <form className="auth-form" onSubmit={handleSubmit}>
-                    <div className="input-group">
-                         <input
-                            type={showKey ? 'text' : 'password'}
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
-                            placeholder="Your Mailzila API Key"
-                            aria-label="API Key"
-                            disabled={loading}
-                        />
-                        <button type="button" className="input-icon-btn" onClick={() => setShowKey(!showKey)} aria-label={showKey ? 'Hide key' : 'Show key'}>
-                            <Icon path={showKey ? ICONS.EYE_OFF : ICONS.EYE} />
-                        </button>
-                    </div>
-                    <small style={{textAlign: 'center', margin: '1rem 0', display: 'block', color: 'var(--subtle-text-color)'}}>
-                        You can find this in your https://app.mailzila.com dashboard under Settings. You can update this later in your profile.
-                    </small>
-                    {error && <div className="action-status error" style={{textAlign:'center'}}>{error}</div>}
+                 <h1>{t('welcomeOnboard', {name: user.first_name})}</h1>
+                 <p>{t('onboardingSubtitle')}</p>
+                 <form onSubmit={handleSubmit}>
+                    {error && <ActionStatus status={{ type: 'error', message: error }} onDismiss={() => setError('')} />}
+                    <input name="apikey" type="password" placeholder={t('enterYourApiKey')} value={apiKey} onChange={e => setApiKey(e.target.value)} required />
                     <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading && <Loader />}
-                        <span>{loading ? 'Verifying...' : 'Save & Continue'}</span>
+                        {loading ? <Loader /> : t('saveAndContinue')}
                     </button>
-                </form>
+                 </form>
+                 <div className="auth-switch">
+                    <button className="link-button" onClick={logout}>{t('logOut')}</button>
+                 </div>
             </div>
         </div>
     );
-}
-
-const views: { [key: string]: React.ComponentType<any> } = {
-    Dashboard: DashboardView,
-    Statistics: StatisticsView,
-    Account: AccountView,
-    Contacts: ContactsView,
-    'Email Lists': EmailListView,
-    Segments: SegmentsView,
-    'Send Email': SendEmailView,
-    Campaigns: CampaignsView,
-    Domains: DomainsView,
-    SMTP: SmtpView,
-    'Buy Credits': BuyCreditsView
 };
 
-const getIconForView = (viewName: string) => {
-    const normalizedName = viewName.toUpperCase().replace(/\s+/g, '_');
-    return (ICONS as Record<string, string>)[normalizedName] || ICONS.STAR;
-};
 
-const MainApp = () => {
-    const { user, logout } = useAuth();
-    const [view, setView] = useState('Dashboard');
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    
-    // The apiKey for the entire app now comes from the authenticated user's profile
-    const apiKey = user?.elastic_email_api_key;
-    
-    // Close mobile menu on view change
-    useEffect(() => {
-        setMobileMenuOpen(false);
-    }, [view]);
-
-    if (!apiKey) {
-       return <OnboardingView />;
-    }
-
-    const renderView = () => {
-        const Component = views[view] || DashboardView;
-        return <Component apiKey={apiKey} setView={setView} user={user} />;
-    };
-
-    return (
-        <div className={`app-container ${mobileMenuOpen ? 'mobile-menu-open' : ''}`}>
-            <Sidebar view={view} setView={setView} logout={logout} />
-            <div className="mobile-menu-overlay" onClick={() => setMobileMenuOpen(false)}></div>
-            <main className="main-wrapper">
-                <MobileHeader
-                    viewTitle={view}
-                    onMenuClick={() => setMobileMenuOpen(true)}
-                />
-                <div className="content">
-                    <div className="content-header">
-                        <h2>{view}</h2>
-                    </div>
-                    {renderView()}
-                </div>
-            </main>
-        </div>
-    );
-}
-
+// --- Main App Component ---
 const App = () => {
-    const { loading, isAuthenticated } = useAuth();
-    const [authView, setAuthView] = useState<'login' | 'register'>('login');
+    const { isAuthenticated, loading, user, logout } = useAuth();
+    const { t, i18n } = useTranslation();
+    const [view, setView] = useState('Dashboard');
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('ServiceWorker registration successful:', registration.scope))
-                    .catch(err => console.log('ServiceWorker registration failed:', err));
-            });
-        }
-    }, []);
+        document.documentElement.lang = i18n.language;
+        document.documentElement.dir = i18n.dir();
+    }, [i18n.language, i18n.dir]);
 
     if (loading) {
-        return (
-            <div className="auth-container">
-                <Loader />
-            </div>
-        );
+        return <CenteredMessage style={{height: '100vh'}}><Loader /></CenteredMessage>;
+    }
+
+    if (!isAuthenticated) {
+        return <AuthView />;
     }
     
-    if (!isAuthenticated) {
-        return authView === 'login' 
-            ? <LoginPage setView={setAuthView} /> 
-            : <RegisterPage setView={setAuthView} />;
+    const apiKey = user?.elastic_email_api_key;
+    if (!apiKey) {
+        return <OnboardingView />;
     }
 
-    return <MainApp />;
+    const handleLogout = () => {
+        logout();
+        setView('Dashboard');
+    };
+
+    const handleSetView = (newView: string) => {
+        setView(newView);
+        setIsMobileMenuOpen(false);
+    }
+    
+    const views: Record<string, { component: ReactNode, title: string, icon: string }> = {
+        'Dashboard': { component: <DashboardView setView={handleSetView} apiKey={apiKey} user={user} />, title: t('dashboard'), icon: ICONS.DASHBOARD },
+        'Statistics': { component: <StatisticsView apiKey={apiKey} />, title: t('statistics'), icon: ICONS.STATISTICS },
+        'Account': { component: <AccountView apiKey={apiKey} user={user} />, title: t('account'), icon: ICONS.ACCOUNT },
+        'Buy Credits': { component: <BuyCreditsView apiKey={apiKey} user={user} />, title: t('buyCredits'), icon: ICONS.BUY_CREDITS },
+        'Contacts': { component: <ContactsView apiKey={apiKey} />, title: t('contacts'), icon: ICONS.CONTACTS },
+        'Email Lists': { component: <EmailListView apiKey={apiKey} />, title: t('emailLists'), icon: ICONS.EMAIL_LISTS },
+        'Segments': { component: <SegmentsView apiKey={apiKey} />, title: t('segments'), icon: ICONS.SEGMENTS },
+        'Send Email': { component: <SendEmailView apiKey={apiKey} user={user} />, title: t('sendEmail'), icon: ICONS.SEND_EMAIL },
+        'Campaigns': { component: <CampaignsView apiKey={apiKey} />, title: t('campaigns'), icon: ICONS.CAMPAIGNS },
+        'Domains': { component: <DomainsView apiKey={apiKey} />, title: t('domains'), icon: ICONS.DOMAINS },
+        'SMTP': { component: <SmtpView apiKey={apiKey} user={user}/>, title: t('smtp'), icon: ICONS.SMTP }
+    };
+
+    const navItems = [
+        { name: t('dashboard'), view: 'Dashboard', icon: ICONS.DASHBOARD },
+        { name: t('statistics'), view: 'Statistics', icon: ICONS.STATISTICS },
+        { name: t('contacts'), view: 'Contacts', icon: ICONS.CONTACTS },
+        { name: t('emailLists'), view: 'Email Lists', icon: ICONS.EMAIL_LISTS },
+        { name: t('segments'), view: 'Segments', icon: ICONS.SEGMENTS },
+        { name: t('campaigns'), view: 'Campaigns', icon: ICONS.CAMPAIGNS },
+        { name: t('sendEmail'), view: 'Send Email', icon: ICONS.SEND_EMAIL },
+        { name: t('domains'), view: 'Domains', icon: ICONS.DOMAINS },
+        { name: t('smtp'), view: 'SMTP', icon: ICONS.SMTP },
+    ];
+    
+    const SidebarContent = () => (
+      <>
+        <div className="sidebar-header">
+            <span className="logo-font">Mailzila</span>
+        </div>
+        <nav className="nav">
+            {navItems.map(item => (
+                <button key={item.view} onClick={() => handleSetView(item.view)} className={`nav-btn ${view === item.view ? 'active' : ''}`}>
+                    <Icon path={item.icon} />
+                    <span>{item.name}</span>
+                </button>
+            ))}
+        </nav>
+        <div className="sidebar-footer-nav">
+             <button onClick={() => handleSetView('Buy Credits')} className={`nav-btn ${view === 'Buy Credits' ? 'active' : ''}`}>
+                <Icon path={ICONS.BUY_CREDITS} />
+                <span>{t('buyCredits')}</span>
+             </button>
+             <button onClick={() => handleSetView('Account')} className={`nav-btn ${view === 'Account' ? 'active' : ''}`}>
+                 <Icon path={ICONS.ACCOUNT} />
+                 <span>{t('account')}</span>
+             </button>
+            <button onClick={handleLogout} className="nav-btn logout-btn">
+                <Icon path={ICONS.LOGOUT} />
+                <span>{t('logout')}</span>
+            </button>
+        </div>
+      </>
+    );
+
+    return (
+        <div className={`app-container ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
+            <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
+            <aside className="sidebar">
+                <SidebarContent />
+            </aside>
+            <div className="main-wrapper">
+                <header className="mobile-header">
+                     <button className="mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(true)} aria-label={t('openMenu')}>
+                        <Icon path={ICONS.MENU} />
+                    </button>
+                    <h1 className="mobile-header-title">{views[view]?.title || 'Mailzila'}</h1>
+                    <div className="mobile-header-placeholder"></div>
+                </header>
+                <main className="content">
+                    <header className="content-header">
+                        <h2>{views[view]?.title}</h2>
+                    </header>
+                    {views[view]?.component}
+                </main>
+            </div>
+        </div>
+    );
 };
 
-const Sidebar = ({ view, setView, logout }: { view: string, setView: (view: string) => void, logout: () => void }) => {
-    const mainNavItems = ['Dashboard', 'Statistics', 'Contacts', 'Email Lists', 'Segments', 'Send Email', 'Campaigns', 'Domains', 'SMTP'];
-
-    return (
-        <aside className="sidebar">
-            <div>
-                <div className="sidebar-header logo-font">Mailzila</div>
-                <nav className="nav">
-                    {mainNavItems.map(name => (
-                        <button key={name} onClick={() => setView(name)} className={`nav-btn ${view === name ? 'active' : ''}`}>
-                            <Icon path={getIconForView(name)} />
-                            <span>{name}</span>
-                        </button>
-                    ))}
-                </nav>
-            </div>
-            <div className="sidebar-footer-nav">
-                 <button onClick={() => setView('Account')} className={`nav-btn ${view === 'Account' ? 'active' : ''}`}>
-                    <Icon path={ICONS.ACCOUNT} />
-                    <span>User Profile</span>
-                </button>
-                <button onClick={() => setView('Buy Credits')} className={`nav-btn ${view === 'Buy Credits' ? 'active' : ''}`}>
-                    <Icon path={ICONS.BUY_CREDITS} />
-                    <span>Buy Credits</span>
-                </button>
-                <button onClick={() => logout()} className="nav-btn logout-btn">
-                    <Icon path={ICONS.LOGOUT} />
-                    <span>Log Out</span>
-                </button>
-            </div>
-        </aside>
-    );
-}
-
-const MobileHeader = ({ viewTitle, onMenuClick }: { viewTitle: string, onMenuClick: () => void }) => {
-    return (
-        <header className="mobile-header">
-            <button className="mobile-menu-toggle" onClick={onMenuClick} aria-label="Open menu">
-                <Icon path={ICONS.MENU} />
-            </button>
-            <h1 className="mobile-header-title">{viewTitle}</h1>
-            <div className="mobile-header-placeholder"></div>
-        </header>
-    );
-}
-
-
-const container = document.getElementById('root');
-if (container) {
-    const root = createRoot(container);
-    root.render(
-        <AuthProvider>
-            <ThemeProvider>
-                <App />
-            </ThemeProvider>
-        </AuthProvider>
-    );
-}
+const root = createRoot(document.getElementById('root')!);
+root.render(
+    <React.StrictMode>
+        <Suspense fallback={<CenteredMessage style={{height: '100vh'}}><Loader /></CenteredMessage>}>
+            <I18nextProvider i18n={i18n}>
+                <ThemeProvider>
+                    <AuthProvider>
+                        <App />
+                    </AuthProvider>
+                </ThemeProvider>
+            </I18nextProvider>
+        </Suspense>
+    </React.StrictMode>
+);
