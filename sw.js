@@ -1,10 +1,10 @@
 // sw.js
 
-const CACHE_NAME = 'megamail-v1.4';
+const CACHE_NAME = 'megamail-v1.5';
 const APP_SHELL_URLS = [
   '/',
   '/index.html',
-  '/index.css',
+  '/src/index.css',
   '/manifest.json'
 ];
 
@@ -12,6 +12,7 @@ const APP_SHELL_URLS = [
 const RUNTIME_CACHE_HOSTS = [
   'https://accounting.mailzila.com',
   'https://api.elasticemail.com',
+  'https://dns.google',
   'https://fonts.googleapis.com',
   'https://fonts.gstatic.com',
   'https://esm.sh' // For React and other dependencies from esm.sh
@@ -48,7 +49,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // If the request is for an API or external resource, use a stale-while-revalidate strategy.
-  if (RUNTIME_CACHE_HOSTS.some(host => url.origin.startsWith(host))) {
+  if (RUNTIME_CACHE_HOSTS.some(host => url.hostname.endsWith(host) || url.hostname.startsWith(host))) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
         return cache.match(event.request).then((cachedResponse) => {
@@ -60,11 +61,7 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
           }).catch(err => {
             console.warn('Service Worker: Fetch failed, falling back to cache if available.', err);
-            // If fetch fails and we have a cached response, the cachedResponse will be used.
-            // If not, the error will propagate.
           });
-
-          // Return cached response immediately if available, and update cache in background.
           return cachedResponse || fetchPromise;
         });
       })
@@ -75,8 +72,6 @@ self.addEventListener('fetch', (event) => {
   // For app shell requests, use Cache-First.
   event.respondWith(
     caches.match(event.request).then((response) => {
-      // If we have a response in cache, return it.
-      // Otherwise, fetch from the network.
       return response || fetch(event.request);
     })
   );

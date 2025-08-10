@@ -1,0 +1,229 @@
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import useApiV4 from '../hooks/useApiV4';
+import { apiFetchV4 } from '../api/elasticEmail';
+import CenteredMessage from '../components/CenteredMessage';
+import Loader from '../components/Loader';
+import ErrorMessage from '../components/ErrorMessage';
+import ActionStatus from '../components/ActionStatus';
+import Icon, { ICONS } from '../components/Icon';
+import Badge from '../components/Badge';
+
+const DNS_RECORDS_CONFIG = {
+    SPF: {
+        type: 'TXT',
+        name: (domain: string) => domain,
+        expectedValue: 'v=spf1 a mx include:mailzila.com ~all',
+        check: (data: string) => data.includes('v=spf1') && data.includes('include:mailzila.com'),
+        host: '@ or your domain',
+    },
+    DKIM: {
+        type: 'TXT',
+        name: (domain: string) => `api._domainkey.${domain}`,
+        expectedValue: 'k=rsa;t=s;p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCbmGbQMzYeMvxwtNQoXN0waGYaciuKx8mtMh5czguT4EZlJXuCt6V+l56mmt3t68FEX5JJ0q4ijG71BGoFRkl87uJi7LrQt1ZZmZCvrEII0YO4mp8sDLXC8g1aUAoi8TJgxq2MJqCaMyj5kAm3Fdy2tzftPCV/lbdiJqmBnWKjtwIDAQAB',
+        check: (data: string) => data.includes('k=rsa;') && data.includes('p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCbmGbQMzYeMvxwtNQoXN0waGYaciuKx8mtMh5czguT4EZlJXuCt6V+l56mmt3t68FEX5JJ0q4ijG71BGoFRkl87uJi7LrQt1ZZmZCvrEII0YO4mp8sDLXC8g1aUAoi8TJgxq2MJqCaMyj5kAm3Fdy2tzftPCV/lbdiJqmBnWKjtwIDAQAB'),
+        host: 'api._domainkey',
+    },
+    Tracking: {
+        type: 'CNAME',
+        name: (domain: string) => `tracking.${domain}`,
+        expectedValue: 'app.mailzila.com',
+        check: (data: string) => data.includes('app.mailzila.com'),
+        host: 'tracking',
+    },
+    DMARC: {
+        type: 'TXT',
+        name: (domain: string) => `_dmarc.${domain}`,
+        expectedValue: 'v=DMARC1;p=none;pct=10;aspf=r;adkim=r;',
+        check: (data: string) => data.includes('v=DMARC1'),
+        host: '_dmarc',
+    },
+};
+
+type VerificationStatus = 'idle' | 'checking' | 'verified' | 'failed';
+
+const VerificationStatusIndicator = ({ status }: { status: VerificationStatus }) => {
+    const { t } = useTranslation();
+    switch (status) {
+        case 'checking':
+            return <span className="verification-status status-checking"><Icon path={ICONS.LOADING_SPINNER} className="icon-spinner" /> {t('checking')}</span>;
+        case 'verified':
+            return <span className="verification-status status-verified"><Icon path={ICONS.CHECK} className="icon-success" /> {t('verified')}</span>;
+        case 'failed':
+            return <span className="verification-status status-failed"><Icon path={ICONS.X_CIRCLE} className="icon-danger" /> {t('notVerified')}</span>;
+        default:
+            return null;
+    }
+};
+
+const DomainVerificationChecker = ({ domainName }: { domainName: string }) => {
+    const { t } = useTranslation();
+    const [statuses, setStatuses] = useState<Record<string, { status: VerificationStatus }>>(
+      Object.keys(DNS_RECORDS_CONFIG).reduce((acc, key) => ({ ...acc, [key]: { status: 'idle' } }), {})
+    );
+    const [isChecking, setIsChecking] = useState(false);
+
+    const checkAllDns = async () => {
+        setIsChecking(true);
+        setStatuses(prev => Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: { status: 'checking' } }), {}));
+
+        for (const [key, config] of Object.entries(DNS_RECORDS_CONFIG)) {
+            try {
+                const response = await fetch(`https://dns.google/resolve?name=${config.name(domainName)}&type=${config.type}`);
+                if (!response.ok) {
+                    throw new Error(`DNS lookup failed with status ${response.status}`);
+                }
+                const result = await response.json();
+                
+                let isVerified = false;
+                if (result.Status === 0 && result.Answer) {
+                    const foundRecord = result.Answer.find((ans: any) => config.check(ans.data.replace(/"/g, '')));
+                    if (foundRecord) {
+                        isVerified = true;
+                    }
+                }
+                setStatuses(prev => ({ ...prev, [key]: { status: isVerified ? 'verified' : 'failed' } }));
+
+            } catch (error) {
+                console.error(`Error checking ${key}:`, error);
+                setStatuses(prev => ({ ...prev, [key]: { status: 'failed' } }));
+            }
+        }
+        setIsChecking(false);
+    };
+
+    return (
+        <div className="domain-verification-checker">
+            <button className="btn check-all-btn" onClick={checkAllDns} disabled={isChecking}>
+                {isChecking ? <Loader /> : <Icon path={ICONS.VERIFY} />}
+                {isChecking ? t('checkingDns') : t('checkDnsStatus')}
+            </button>
+            <div className="dns-records-list">
+                {Object.entries(DNS_RECORDS_CONFIG).map(([key, config]) => (
+                    <div className="dns-record-item" key={key}>
+                        <div className="dns-record-item-header">
+                            <h4>{t('recordType', { type: key })}</h4>
+                            <VerificationStatusIndicator status={statuses[key]?.status} />
+                        </div>
+                        <div className="dns-record-details">
+                            <div className="detail"><strong>{t('host')}:</strong> <code>{config.host}</code></div>
+                            <div className="detail"><strong>{t('type')}:</strong> <code>{config.type}</code></div>
+                            <div className="detail"><strong>{t('value')}:</strong> <code>{config.expectedValue}</code></div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const DomainsView = ({ apiKey }: { apiKey: string }) => {
+    const { t } = useTranslation();
+    const [refetchIndex, setRefetchIndex] = useState(0);
+    const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
+    const [newDomain, setNewDomain] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
+
+    const { data, loading, error } = useApiV4('/domains', apiKey, {}, refetchIndex);
+    const refetch = () => {
+        setExpandedDomain(null);
+        setRefetchIndex(i => i + 1);
+    }
+
+    const handleAddDomain = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newDomain) return;
+        setIsSubmitting(true);
+        try {
+            await apiFetchV4('/domains', apiKey, { method: 'POST', body: { Domain: newDomain } });
+            setActionStatus({ type: 'success', message: t('domainAddedSuccess', { domain: newDomain }) });
+            setNewDomain('');
+            refetch();
+        } catch (err: any) {
+            setActionStatus({ type: 'error', message: t('domainAddedError', { error: err.message }) });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    
+    const handleDeleteDomain = async (domainName: string) => {
+        if (!window.confirm(t('confirmDeleteDomain', { domainName }))) return;
+        try {
+            await apiFetchV4(`/domains/${encodeURIComponent(domainName)}`, apiKey, { method: 'DELETE' });
+            setActionStatus({ type: 'success', message: t('domainDeletedSuccess', { domainName }) });
+            refetch();
+        } catch (err: any) {
+            setActionStatus({ type: 'error', message: t('domainDeletedError', { error: err.message }) });
+        }
+    };
+    
+    const domainsList = Array.isArray(data) ? data : (data && Array.isArray(data.Data)) ? data.Data : [];
+    const isNotFoundError = error && (error.message.includes('Not Found') || error.message.includes('not found'));
+    const showNoDomainsMessage = !loading && !error && domainsList.length === 0;
+
+    return (
+        <div>
+            <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
+             <div className="view-header">
+                <form className="add-domain-form" onSubmit={handleAddDomain}>
+                    <input
+                        type="text"
+                        placeholder="example.com"
+                        value={newDomain}
+                        onChange={e => setNewDomain(e.target.value)}
+                        disabled={isSubmitting}
+                    />
+                    <button type="submit" className="btn btn-primary" disabled={!newDomain || isSubmitting}>
+                        {isSubmitting ? <Loader /> : <><Icon path={ICONS.PLUS}/> {t('addDomain')}</>}
+                    </button>
+                </form>
+            </div>
+            {loading && <CenteredMessage><Loader /></CenteredMessage>}
+            {error && !isNotFoundError && <ErrorMessage error={error} />}
+            {showNoDomainsMessage && <CenteredMessage>{t('noDomainsFound')}</CenteredMessage>}
+            
+            {domainsList.length > 0 && <div className="card-grid domain-grid">
+                {domainsList.map((domain: any) => {
+                    const domainName = domain.Domain || domain.domain;
+                    if (!domainName) return null;
+                    
+                    const isSpfVerified = String(domain.Spf || domain.spf).toLowerCase() === 'true';
+                    const isDkimVerified = String(domain.Dkim || domain.dkim).toLowerCase() === 'true';
+                    const isMxVerified = String(domain.MX || domain.mx).toLowerCase() === 'true';
+                    const trackingStatus = domain.TrackingStatus || domain.trackingstatus;
+                    const isTrackingVerified = String(trackingStatus).toLowerCase() === 'validated';
+                    const isExpanded = expandedDomain === domainName;
+
+                    return (
+                        <div key={domainName} className="card domain-card">
+                            <div className="domain-card-header">
+                                <h3>{domainName}</h3>
+                                <div className="action-buttons">
+                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteDomain(domainName)} aria-label={t('deleteDomain', { domainName })}>
+                                        <Icon path={ICONS.DELETE} />
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="domain-card-body">
+                                <div className="domain-card-statuses">
+                                    <div><span>SPF</span> <Badge text={isSpfVerified ? t('verified') : t('missing')} type={isSpfVerified ? 'success' : 'warning'} /></div>
+                                    <div><span>DKIM</span> <Badge text={isDkimVerified ? t('verified') : t('missing')} type={isDkimVerified ? 'success' : 'warning'} /></div>
+                                    <div><span>Tracking</span> <Badge text={isTrackingVerified ? t('verified') : t('missing')} type={isTrackingVerified ? 'success' : 'warning'} /></div>
+                                    <div><span>MX</span> <Badge text={isMxVerified ? t('verified') : t('missing')} type={isMxVerified ? 'success' : 'warning'} /></div>
+                                </div>
+                            </div>
+                            <div className="domain-card-footer" onClick={() => setExpandedDomain(d => d === domainName ? null : domainName)} role="button" aria-expanded={isExpanded}>
+                                <span>{t('showDnsAndVerify')}</span>
+                                <Icon path={ICONS.CHEVRON_DOWN} className={isExpanded ? 'expanded' : ''} />
+                            </div>
+                            {isExpanded && <DomainVerificationChecker domainName={domainName} />}
+                        </div>
+                    )
+                })}
+            </div>}
+        </div>
+    );
+};
+
+export default DomainsView;
