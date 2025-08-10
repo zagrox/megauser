@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApiV4 from '../hooks/useApiV4';
 import { apiUploadV4, apiFetchV4 } from '../api/elasticEmail';
@@ -120,7 +120,6 @@ const FilePreviewModal = ({ isOpen, onClose, fileInfo, apiKey }: { isOpen: boole
                 return;
             }
 
-            // Limit preview size to avoid browser crash
             if (fileInfo.Size > 10 * 1024 * 1024) { // 10MB
                 setError(t('fileIsTooLargeToPreview'));
                 return;
@@ -165,7 +164,7 @@ const FilePreviewModal = ({ isOpen, onClose, fileInfo, apiKey }: { isOpen: boole
                     {isLoading && <CenteredMessage><Loader /></CenteredMessage>}
                     {error && <div className="info-message warning">{error}</div>}
                     {contentUrl ? (
-                        <img src={contentUrl} alt={t('preview')} style={{ maxWidth: '100%', maxHeight: '70vh', display: 'block', margin: 'auto' }} />
+                        <img src={contentUrl} alt={t('preview')} className="file-preview-image" />
                     ) : (
                          !isLoading && !error && <div className="info-message">{t('preview')}</div>
                     )}
@@ -202,6 +201,9 @@ const FileCard = React.memo(({ fileInfo, apiKey, onView, onDelete }: { fileInfo:
                 <p className="file-card-meta">{formatBytes(fileInfo.Size)} &bull; {formatDateForDisplay(fileInfo.DateAdded)}</p>
             </div>
             <div className="file-card-actions">
+                 <button className="btn-icon" onClick={() => onView(fileInfo)} aria-label={t('viewFileDetails')}>
+                    <Icon path={ICONS.EYE} />
+                </button>
                 <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="btn-icon" aria-label={t('downloadFile')}>
                     <Icon path={ICONS.DOWNLOAD} />
                 </a>
@@ -220,13 +222,14 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [fileToPreview, setFileToPreview] = useState<FileInfo | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortOrder, setSortOrder] = useState('DateAdded-descending');
 
     const refetch = () => setRefetchIndex(i => i + 1);
 
     const handleUploadSuccess = (fileInfo: FileInfo) => {
         setIsUploadModalOpen(false);
         setActionStatus({ type: 'success', message: t('fileUploadSuccess') });
-        // API can be slow to update, so wait a bit before refetching
         setTimeout(refetch, 1000);
     };
 
@@ -245,7 +248,38 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
         }
     };
     
-    const filesList = Array.isArray(files) ? files : [];
+    const sortedAndFilteredFiles = useMemo(() => {
+        if (!Array.isArray(files)) return [];
+
+        const [key, direction] = sortOrder.split('-') as [keyof FileInfo, 'ascending' | 'descending'];
+
+        return files
+            .filter(file => file.FileName.toLowerCase().includes(searchQuery.toLowerCase()))
+            .sort((a, b) => {
+                const aValue = a[key];
+                const bValue = b[key];
+                
+                let comparison = 0;
+                if (key === 'DateAdded') {
+                    comparison = new Date(aValue as string).getTime() - new Date(bValue as string).getTime();
+                } else if (key === 'FileName') {
+                    comparison = (aValue as string).localeCompare(bValue as string);
+                } else { // Size
+                    comparison = (aValue as number) - (bValue as number);
+                }
+                
+                return direction === 'descending' ? -comparison : comparison;
+            });
+    }, [files, searchQuery, sortOrder]);
+
+    const sortOptions = {
+        "DateAdded-descending": "Recent first",
+        "DateAdded-ascending": "Oldest first",
+        "FileName-ascending": "Name (A-Z)",
+        "FileName-descending": "Name (Z-A)",
+        "Size-descending": "Size (Largest)",
+        "Size-ascending": "Size (Smallest)",
+    };
 
     return (
         <div>
@@ -265,8 +299,26 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
             />
 
             <div className="view-header">
-                <h3>{t('mediaManager')}: {filesList.length} {t('file_plural')}</h3>
+                <div className="search-bar">
+                    <Icon path={ICONS.SEARCH}/>
+                    <input 
+                        type="search" 
+                        placeholder={t('search')} 
+                        value={searchQuery} 
+                        onChange={e => setSearchQuery(e.target.value)}
+                        aria-label={t('search')}
+                    />
+                </div>
                 <div className="header-actions">
+                    <select 
+                        value={sortOrder}
+                        onChange={(e) => setSortOrder(e.target.value)}
+                        aria-label="Sort files by"
+                    >
+                        {Object.entries(sortOptions).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                        ))}
+                    </select>
                     <button className="btn btn-primary" onClick={() => setIsUploadModalOpen(true)}>
                         <Icon path={ICONS.UPLOAD} /> {t('uploadFile')}
                     </button>
@@ -275,15 +327,17 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
 
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
-            {!loading && !error && filesList.length === 0 && (
-                <CenteredMessage>
-                    <strong>{t('noFilesFound')}</strong>
-                    <p>{t('uploadNewFilePrompt')}</p>
+            {!loading && !error && sortedAndFilteredFiles.length === 0 && (
+                <CenteredMessage style={{height: '50vh'}}>
+                    <div className="info-message">
+                         <strong>{searchQuery ? t('noFilesFound') : t('noFilesFound')}</strong>
+                         {!searchQuery && <p>{t('uploadNewFilePrompt')}</p>}
+                    </div>
                 </CenteredMessage>
             )}
 
             <div className="file-grid">
-                {filesList.map((file: FileInfo) => (
+                {sortedAndFilteredFiles.map((file: FileInfo) => (
                     <FileCard
                         key={file.FileName}
                         fileInfo={file}

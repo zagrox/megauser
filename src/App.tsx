@@ -86,7 +86,7 @@ const App = () => {
     const SidebarContent = () => (
       <>
         <div className="sidebar-header">
-            <img src="https://mailzila.com/wp-content/uploads/mailzila-logo-dark-red.png" alt="Mailzila logo" className="sidebar-logo" />
+            <img src="https://mailzila.com/logo.png" alt="Mailzila logo" className="sidebar-logo" />
             <span className="logo-font">Mailzila</span>
         </div>
         <nav className="nav">
@@ -113,6 +113,9 @@ const App = () => {
         </div>
       </>
     );
+    
+    const currentView = views[view];
+    const showHeader = view !== 'Dashboard';
 
     return (
         <div className={`app-container ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
@@ -125,14 +128,16 @@ const App = () => {
                      <button className="mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(true)} aria-label={t('openMenu')}>
                         <Icon path={ICONS.MENU} />
                     </button>
-                    <h1 className="mobile-header-title">{views[view]?.title || 'Mailzila'}</h1>
+                    <h1 className="mobile-header-title">{currentView?.title || 'Mailzila'}</h1>
                     <div className="mobile-header-placeholder"></div>
                 </header>
                 <main className="content">
-                    <header className="content-header">
-                        <h2>{views[view]?.title}</h2>
-                    </header>
-                    {views[view]?.component}
+                    {showHeader && (
+                        <header className="content-header">
+                            <h2>{currentView?.title}</h2>
+                        </header>
+                    )}
+                    {currentView?.component}
                 </main>
             </div>
         </div>

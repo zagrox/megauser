@@ -398,7 +398,7 @@ const resources = {
       openMenu: 'Open menu',
       // Media Manager
       file_plural: 'Files',
-      uploadFile: 'Upload File',
+      uploadFile: 'Upload',
       uploadModalTitle: 'Upload a New File',
       file: 'File',
       expiresAfterDays: 'Expires After (days)',

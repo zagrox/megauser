@@ -7,8 +7,10 @@ import Loader from '../components/Loader';
 import Modal from '../components/Modal';
 import ErrorMessage from '../components/ErrorMessage';
 import CenteredMessage from '../components/CenteredMessage';
+import { DIRECTUS_CRM_URL } from '../api/config';
 
-const PURCHASE_WEBHOOK_URL = 'https://auto.zagrox.com/webhook-test/emailpack'; // As requested, URL is here for easy changes.
+
+const PURCHASE_WEBHOOK_URL = 'https://mailzila.com/webhook-test/emailpack'; // As requested, URL is here for easy changes.
 
 const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onClose: () => void, apiKey: string }) => {
     const { t, i18n } = useTranslation();
@@ -98,34 +100,53 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
         const fetchPackages = async () => {
             setPackagesLoading(true);
             setPackagesError(null);
+            
+            const url = `${DIRECTUS_CRM_URL}/items/packages`;
+    
             try {
-                // Using native fetch to call the public endpoint directly without auth headers.
-                const response = await fetch('https://accounting.mailzila.com/items/credits');
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+    
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch packages: ${response.status} ${response.statusText}`);
+                    throw new Error(`Server responded with status: ${response.status} ${response.statusText}`);
                 }
-                const responseData = await response.json();
-
-                if (responseData && Array.isArray(responseData.data)) {
-                    setPackages(responseData.data);
+    
+                const result = await response.json();
+                const items = result.data;
+    
+                if (Array.isArray(items)) {
+                    setPackages(items);
                 } else {
-                    throw new Error('Invalid response structure from credits endpoint.');
+                    throw new Error('Invalid response structure from credits endpoint. Expected a "data" array.');
                 }
             } catch (err: any) {
-                // Craft a more user-friendly error message for network issues.
-                if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
-                    setPackagesError(`Network error: Could not connect to the API at https://accounting.mailzila.com. Please check the URL and your network connection.`);
+                let errorMessage;
+    
+                if (err.message.toLowerCase().includes('failed to fetch')) {
+                     errorMessage = `A network error occurred ("Failed to fetch"). This can happen for several reasons:
+
+1.  **CORS Issue**: Your server at ${DIRECTUS_CRM_URL} is not configured to allow requests from this web app's origin. Please check your Directus 'CORS_ALLOWED_ORIGINS' setting. For development, setting it to '*' is a common fix.
+2.  **Server Unreachable**: The server at ${DIRECTUS_CRM_URL} might be down or inaccessible from your network.
+3.  **SSL Certificate Error**: The server's SSL certificate may be invalid or self-signed. Check the browser's developer console for 'net::ERR_CERT...' errors.
+
+This is a client-server connection issue that must be resolved at the server or network level. The app is attempting a GET request to:
+${url}`;
                 } else {
-                    setPackagesError(err.message || 'Failed to load credit packages.');
+                    errorMessage = `An error occurred while fetching packages: ${err.message}`;
                 }
-                console.error(err);
+                
+                setPackagesError(errorMessage);
+                console.error("Failed to fetch credit packages:", err);
             } finally {
                 setPackagesLoading(false);
             }
         };
-
+    
         fetchPackages();
-    }, []);
+    }, [t, i18n.language]);
+
 
     const handlePurchase = async (pkg: any) => {
         if (!user || !user.email) {
@@ -138,8 +159,8 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
         const params = new URLSearchParams({
             userapikey: apiKey,
             useremail: user.email,
-            amount: pkg.creditnumber.toString(),
-            totalprice: pkg.creditamount.toString(),
+            amount: pkg.packsize.toString(),
+            totalprice: pkg.packprice.toString(),
         });
         
         const requestUrl = `${PURCHASE_WEBHOOK_URL}?${params.toString()}`;
@@ -157,7 +178,7 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             setModalState({
                 isOpen: true,
                 title: t('purchaseInitiated'),
-                message: t('purchaseInitiatedMessage', { count: (pkg.creditnumber || 0).toLocaleString(i18n.language) })
+                message: t('purchaseInitiatedMessage', { count: (pkg.packsize || 0).toLocaleString(i18n.language) })
             });
 
         } catch (error: any) {
@@ -207,7 +228,7 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             </Modal>
             
             {packagesLoading && <CenteredMessage><Loader/></CenteredMessage>}
-            {packagesError && <ErrorMessage error={{endpoint: '/items/credits', message: packagesError}} />}
+            {packagesError && <ErrorMessage error={{endpoint: 'Directus /items/packages', message: packagesError}} />}
             
             {!packagesLoading && !packagesError && (
                  <div className="table-container">
@@ -224,10 +245,10 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                         <tbody>
                             {packages.map((pkg: any) => (
                                 <tr key={pkg.id}>
-                                    <td><strong>{pkg.creditpack}</strong></td>
-                                    <td>{(pkg.creditnumber || 0).toLocaleString(i18n.language)}</td>
-                                    <td>{(pkg.creditamount || 0).toLocaleString(i18n.language)}</td>
-                                    <td>{pkg.creditrate}</td>
+                                    <td><strong>{pkg.packname}</strong></td>
+                                    <td>{(pkg.packsize || 0).toLocaleString(i18n.language)}</td>
+                                    <td>{(pkg.packprice || 0).toLocaleString(i18n.language)}</td>
+                                    <td>{pkg.packrate}</td>
                                     <td style={{ textAlign: i18n.dir() === 'rtl' ? 'left' : 'right' }}>
                                         <button
                                             className="btn btn-primary"

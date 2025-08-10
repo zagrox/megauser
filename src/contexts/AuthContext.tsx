@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext } from 'react';
-import { directusFetch } from '../api/directus';
+import { readMe, createUser, updateMe } from '@directus/sdk';
+import sdk from '../api/directus';
 import { apiFetch } from '../api/elasticEmail';
 
 interface AuthContextType {
@@ -21,42 +22,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const getMe = useCallback(async () => {
         setLoading(true);
-        const token = localStorage.getItem('directus_access_token');
-        if (token) {
+        try {
+            // The Directus SDK will automatically use the stored token.
+            // A failed `readMe` request is the canonical way to check for an invalid/expired session.
+            const me = await sdk.request(readMe({ fields: ['*.*'] }));
+            setUser(me);
+        } catch (directusError) {
+            // This block correctly handles fallback logic when not logged in with Directus
+            // or if the token is invalid. The console error is removed to reduce noise.
             try {
-                const { data } = await directusFetch('/users/me?fields=*.*');
-                setUser(data);
-            } catch (error) {
-                console.error("Failed to fetch user:", error);
-                localStorage.removeItem('directus_access_token');
+                const apiKey = localStorage.getItem('elastic_email_api_key');
+                if (apiKey) {
+                    const accountData = await apiFetch('/account/load', apiKey); // Validate key
+                    setUser({
+                        elastic_email_api_key: apiKey,
+                        first_name: accountData.firstname,
+                        email: accountData.email,
+                        isApiKeyUser: true,
+                    });
+                } else {
+                    setUser(null); // No credentials found at all
+                }
+            } catch (apiKeyError) {
+                console.error("Fallback API key authentication failed:", apiKeyError);
                 setUser(null);
-            } finally {
-                setLoading(false);
             }
-            return;
+        } finally {
+            setLoading(false);
         }
-
-        const apiKey = localStorage.getItem('elastic_email_api_key');
-        if (apiKey) {
-            try {
-                const accountData = await apiFetch('/account/load', apiKey); // Validate key and get data
-                setUser({
-                    elastic_email_api_key: apiKey,
-                    first_name: accountData.firstname,
-                    email: accountData.email,
-                    isApiKeyUser: true,
-                });
-            } catch (error) {
-                console.error("Stored API key is invalid, removing.", error);
-                localStorage.removeItem('elastic_email_api_key');
-                setUser(null);
-            } finally {
-                setLoading(false);
-            }
-            return;
-        }
-
-        setLoading(false);
     }, []);
 
 
@@ -65,45 +58,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, [getMe]);
 
     const login = async (credentials: any) => {
-        const { data } = await directusFetch('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify(credentials),
-        });
-        localStorage.setItem('directus_access_token', data.access_token);
+        await sdk.login(credentials);
         await getMe();
     };
     
     const loginWithApiKey = async (apiKey: string) => {
-        const accountData = await apiFetch('/account/load', apiKey); // This will throw on failure
+        await apiFetch('/account/load', apiKey); // This will throw on failure
         localStorage.setItem('elastic_email_api_key', apiKey);
-        setUser({
-            elastic_email_api_key: apiKey,
-            first_name: accountData.firstname,
-            email: accountData.email,
-            isApiKeyUser: true,
-        });
+        await getMe(); // Re-check auth status which will now pick up the API key
     };
 
     const register = async (details: any) => {
-        await directusFetch('/users', {
-            method: 'POST',
-            body: JSON.stringify(details),
-        });
+        // With public registration enabled in Directus, the default role is assigned automatically.
+        await sdk.request(createUser(details));
         await login({ email: details.email, password: details.password });
     };
 
-    const logout = () => {
-        localStorage.removeItem('directus_access_token');
+    const logoutAsync = async () => {
+        try {
+            // The new SDK places logout at the top level
+            await sdk.logout();
+        } catch (error) {
+            console.error("SDK logout failed:", error);
+        }
         localStorage.removeItem('elastic_email_api_key');
         setUser(null);
     };
+
+    const logout = () => {
+        logoutAsync().catch(e => console.error("Logout process failed", e));
+    }
     
     const updateUser = async (data: any) => {
-        const { data: updatedUser } = await directusFetch('/users/me', {
-            method: 'PATCH',
-            body: JSON.stringify(data),
-        });
-        setUser(updatedUser);
+        // Use `updateMe` for the currently authenticated user
+        await sdk.request(updateMe(data));
+        await getMe();
     }
 
     const value = {

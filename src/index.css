@@ -193,6 +193,8 @@ a:hover {
     background: rgba(var(--danger-color), 0.1);
     color: var(--danger-color);
     border-left: 4px solid var(--danger-color);
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 /* --- MAIN LAYOUT --- */
@@ -239,8 +241,8 @@ a:hover {
 }
 
 .sidebar-logo {
-    width: 48px;
-    height: 48px;
+    width: 64px;
+    height: 36px;
 }
 
 .nav {
@@ -814,11 +816,7 @@ textarea {
     gap: 1.5rem;
     margin-top: 1rem;
     font-size: 0.9rem;
-}
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 .overall-snapshot-grid {
     display: grid;
@@ -1124,13 +1122,23 @@ tbody tr:hover {
 /* --- CAMPAIGNS VIEW --- */
 .campaign-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: 1fr;
     gap: 1.5rem;
+}
+@media (min-width: 768px) {
+    .campaign-grid {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 .campaign-card {
     padding: 0;
     display: flex;
     flex-direction: column;
+    cursor: pointer;
+}
+.campaign-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 .campaign-card-header {
     padding: 1.25rem;
@@ -1150,7 +1158,7 @@ tbody tr:hover {
     padding: 1.25rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
     flex-grow: 1;
 }
 .campaign-subject {
@@ -1159,10 +1167,8 @@ tbody tr:hover {
 }
 .campaign-stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--border-color);
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1.5rem;
 }
 .campaign-stat-item {
     text-align: center;

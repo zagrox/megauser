@@ -10,7 +10,7 @@ const APP_SHELL_URLS = [
 
 // URLs for runtime caching using a stale-while-revalidate strategy
 const RUNTIME_CACHE_HOSTS = [
-  'https://accounting.mailzila.com',
+  'https://crm.mailzila.com',
   'https://api.elasticemail.com',
   'https://dns.google',
   'https://fonts.googleapis.com',
