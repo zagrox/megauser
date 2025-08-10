@@ -334,7 +334,7 @@ const resources = {
       emailSentError: 'Failed to send email: {{error}}',
       // Campaigns
       searchCampaignsPlaceholder: 'Search by campaign or subject...',
-      viewCampaignStats: 'View campaign stats',
+      viewCampaignStats: 'View stats',
       'unknown': 'Unknown',
       noSubject: '(No Subject)',
       noCampaignsFound: 'No campaigns found.',
@@ -466,7 +466,7 @@ const resources = {
       price: 'قیمت',
       total: 'مجموع',
       recipients: 'گیرندگان',
-      delivered: 'تحویل داده شده',
+      delivered: 'تحویل شده',
       opened: 'باز شده',
       clicked: 'کلیک شده',
       unsubscribed: 'لغو اشتراک شده',
@@ -519,7 +519,7 @@ const resources = {
       smtpDesc: 'مشاهده اطلاعات SMTP شما.',
       buyCreditsDesc: 'خرید اعتبار ایمیل بیشتر.',
       // Statistics View
-      dateRange: 'بازه زمانی',
+      dateRange: 'تاریخ',
       last7Days: '۷ روز گذشته',
       last14Days: '۱۴ روز گذشته',
       last30Days: '۳۰ روز گذشته',
@@ -765,7 +765,7 @@ const resources = {
       notDelivered: 'تحویل داده نشده',
       noStatsForCampaign: 'هیچ آماری برای این کمپین موجود نیست.',
       // Domains
-      addDomain: 'افزودن دامنه',
+      addDomain: 'دامنه جدید',
       domainAddedSuccess: 'دامنه {{domain}} با موفقیت اضافه شد. برای تأیید آن دستورالعمل‌ها را دنبال کنید.',
       domainAddedError: 'افزودن دامنه ناموفق بود: {{error}}',
       confirmDeleteDomain: 'آیا از حذف دامنه {{domainName}} مطمئن هستید؟',
@@ -817,7 +817,7 @@ const resources = {
       openMenu: 'باز کردن منو',
       // Media Manager
       file_plural: 'فایل‌ها',
-      uploadFile: 'آپلود فایل',
+      uploadFile: 'آپلود',
       uploadModalTitle: 'آپلود فایل جدید',
       file: 'فایل',
       expiresAfterDays: 'منقضی بعد از (روز)',

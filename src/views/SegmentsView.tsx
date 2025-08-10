@@ -104,9 +104,11 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
         }
     };
     
-    const filteredSegments: Segment[] = segments?.filter((seg: Segment) => 
-        seg.Name.toLowerCase().includes(searchQuery.toLowerCase())
-    ) || [];
+    const filteredSegments: Segment[] = (segments || [])
+        .filter((seg: Segment) => 
+            seg.Name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .sort((a, b) => new Date(b.DateAdded).getTime() - new Date(a.DateAdded).getTime());
 
     return (
         <div>

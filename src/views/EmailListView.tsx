@@ -139,9 +139,11 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
         }
     };
 
-    const filteredLists: List[] = lists?.filter((list: List) => 
-        list.ListName.toLowerCase().includes(searchQuery.toLowerCase())
-    ) || [];
+    const filteredLists: List[] = (lists || [])
+        .filter((list: List) => 
+            list.ListName.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .sort((a, b) => new Date(b.DateAdded).getTime() - new Date(a.DateAdded).getTime());
 
     return (
         <div>

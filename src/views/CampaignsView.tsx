@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApiV4 from '../hooks/useApiV4';
+import { apiFetchV4 } from '../api/elasticEmail';
 import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
@@ -58,9 +59,9 @@ const CampaignDetailModal = ({ campaign, apiKey, isOpen, onClose }: { campaign: 
     );
 };
 
-const CampaignCard = ({ campaign, onSelect }: { campaign: any; onSelect: () => void; }) => {
-    const { t } = useTranslation();
-    
+const CampaignCard = ({ campaign, onSelect, stats, loadingStats }: { campaign: any; onSelect: () => void; stats: { Delivered: number, Opened: number } | null; loadingStats: boolean; }) => {
+    const { t, i18n } = useTranslation();
+
     const getBadgeTypeForStatus = (statusName: string | undefined) => {
         const lowerStatus = (statusName || '').toLowerCase().replace(/\s/g, '');
         if (['sent', 'complete', 'completed'].includes(lowerStatus)) return 'success';
@@ -71,8 +72,8 @@ const CampaignCard = ({ campaign, onSelect }: { campaign: any; onSelect: () => v
     };
 
     return (
-        <div className="card campaign-card" onClick={onSelect} role="button" tabIndex={0} onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect()}>
-            <div className="campaign-card-header">
+        <div className="card campaign-card">
+            <div className="campaign-card-header" onClick={onSelect} role="button" tabIndex={0} onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect()}>
                 <h3>{campaign.Name}</h3>
                 <Badge text={campaign.Status ?? t('unknown')} type={getBadgeTypeForStatus(campaign.Status)} />
             </div>
@@ -80,9 +81,19 @@ const CampaignCard = ({ campaign, onSelect }: { campaign: any; onSelect: () => v
                 <p className="campaign-subject">
                     {t('subject')}: {campaign.Content?.[0]?.Subject || t('noSubject')}
                 </p>
-                <div style={{marginTop: 'auto', paddingTop: '1rem', textAlign: 'center', color: 'var(--secondary-color)', fontWeight: 500, fontSize: '0.9rem'}}>
-                    {t('viewCampaignStats')} &rarr;
+            </div>
+            <div className="campaign-card-footer">
+                <div className="campaign-card-footer-stats">
+                    {loadingStats ? <Loader /> : (
+                        stats ? (
+                            <>
+                                <span>{t('delivered')}: <strong>{stats.Delivered.toLocaleString(i18n.language)}</strong></span>
+                                <span>{t('opened')}: <strong>{stats.Opened.toLocaleString(i18n.language)}</strong></span>
+                            </>
+                        ) : null
+                    )}
                 </div>
+                <button onClick={onSelect} className="link-button campaign-card-view-link">{t('viewCampaignStats')} &rarr;</button>
             </div>
         </div>
     );
@@ -93,6 +104,7 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
     const { data: campaigns, loading, error } = useApiV4('/campaigns', apiKey);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
+    const [campaignStats, setCampaignStats] = useState<Record<string, { data?: any; loading: boolean; error?: any; }>>({});
 
     const filteredCampaigns = useMemo(() => {
         if (!Array.isArray(campaigns)) return [];
@@ -101,6 +113,55 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
             (c.Content?.[0]?.Subject && c.Content[0].Subject.toLowerCase().includes(searchQuery.toLowerCase()))
         );
     }, [campaigns, searchQuery]);
+
+    useEffect(() => {
+        let isMounted = true;
+    
+        const fetchAllStatsSequentially = async () => {
+            for (const campaign of filteredCampaigns) {
+                if (!isMounted) break;
+    
+                // Fetch only if the campaign's stats haven't been fetched or are not currently being fetched.
+                if (!campaignStats[campaign.Name]) {
+                    // Set status to loading before fetching
+                    if (isMounted) {
+                        setCampaignStats(prev => ({ ...prev, [campaign.Name]: { loading: true } }));
+                    }
+                    try {
+                        const result = await apiFetchV4(`/statistics/campaigns/${encodeURIComponent(campaign.Name)}`, apiKey);
+                        if (isMounted) {
+                            setCampaignStats(prev => ({
+                                ...prev,
+                                [campaign.Name]: { 
+                                    loading: false, 
+                                    data: {
+                                        Delivered: result?.Delivered ?? 0,
+                                        Opened: result?.Opened ?? 0,
+                                    }
+                                }
+                            }));
+                        }
+                    } catch (err) {
+                        if (isMounted) {
+                            console.error(`Failed to fetch stats for campaign ${campaign.Name}`, err);
+                            setCampaignStats(prev => ({
+                                ...prev,
+                                [campaign.Name]: { loading: false, error: err }
+                            }));
+                        }
+                    }
+                }
+            }
+        };
+    
+        if (apiKey && filteredCampaigns.length > 0) {
+            fetchAllStatsSequentially();
+        }
+    
+        return () => {
+            isMounted = false;
+        };
+    }, [filteredCampaigns, apiKey]);
 
     const handleSelectCampaign = (campaign: any) => {
         setSelectedCampaign(campaign);
@@ -149,13 +210,18 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
                     </CenteredMessage>
                 ) : (
                     <div className="campaign-grid">
-                        {filteredCampaigns.map((campaign: any) => (
-                           <CampaignCard 
-                                key={campaign.Name} 
-                                campaign={campaign} 
-                                onSelect={() => handleSelectCampaign(campaign)} 
-                           />
-                        ))}
+                        {filteredCampaigns.map((campaign: any) => {
+                           const statsInfo = campaignStats[campaign.Name] || { loading: true };
+                           return (
+                               <CampaignCard 
+                                    key={campaign.Name} 
+                                    campaign={campaign}
+                                    onSelect={() => handleSelectCampaign(campaign)}
+                                    stats={statsInfo.data}
+                                    loadingStats={statsInfo.loading}
+                               />
+                           );
+                        })}
                     </div>
                 )
             )}

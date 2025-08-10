@@ -118,7 +118,7 @@ const DomainVerificationChecker = ({ domainName }: { domainName: string }) => {
 };
 
 const DomainsView = ({ apiKey }: { apiKey: string }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [refetchIndex, setRefetchIndex] = useState(0);
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [newDomain, setNewDomain] = useState('');
@@ -183,44 +183,72 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
             {error && !isNotFoundError && <ErrorMessage error={error} />}
             {showNoDomainsMessage && <CenteredMessage>{t('noDomainsFound')}</CenteredMessage>}
             
-            {domainsList.length > 0 && <div className="card-grid domain-grid">
-                {domainsList.map((domain: any) => {
-                    const domainName = domain.Domain || domain.domain;
-                    if (!domainName) return null;
-                    
-                    const isSpfVerified = String(domain.Spf || domain.spf).toLowerCase() === 'true';
-                    const isDkimVerified = String(domain.Dkim || domain.dkim).toLowerCase() === 'true';
-                    const isMxVerified = String(domain.MX || domain.mx).toLowerCase() === 'true';
-                    const trackingStatus = domain.TrackingStatus || domain.trackingstatus;
-                    const isTrackingVerified = String(trackingStatus).toLowerCase() === 'validated';
-                    const isExpanded = expandedDomain === domainName;
-
-                    return (
-                        <div key={domainName} className="card domain-card">
-                            <div className="domain-card-header">
-                                <h3>{domainName}</h3>
-                                <div className="action-buttons">
-                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteDomain(domainName)} aria-label={t('deleteDomain', { domainName })}>
-                                        <Icon path={ICONS.DELETE} />
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="domain-card-body">
-                                <div className="domain-card-statuses">
-                                    <div><span>SPF</span> <Badge text={isSpfVerified ? t('verified') : t('missing')} type={isSpfVerified ? 'success' : 'warning'} /></div>
-                                    <div><span>DKIM</span> <Badge text={isDkimVerified ? t('verified') : t('missing')} type={isDkimVerified ? 'success' : 'warning'} /></div>
-                                    <div><span>Tracking</span> <Badge text={isTrackingVerified ? t('verified') : t('missing')} type={isTrackingVerified ? 'success' : 'warning'} /></div>
-                                    <div><span>MX</span> <Badge text={isMxVerified ? t('verified') : t('missing')} type={isMxVerified ? 'success' : 'warning'} /></div>
-                                </div>
-                            </div>
-                            <div className="domain-card-footer" onClick={() => setExpandedDomain(d => d === domainName ? null : domainName)} role="button" aria-expanded={isExpanded}>
-                                <span>{t('showDnsAndVerify')}</span>
-                                <Icon path={ICONS.CHEVRON_DOWN} className={isExpanded ? 'expanded' : ''} />
-                            </div>
-                            {isExpanded && <DomainVerificationChecker domainName={domainName} />}
-                        </div>
-                    )
-                })}
+            {domainsList.length > 0 && 
+            <div className="table-container">
+                <table className="simple-table">
+                    <thead>
+                        <tr>
+                            <th>{t('domains')}</th>
+                            <th>{t('status')}</th>
+                            <th style={{ width: '1%', whiteSpace: 'nowrap', textAlign: i18n.dir() === 'rtl' ? 'left' : 'right' }}>{t('action')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {domainsList.map((domain: any) => {
+                             const domainName = domain.Domain || domain.domain;
+                             if (!domainName) return null;
+                             
+                             const isSpfVerified = String(domain.Spf || domain.spf).toLowerCase() === 'true';
+                             const isDkimVerified = String(domain.Dkim || domain.dkim).toLowerCase() === 'true';
+                             const isMxVerified = String(domain.MX || domain.mx).toLowerCase() === 'true';
+                             const trackingStatus = domain.TrackingStatus || domain.trackingstatus;
+                             const isTrackingVerified = String(trackingStatus).toLowerCase() === 'validated';
+                             const isExpanded = expandedDomain === domainName;
+                             
+                             return (
+                                <React.Fragment key={domainName}>
+                                <tr>
+                                    <td><strong>{domainName}</strong></td>
+                                    <td>
+                                        <div className="domain-status-pills">
+                                            <Badge text="SPF" type={isSpfVerified ? 'success' : 'warning'} />
+                                            <Badge text="DKIM" type={isDkimVerified ? 'success' : 'warning'} />
+                                            <Badge text="Tracking" type={isTrackingVerified ? 'success' : 'warning'} />
+                                            <Badge text="MX" type={isMxVerified ? 'success' : 'warning'} />
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
+                                            <button 
+                                                className="btn btn-secondary" 
+                                                onClick={() => setExpandedDomain(isExpanded ? null : domainName)}
+                                                style={{ padding: '0.5rem 1rem' }}
+                                            >
+                                                <Icon path={isExpanded ? ICONS.CHEVRON_DOWN : ICONS.VERIFY} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none' }} />
+                                                <span>{isExpanded ? t('cancel') : t('verify')}</span>
+                                            </button>
+                                            <button 
+                                                className="btn-icon btn-icon-danger" 
+                                                onClick={() => handleDeleteDomain(domainName)} 
+                                                aria-label={t('deleteDomain', { domainName })}
+                                            >
+                                                <Icon path={ICONS.DELETE} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {isExpanded && (
+                                    <tr>
+                                        <td colSpan={3} style={{ padding: 0 }}>
+                                            <DomainVerificationChecker domainName={domainName} />
+                                        </td>
+                                    </tr>
+                                )}
+                                </React.Fragment>
+                             )
+                        })}
+                    </tbody>
+                </table>
             </div>}
         </div>
     );
