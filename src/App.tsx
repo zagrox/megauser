@@ -19,6 +19,7 @@ import CampaignsView from './views/CampaignsView';
 import DomainsView from './views/DomainsView';
 import SmtpView from './views/SmtpView';
 import Icon from './components/Icon';
+import EmbedView from './views/EmbedView';
 
 
 const App = () => {
@@ -27,10 +28,19 @@ const App = () => {
     const [view, setView] = useState('Dashboard');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const isEmbedMode = urlParams.get('embed') === 'true';
+
     useEffect(() => {
-        document.documentElement.lang = i18n.language;
-        document.documentElement.dir = i18n.dir();
-    }, [i18n.language, i18n.dir]);
+        if (!isEmbedMode) {
+            document.documentElement.lang = i18n.language;
+            document.documentElement.dir = i18n.dir();
+        }
+    }, [i18n.language, i18n.dir, isEmbedMode]);
+    
+    if (isEmbedMode) {
+        return <EmbedView />;
+    }
 
     if (loading) {
         return <CenteredMessage style={{height: '100vh'}}><Loader /></CenteredMessage>;

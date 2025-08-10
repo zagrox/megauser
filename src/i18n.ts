@@ -1,4 +1,5 @@
 
+
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
@@ -155,6 +156,15 @@ const resources = {
       apiKeySignInMessage: 'You are signed in using an API key, which has limited access to account settings.',
       logOut: 'Log Out',
       andRegister: 'and register for a full account.',
+      // Embed
+      embedDashboard: 'Embed Dashboard',
+      embedDashboardSubtitle: 'Copy and paste this HTML snippet into your website or application to embed a live view of your Mailzila dashboard.',
+      embedWarning: 'This embed code contains your API key. Only use it on secure websites you trust.',
+      copyEmbedCode: 'Copy Embed Code',
+      embedCode: 'Embed Code',
+      selectView: 'Select View',
+      embedApiKeyMissing: 'API Key is missing from the URL. Cannot display embeddable content.',
+      warning: 'Warning',
       // Buy Credits
       yourCurrentBalance: 'Your Current Balance',
       choosePackage: 'Choose a Package to Top Up',
@@ -574,6 +584,15 @@ const resources = {
       apiKeySignInMessage: 'شما با استفاده از یک کلید API وارد شده‌اید که دسترسی محدودی به تنظیمات حساب دارد.',
       logOut: 'خروج از سیستم',
       andRegister: 'و برای یک حساب کامل ثبت نام کنید.',
+      // Embed
+      embedDashboard: 'جاسازی داشبورد',
+      embedDashboardSubtitle: 'این قطعه کد HTML را در وب‌سایت یا برنامه خود کپی و جایگذاری کنید تا نمای زنده‌ای از داشبورد میلزیلا خود را جاسازی کنید.',
+      embedWarning: 'این کد جاسازی حاوی کلید API شما است. فقط در وب‌سایت‌های امنی که به آن‌ها اعتماد دارید استفاده کنید.',
+      copyEmbedCode: 'کپی کد جاسازی',
+      embedCode: 'کد جاسازی',
+      selectView: 'انتخاب نما',
+      embedApiKeyMissing: 'کلید API در URL موجود نیست. امکان نمایش محتوای قابل جاسازی وجود ندارد.',
+      warning: 'هشدار',
       // Buy Credits
       yourCurrentBalance: 'موجودی فعلی شما',
       choosePackage: 'یک بسته برای شارژ انتخاب کنید',

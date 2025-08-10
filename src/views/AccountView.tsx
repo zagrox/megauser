@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import useApi from '../hooks/useApi';
-import useApiV4 from '../hooks/useApiV4';
 import { apiFetch } from '../api/elasticEmail';
 import { formatDateForDisplay } from '../utils/helpers';
 import CenteredMessage from '../components/CenteredMessage';
@@ -15,6 +14,7 @@ import ThemeSwitcher from '../components/ThemeSwitcher';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import Icon from '../components/Icon';
 import ActionStatus from '../components/ActionStatus';
+import EmbedCodeCard from '../components/EmbedCodeCard';
 
 const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const { t, i18n } = useTranslation();
@@ -185,6 +185,8 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     )}
                 </div>
             </div>
+
+            <EmbedCodeCard apiKey={apiKey} />
 
             {isApiKeyUser && (
                  <div className="info-message" style={{textAlign: 'left'}}>

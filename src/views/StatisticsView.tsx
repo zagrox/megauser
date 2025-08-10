@@ -12,7 +12,7 @@ import { ICONS } from '../components/Icon';
 import OverallActivityChart from '../components/OverallActivityChart';
 import ChannelStatsTable from '../components/ChannelStatsTable';
 
-const StatisticsView = ({ apiKey }: { apiKey: string }) => {
+const StatisticsView = ({ apiKey, isEmbed = false }: { apiKey: string, isEmbed?: boolean }) => {
     const { t, i18n } = useTranslation();
     const [duration, setDuration] = useState('3months');
     const [dailyData, setDailyData] = useState<any[]>([]);
@@ -151,17 +151,19 @@ const StatisticsView = ({ apiKey }: { apiKey: string }) => {
                 )}
             </div>
             
-            <div className="overall-snapshot-grid" style={{borderTop: '1px solid var(--border-color)', marginTop: '2.5rem', paddingTop: '2.5rem'}}>
-                <div className="card">
-                    <div className="channel-selector-header">
-                        <h4>{t('activityOverview')}</h4>
+            {!isEmbed && (
+                <div className="overall-snapshot-grid" style={{borderTop: '1px solid var(--border-color)', marginTop: '2.5rem', paddingTop: '2.5rem'}}>
+                    <div className="card">
+                        <div className="channel-selector-header">
+                            <h4>{t('activityOverview')}</h4>
+                        </div>
+                        <OverallActivityChart stats={overallStats} loading={overallLoading} error={overallError} />
                     </div>
-                    <OverallActivityChart stats={overallStats} loading={overallLoading} error={overallError} />
+                    <div className="card">
+                         <ChannelStatsTable apiKey={apiKey} />
+                    </div>
                 </div>
-                <div className="card">
-                     <ChannelStatsTable apiKey={apiKey} />
-                </div>
-            </div>
+            )}
         </>
     );
 };

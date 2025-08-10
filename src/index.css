@@ -1530,3 +1530,19 @@ tbody tr:hover {
     border-radius: 8px;
     background: var(--subtle-background);
 }
+
+/* --- EMBED VIEW --- */
+.embed-container {
+    padding: 1.5rem;
+    background-color: var(--background-color);
+    height: 100vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+.embed-container .dashboard-stats-grid {
+    margin-bottom: 0;
+}
+.embed-container .view-controls {
+    margin-bottom: 1.5rem;
+}
+```

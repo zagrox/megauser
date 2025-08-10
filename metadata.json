@@ -1,6 +1,6 @@
 {
-  "name": "MegaMail 5.3 Sdk",
-  "description": "Directus API Sdk",
+  "name": "MegaMail 5.4 embed",
+  "description": "Embed feature to the website",
   "requestFramePermissions": [],
   "prompt": ""
 }
