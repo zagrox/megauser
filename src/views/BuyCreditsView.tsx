@@ -109,35 +109,37 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     headers: { 'Accept': 'application/json' }
                 });
     
+                // Clone the response so we can read it twice (once as JSON, once as text if JSON fails)
+                const responseCloneForText = response.clone();
+    
                 if (!response.ok) {
-                    throw new Error(`Server responded with status: ${response.status} ${response.statusText}`);
+                    let bodyText = '';
+                    try {
+                        bodyText = await response.text();
+                    } catch(e) {
+                        bodyText = '(Could not read response body)';
+                    }
+                    throw new Error(`Server responded with an error: ${response.status} ${response.statusText}\n\nResponse body:\n${bodyText}`);
                 }
     
-                const result = await response.json();
-                const items = result.data;
-    
-                if (Array.isArray(items)) {
-                    setPackages(items);
-                } else {
-                    throw new Error('Invalid response structure from credits endpoint. Expected a "data" array.');
+                try {
+                    const result = await response.json();
+                    
+                    if (result && Array.isArray(result.data)) {
+                        setPackages(result.data);
+                    } else {
+                        // The response was valid JSON, but didn't have the expected structure.
+                        // This might be a Directus error message (e.g. permissions error).
+                        throw new Error(`The server returned an unexpected JSON structure. Expected a 'data' array, but received:\n\n${JSON.stringify(result, null, 2)}`);
+                    }
+                } catch (jsonError) {
+                    // This block executes if response.json() fails, e.g., if the response is HTML instead of JSON.
+                    const bodyText = await responseCloneForText.text();
+                    throw new Error(`Failed to parse the server's response as JSON. This often means the server sent an HTML error page instead of data.\n\nServer Response:\n${bodyText}`);
                 }
             } catch (err: any) {
-                let errorMessage;
-    
-                if (err.message.toLowerCase().includes('failed to fetch')) {
-                     errorMessage = `A network error occurred ("Failed to fetch"). This can happen for several reasons:
-
-1.  **CORS Issue**: Your server at ${DIRECTUS_CRM_URL} is not configured to allow requests from this web app's origin. Please check your Directus 'CORS_ALLOWED_ORIGINS' setting. For development, setting it to '*' is a common fix.
-2.  **Server Unreachable**: The server at ${DIRECTUS_CRM_URL} might be down or inaccessible from your network.
-3.  **SSL Certificate Error**: The server's SSL certificate may be invalid or self-signed. Check the browser's developer console for 'net::ERR_CERT...' errors.
-
-This is a client-server connection issue that must be resolved at the server or network level. The app is attempting a GET request to:
-${url}`;
-                } else {
-                    errorMessage = `An error occurred while fetching packages: ${err.message}`;
-                }
-                
-                setPackagesError(errorMessage);
+                // This top-level catch handles both network errors ("Failed to fetch") and the errors thrown above.
+                setPackagesError(err.message);
                 console.error("Failed to fetch credit packages:", err);
             } finally {
                 setPackagesLoading(false);
@@ -228,7 +230,7 @@ ${url}`;
             </Modal>
             
             {packagesLoading && <CenteredMessage><Loader/></CenteredMessage>}
-            {packagesError && <ErrorMessage error={{endpoint: 'Directus /items/packages', message: packagesError}} />}
+            {packagesError && <ErrorMessage error={{endpoint: 'GET /items/packages', message: packagesError}} />}
             
             {!packagesLoading && !packagesError && (
                  <div className="table-container">
