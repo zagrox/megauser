@@ -75,12 +75,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const logoutAsync = async () => {
-        try {
-            // The new SDK places logout at the top level
-            await sdk.logout();
-        } catch (error) {
-            console.error("SDK logout failed:", error);
+        // Only attempt to log out from Directus if the user is not authenticated via API key.
+        if (!user?.isApiKeyUser) {
+            try {
+                // The new SDK places logout at the top level
+                await sdk.logout();
+            } catch (error) {
+                // It's possible for this to fail if the token is already expired or the server is unreachable.
+                // We can log this, but it shouldn't block the user from being logged out on the client-side.
+                console.warn("Directus SDK logout failed, proceeding with client-side logout:", error);
+            }
         }
+        // Always clear local credentials and reset user state.
         localStorage.removeItem('elastic_email_api_key');
         setUser(null);
     };

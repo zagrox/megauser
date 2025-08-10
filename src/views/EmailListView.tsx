@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import useApiV4 from '../hooks/useApiV4';
 import { apiFetchV4 } from '../api/elasticEmail';
 import { List, Contact } from '../api/types';
-import { formatDateForDisplay } from '../utils/helpers';
+import { formatDateRelative } from '../utils/helpers';
 import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
@@ -203,23 +203,21 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                 {filteredLists.map((list: List) => (
                     <div key={list.ListName} className="card list-card">
                         <div className="list-card-header">
-                            <h3>{list.ListName}</h3>
-                        </div>
-                        <div className="list-card-body">
-                             <p>{t('dateAdded')}: {formatDateForDisplay(list.DateAdded, i18n.language)}</p>
-                        </div>
-                        <div className="list-card-footer">
-                           <div className="action-buttons">
-                                <button className="btn-icon" onClick={() => setListToRename(list)} aria-label={t('renameList')}>
-                                    <Icon path={ICONS.PENCIL} />
-                                </button>
-                                <button className="btn-icon" onClick={() => setListToView(list)} aria-label={t('viewContactsInList')}>
-                                    <Icon path={ICONS.CONTACTS} />
-                                </button>
-                                <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteList(list.ListName)} aria-label={t('deleteList')}>
-                                    <Icon path={ICONS.DELETE} />
-                                </button>
-                            </div>
+                             <h3 title={list.ListName}>{list.ListName}</h3>
+                             <div className="list-card-meta-actions">
+                                <span className="list-card-date">{formatDateRelative(list.DateAdded, i18n.language)}</span>
+                                <div className="action-buttons">
+                                    <button className="btn-icon" onClick={() => setListToRename(list)} aria-label={t('renameList')}>
+                                        <Icon path={ICONS.PENCIL} />
+                                    </button>
+                                    <button className="btn-icon" onClick={() => setListToView(list)} aria-label={t('viewContactsInList')}>
+                                        <Icon path={ICONS.CONTACTS} />
+                                    </button>
+                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteList(list.ListName)} aria-label={t('deleteList')}>
+                                        <Icon path={ICONS.DELETE} />
+                                    </button>
+                                </div>
+                             </div>
                         </div>
                     </div>
                 ))}

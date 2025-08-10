@@ -1,4 +1,6 @@
-import React, { useState, useEffect, ReactNode } from 'react';
+
+
+import React, { useState, useEffect, ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './contexts/AuthContext';
 import { ICONS } from './components/Icon';
@@ -27,6 +29,7 @@ const App = () => {
     const { t, i18n } = useTranslation();
     const [view, setView] = useState('Dashboard');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const appContainerRef = useRef<HTMLDivElement>(null);
 
     const urlParams = new URLSearchParams(window.location.search);
     const isEmbedMode = urlParams.get('embed') === 'true';
@@ -38,6 +41,81 @@ const App = () => {
         }
     }, [i18n.language, i18n.dir, isEmbedMode]);
     
+    useEffect(() => {
+        const container = appContainerRef.current;
+        if (!container || isEmbedMode) return;
+
+        let touchStartX: number | null = null;
+        let touchStartY: number | null = null;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            if (e.touches.length === 1) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            if (isMobileMenuOpen || touchStartX === null || touchStartY === null) {
+                return;
+            }
+
+            const currentX = e.touches[0].clientX;
+            const currentY = e.touches[0].clientY;
+            const deltaX = currentX - touchStartX;
+            const deltaY = currentY - touchStartY;
+
+            // Make sure it's a horizontal swipe, not a scroll
+            if (Math.abs(deltaX) < Math.abs(deltaY) * 1.5) {
+                return;
+            }
+            
+            const isRTL = i18n.dir() === 'rtl';
+            const screenWidth = window.innerWidth;
+            const edgeThreshold = 50; // Swipes must start within 50px of an edge
+            const swipeThreshold = 50; // Must swipe at least 50px
+
+            let shouldOpen = false;
+
+            if (isRTL) {
+                const isAtRightEdge = touchStartX > screenWidth - edgeThreshold;
+                const isSwipingLeft = deltaX < -swipeThreshold;
+                if (isAtRightEdge && isSwipingLeft) {
+                    shouldOpen = true;
+                }
+            } else {
+                const isAtLeftEdge = touchStartX < edgeThreshold;
+                const isSwipingRight = deltaX > swipeThreshold;
+                if (isAtLeftEdge && isSwipingRight) {
+                    shouldOpen = true;
+                }
+            }
+
+            if (shouldOpen) {
+                setIsMobileMenuOpen(true);
+                touchStartX = null;
+                touchStartY = null;
+            }
+        };
+
+        const handleTouchEnd = () => {
+            touchStartX = null;
+            touchStartY = null;
+        };
+
+        container.addEventListener('touchstart', handleTouchStart, { passive: true });
+        container.addEventListener('touchmove', handleTouchMove, { passive: true });
+        container.addEventListener('touchend', handleTouchEnd);
+        container.addEventListener('touchcancel', handleTouchEnd);
+
+        return () => {
+            container.removeEventListener('touchstart', handleTouchStart);
+            container.removeEventListener('touchmove', handleTouchMove);
+            container.removeEventListener('touchend', handleTouchEnd);
+            container.removeEventListener('touchcancel', handleTouchEnd);
+        };
+    }, [isMobileMenuOpen, i18n, isEmbedMode, setIsMobileMenuOpen]);
+
     if (isEmbedMode) {
         return <EmbedView />;
     }
@@ -89,8 +167,6 @@ const App = () => {
         { name: t('mediaManager'), view: 'Media Manager', icon: ICONS.FOLDER },
         { name: t('campaigns'), view: 'Campaigns', icon: ICONS.CAMPAIGNS },
         { name: t('sendEmail'), view: 'Send Email', icon: ICONS.SEND_EMAIL },
-        { name: t('domains'), view: 'Domains', icon: ICONS.DOMAINS },
-        { name: t('smtp'), view: 'SMTP', icon: ICONS.SMTP },
     ];
     
     const SidebarContent = () => (
@@ -116,10 +192,6 @@ const App = () => {
                  <Icon path={ICONS.ACCOUNT} />
                  <span>{t('account')}</span>
              </button>
-            <button onClick={handleLogout} className="nav-btn logout-btn">
-                <Icon path={ICONS.LOGOUT} />
-                <span>{t('logout')}</span>
-            </button>
         </div>
       </>
     );
@@ -128,7 +200,7 @@ const App = () => {
     const showHeader = view !== 'Dashboard';
 
     return (
-        <div className={`app-container ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
+        <div ref={appContainerRef} className={`app-container ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
             <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>
             <aside className="sidebar">
                 <SidebarContent />
@@ -139,7 +211,9 @@ const App = () => {
                         <Icon path={ICONS.MENU} />
                     </button>
                     <h1 className="mobile-header-title">{currentView?.title || 'Mailzila'}</h1>
-                    <div className="mobile-header-placeholder"></div>
+                    <button className="mobile-menu-toggle" onClick={() => handleSetView('Account')} aria-label={t('account')}>
+                        <Icon path={ICONS.ACCOUNT} />
+                    </button>
                 </header>
                 <main className="content">
                     {showHeader && (

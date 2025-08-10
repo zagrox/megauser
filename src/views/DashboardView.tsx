@@ -1,6 +1,7 @@
+
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import useApi from '../hooks/useApi';
+import useApi from './useApi';
 import useApiV4 from '../hooks/useApiV4';
 import { getPastDateByDays, formatDateForApiV4 } from '../utils/helpers';
 import CenteredMessage from '../components/CenteredMessage';
@@ -73,8 +74,10 @@ const DashboardView = ({ setView, apiKey, user, isEmbed = false }: { setView: (v
                             {navItems.map(item => (
                                 <div key={item.name} className="card nav-card clickable" onClick={() => setView(item.view)}>
                                     <Icon path={item.icon} className="nav-card-icon" />
-                                    <div className="nav-card-title">{item.name}</div>
-                                    <div className="nav-card-description">{item.desc}</div>
+                                    <div className="nav-card-text-content">
+                                        <div className="nav-card-title">{item.name}</div>
+                                        <div className="nav-card-description">{item.desc}</div>
+                                    </div>
                                 </div>
                             ))}
                         </div>

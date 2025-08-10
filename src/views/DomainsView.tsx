@@ -131,6 +131,14 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
         setRefetchIndex(i => i + 1);
     }
 
+    const handleNewDomainChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value
+            .trim()
+            .replace(/^(https?:\/\/)?(www\.)?/i, '')
+            .split('/')[0];
+        setNewDomain(value);
+    };
+
     const handleAddDomain = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newDomain) return;
@@ -171,7 +179,7 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
                         type="text"
                         placeholder="example.com"
                         value={newDomain}
-                        onChange={e => setNewDomain(e.target.value)}
+                        onChange={handleNewDomainChange}
                         disabled={isSubmitting}
                     />
                     <button type="submit" className="btn btn-primary" disabled={!newDomain || isSubmitting}>
