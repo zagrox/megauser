@@ -8,7 +8,7 @@ import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
 import StatsChart from '../components/StatsChart';
 import AccountDataCard from '../components/AccountDataCard';
-import { ICONS } from '../components/Icon';
+import Icon, { ICONS } from '../components/Icon';
 import OverallActivityChart from '../components/OverallActivityChart';
 import ChannelStatsTable from '../components/ChannelStatsTable';
 
@@ -109,8 +109,8 @@ const StatisticsView = ({ apiKey, isEmbed = false }: { apiKey: string, isEmbed?:
 
     const filterControl = (
         <div className="view-controls">
-            <label htmlFor="duration-select">{t('dateRange')}:</label>
-            <select id="duration-select" value={duration} onChange={(e) => setDuration(e.target.value)}>
+            <Icon path={ICONS.CALENDAR} />
+            <select id="duration-select" value={duration} onChange={(e) => setDuration(e.target.value)} aria-label={t('dateRange')}>
                 {Object.entries(durationOptions).map(([key, { label }]) => (
                     <option key={key} value={key}>{label}</option>
                 ))}

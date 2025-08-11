@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApiV4 from '../hooks/useApiV4';
@@ -64,11 +65,23 @@ const CampaignCard = ({ campaign, onSelect, stats, loadingStats }: { campaign: a
 
     const getBadgeTypeForStatus = (statusName: string | undefined) => {
         const lowerStatus = (statusName || '').toLowerCase().replace(/\s/g, '');
-        if (['sent', 'complete', 'completed'].includes(lowerStatus)) return 'success';
-        if (lowerStatus === 'draft') return 'default';
-        if (['processing', 'sending', 'inprogress', 'scheduled'].includes(lowerStatus)) return 'info';
-        if (lowerStatus === 'cancelled') return 'warning';
-        return 'danger';
+        switch (lowerStatus) {
+            case 'completed':
+                return 'success';
+            case 'active':
+            case 'processing':
+            case 'sending':
+                return 'info';
+            case 'paused':
+            case 'cancelled':
+                return 'warning';
+            case 'deleted':
+                return 'danger';
+            case 'draft':
+                return 'default';
+            default:
+                return 'default';
+        }
     };
 
     return (
@@ -99,31 +112,39 @@ const CampaignCard = ({ campaign, onSelect, stats, loadingStats }: { campaign: a
     );
 };
 
-const CampaignsView = ({ apiKey }: { apiKey: string }) => {
+const CampaignsView = ({ apiKey, setView }: { apiKey: string, setView: (view: string) => void }) => {
     const { t } = useTranslation();
-    const { data: campaigns, loading, error } = useApiV4('/campaigns', apiKey);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
     const [campaignStats, setCampaignStats] = useState<Record<string, { data?: any; loading: boolean; error?: any; }>>({});
+    const [offset, setOffset] = useState(0);
+    const [refetchIndex, setRefetchIndex] = useState(0);
 
-    const filteredCampaigns = useMemo(() => {
+    const CAMPAIGNS_PER_PAGE = 10;
+
+    const { data: campaigns, loading, error } = useApiV4('/campaigns', apiKey, {
+        limit: CAMPAIGNS_PER_PAGE,
+        offset,
+        search: searchQuery,
+    }, refetchIndex);
+
+    const paginatedCampaigns = useMemo(() => {
         if (!Array.isArray(campaigns)) return [];
-        return campaigns.filter((c: any) => 
-            c.Name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            (c.Content?.[0]?.Subject && c.Content[0].Subject.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
-    }, [campaigns, searchQuery]);
+        return campaigns;
+    }, [campaigns]);
+    
+    useEffect(() => {
+        setOffset(0);
+    }, [searchQuery]);
 
     useEffect(() => {
         let isMounted = true;
     
         const fetchAllStatsSequentially = async () => {
-            for (const campaign of filteredCampaigns) {
+            for (const campaign of paginatedCampaigns) {
                 if (!isMounted) break;
     
-                // Fetch only if the campaign's stats haven't been fetched or are not currently being fetched.
                 if (!campaignStats[campaign.Name]) {
-                    // Set status to loading before fetching
                     if (isMounted) {
                         setCampaignStats(prev => ({ ...prev, [campaign.Name]: { loading: true } }));
                     }
@@ -154,14 +175,14 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
             }
         };
     
-        if (apiKey && filteredCampaigns.length > 0) {
+        if (apiKey && paginatedCampaigns.length > 0) {
             fetchAllStatsSequentially();
         }
     
         return () => {
             isMounted = false;
         };
-    }, [filteredCampaigns, apiKey]);
+    }, [paginatedCampaigns, apiKey]);
 
     const handleSelectCampaign = (campaign: any) => {
         setSelectedCampaign(campaign);
@@ -189,28 +210,28 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
                         aria-label={t('searchCampaignsPlaceholder')}
                     />
                 </div>
+                <div className="header-actions">
+                    <button className="btn btn-primary" onClick={() => setView('Send Email')}>
+                        <Icon path={ICONS.PLUS} /> {t('createCampaign')}
+                    </button>
+                </div>
             </div>
 
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
 
             {!loading && !error && (
-                 (!Array.isArray(campaigns) || campaigns.length === 0) ? (
+                 (paginatedCampaigns.length === 0) ? (
                     <CenteredMessage style={{height: '50vh'}}>
                         <div className="info-message">
-                            <strong>{t('noCampaignsFound')}</strong>
-                            <p>{t('noCampaignsSent')}</p>
-                        </div>
-                    </CenteredMessage>
-                ) : filteredCampaigns.length === 0 ? (
-                    <CenteredMessage style={{height: '50vh'}}>
-                        <div className="info-message">
-                            <strong>{t('noCampaignsForQuery', { query: searchQuery })}</strong>
+                            <strong>{searchQuery ? t('noCampaignsForQuery', { query: searchQuery }) : t('noCampaignsFound')}</strong>
+                             {!searchQuery && <p>{t('noCampaignsSent')}</p>}
                         </div>
                     </CenteredMessage>
                 ) : (
+                    <>
                     <div className="campaign-grid">
-                        {filteredCampaigns.map((campaign: any) => {
+                        {paginatedCampaigns.map((campaign: any) => {
                            const statsInfo = campaignStats[campaign.Name] || { loading: true };
                            return (
                                <CampaignCard 
@@ -223,6 +244,21 @@ const CampaignsView = ({ apiKey }: { apiKey: string }) => {
                            );
                         })}
                     </div>
+
+                    {(paginatedCampaigns.length > 0 || offset > 0) && (
+                        <div className="pagination-controls">
+                            <button onClick={() => setOffset(o => Math.max(0, o - CAMPAIGNS_PER_PAGE))} disabled={offset === 0 || loading}>
+                                <Icon path={ICONS.CHEVRON_LEFT} />
+                                <span>{t('previous')}</span>
+                            </button>
+                            <span className="pagination-page-info">{t('page', { page: offset / CAMPAIGNS_PER_PAGE + 1 })}</span>
+                            <button onClick={() => setOffset(o => o + CAMPAIGNS_PER_PAGE)} disabled={!paginatedCampaigns || paginatedCampaigns.length < CAMPAIGNS_PER_PAGE || loading}>
+                                <span>{t('next')}</span>
+                                <Icon path={ICONS.CHEVRON_RIGHT} />
+                            </button>
+                        </div>
+                    )}
+                    </>
                 )
             )}
         </div>

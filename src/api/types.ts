@@ -22,6 +22,7 @@ export type Contact = {
 export type List = {
     ListName: string;
     DateAdded: string;
+    ContactsCount: number;
 };
 export type Segment = {
     Name: string;

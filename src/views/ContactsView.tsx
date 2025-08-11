@@ -11,6 +11,7 @@ import ActionStatus from '../components/ActionStatus';
 import Modal from '../components/Modal';
 import Icon, { ICONS } from '../components/Icon';
 import Badge from '../components/Badge';
+import ConfirmModal from '../components/ConfirmModal';
 
 const ContactDetailModal = ({ isOpen, onClose, contactData, isLoading, error }: { isOpen: boolean; onClose: () => void; contactData: Contact | null; isLoading: boolean; error: string | null; }) => {
     const { t, i18n } = useTranslation();
@@ -177,7 +178,7 @@ const ContactCard = React.memo(({ contact, onView, onDelete }: { contact: Contac
             <div className="contact-card-footer">
                 <small>{t('added')}: {formatDateForDisplay(contact.DateAdded, i18n.language)}</small>
                 <div className="action-buttons">
-                    <button className="btn-icon" onClick={() => onView(contact.Email)} aria-label={t('viewContactDetails')}>
+                    <button className="btn-icon btn-icon-primary" onClick={() => onView(contact.Email)} aria-label={t('viewContactDetails')}>
                         <Icon path={ICONS.EYE} />
                     </button>
                     <button className="btn-icon btn-icon-danger" onClick={() => onDelete(contact.Email)} aria-label={t('deleteContact')}>
@@ -233,6 +234,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
     const [selectedContactDetails, setSelectedContactDetails] = useState<Contact | null>(null);
     const [isDetailLoading, setIsDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
+    const [contactToDelete, setContactToDelete] = useState<string | null>(null);
 
     const CONTACTS_PER_PAGE = 20;
 
@@ -250,16 +252,18 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
         }
     };
     
-    const handleDeleteContact = useCallback(async (email: string) => {
-        if (!window.confirm(t('confirmDeleteContact', { email }))) return;
+    const confirmDeleteContact = async () => {
+        if (!contactToDelete) return;
         try {
-            await apiFetchV4(`/contacts/${encodeURIComponent(email)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: t('contactDeletedSuccess', { email }) });
+            await apiFetchV4(`/contacts/${encodeURIComponent(contactToDelete)}`, apiKey, { method: 'DELETE' });
+            setActionStatus({ type: 'success', message: t('contactDeletedSuccess', { email: contactToDelete }) });
             refetch();
         } catch (err: any) {
             setActionStatus({ type: 'error', message: t('contactDeletedError', { error: err.message }) });
+        } finally {
+            setContactToDelete(null);
         }
-    }, [apiKey, t]);
+    };
 
     const handleViewContact = useCallback(async (email: string) => {
         setIsDetailModalOpen(true);
@@ -319,6 +323,15 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                 <AddContactForm onSubmit={handleAddContact} />
             </Modal>
 
+            <ConfirmModal
+                isOpen={!!contactToDelete}
+                onClose={() => setContactToDelete(null)}
+                onConfirm={confirmDeleteContact}
+                title={t('deleteContact')}
+            >
+                <p>{t('confirmDeleteContact', { email: contactToDelete })}</p>
+            </ConfirmModal>
+
             <ContactDetailModal
                 isOpen={isDetailModalOpen}
                 onClose={() => { setIsDetailModalOpen(false); setSelectedContactDetails(null); }}
@@ -339,7 +352,7 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                                     key={contact.Email} 
                                     contact={contact} 
                                     onView={handleViewContact} 
-                                    onDelete={handleDeleteContact} 
+                                    onDelete={setContactToDelete} 
                                 />
                             ))}
                         </div>
@@ -349,14 +362,16 @@ const ContactsView = ({ apiKey }: { apiKey: string }) => {
                         </CenteredMessage>
                     )}
 
-                    {contacts && contacts.length > 0 && (
+                    {contacts && (contacts.length > 0 || offset > 0) && (
                         <div className="pagination-controls">
                             <button onClick={() => setOffset(o => Math.max(0, o - CONTACTS_PER_PAGE))} disabled={offset === 0 || loading}>
-                                {t('previous')}
+                                <Icon path={ICONS.CHEVRON_LEFT} />
+                                <span>{t('previous')}</span>
                             </button>
-                            <span>{t('page', { page: offset / CONTACTS_PER_PAGE + 1 })}</span>
-                            <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={contacts.length < CONTACTS_PER_PAGE || loading}>
-                                {t('next')}
+                            <span className="pagination-page-info">{t('page', { page: offset / CONTACTS_PER_PAGE + 1 })}</span>
+                            <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={!contacts || contacts.length < CONTACTS_PER_PAGE || loading}>
+                                <span>{t('next')}</span>
+                                <Icon path={ICONS.CHEVRON_RIGHT} />
                             </button>
                         </div>
                     )}

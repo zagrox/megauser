@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './contexts/AuthContext';
@@ -153,7 +154,7 @@ const App = () => {
         'Segments': { component: <SegmentsView apiKey={apiKey} />, title: t('segments'), icon: ICONS.SEGMENTS },
         'Media Manager': { component: <MediaManagerView apiKey={apiKey} />, title: t('mediaManager'), icon: ICONS.FOLDER },
         'Send Email': { component: <SendEmailView apiKey={apiKey} user={user} />, title: t('sendEmail'), icon: ICONS.SEND_EMAIL },
-        'Campaigns': { component: <CampaignsView apiKey={apiKey} />, title: t('campaigns'), icon: ICONS.CAMPAIGNS },
+        'Campaigns': { component: <CampaignsView apiKey={apiKey} setView={handleSetView} />, title: t('campaigns'), icon: ICONS.CAMPAIGNS },
         'Domains': { component: <DomainsView apiKey={apiKey} />, title: t('domains'), icon: ICONS.DOMAINS },
         'SMTP': { component: <SmtpView apiKey={apiKey} user={user}/>, title: t('smtp'), icon: ICONS.SMTP }
     };

@@ -54,16 +54,16 @@ const ProfileTab = ({ accountData, user }: { accountData: any, user: any }) => {
                     <p className="profile-email">{email || 'N/A'}</p>
                     <div className="profile-meta">
                         <div className="meta-item">
-                            <label>{t('publicId')}</label>
-                            <span>{publicId || 'N/A'}</span>
-                        </div>
-                        <div className="meta-item">
                             <label>{t('joined')}</label>
                             <span>{formatDateForDisplay(dateJoined, i18n.language)}</span>
                         </div>
                         <div className="meta-item">
                             <label>{t('lastActivity')}</label>
                             <span>{formatDateForDisplay(lastActivity, i18n.language)}</span>
+                        </div>
+                        <div className="meta-item">
+                            <label>{t('publicId')}</label>
+                            <span>{publicId || 'N/A'}</span>
                         </div>
                     </div>
                 </div>

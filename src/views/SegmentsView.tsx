@@ -11,6 +11,7 @@ import Modal from '../components/Modal';
 import RenameModal from '../components/RenameModal';
 import RuleBuilder from '../components/RuleBuilder';
 import Icon, { ICONS } from '../components/Icon';
+import ConfirmModal from '../components/ConfirmModal';
 
 const CreateSegmentModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { isOpen: boolean, onClose: () => void, apiKey: string, onSuccess: Function, onError: Function }) => {
     const { t } = useTranslation();
@@ -68,6 +69,7 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [segmentToRename, setSegmentToRename] = useState<Segment | null>(null);
+    const [segmentToDelete, setSegmentToDelete] = useState<string | null>(null);
 
     const { data: segments, loading, error } = useApiV4('/segments', apiKey, {}, refetchIndex);
     const refetch = () => setRefetchIndex(i => i + 1);
@@ -78,14 +80,16 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
         refetch();
     };
     
-    const handleDeleteSegment = async (segmentName: string) => {
-        if (!window.confirm(t('confirmDeleteSegment', { segmentName }))) return;
+    const confirmDeleteSegment = async () => {
+        if (!segmentToDelete) return;
         try {
-            await apiFetchV4(`/segments/${encodeURIComponent(segmentName)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: t('segmentDeletedSuccess', { segmentName }) });
+            await apiFetchV4(`/segments/${encodeURIComponent(segmentToDelete)}`, apiKey, { method: 'DELETE' });
+            setActionStatus({ type: 'success', message: t('segmentDeletedSuccess', { segmentName: segmentToDelete }) });
             refetch();
         } catch (err: any) {
             setActionStatus({ type: 'error', message: t('segmentDeletedError', { error: err.message }) });
+        } finally {
+            setSegmentToDelete(null);
         }
     };
 
@@ -129,6 +133,14 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
                     onSubmit={handleRenameSegment}
                 />
             )}
+            <ConfirmModal
+                isOpen={!!segmentToDelete}
+                onClose={() => setSegmentToDelete(null)}
+                onConfirm={confirmDeleteSegment}
+                title={t('deleteSegment')}
+            >
+                <p>{t('confirmDeleteSegment', { segmentName: segmentToDelete })}</p>
+            </ConfirmModal>
             
             <div className="view-header">
                  <div className="search-bar">
@@ -148,14 +160,14 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
                 </CenteredMessage>
             )}
 
-            <div className="card-grid">
+            <div className="card-grid list-grid">
                 {filteredSegments.map((seg: Segment) => (
                     <div key={seg.Name} className="card segment-card">
                         <div className="segment-card-header">
                             <h3>{seg.Name}</h3>
                             <div className="action-buttons">
-                                <button className="btn-icon" onClick={() => setSegmentToRename(seg)} aria-label={t('renameSegment')}><Icon path={ICONS.PENCIL}/></button>
-                                <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteSegment(seg.Name)} aria-label={t('deleteSegment')}><Icon path={ICONS.DELETE}/></button>
+                                <button className="btn-icon btn-icon-primary" onClick={() => setSegmentToRename(seg)} aria-label={t('renameSegment')}><Icon path={ICONS.PENCIL}/></button>
+                                <button className="btn-icon btn-icon-danger" onClick={() => setSegmentToDelete(seg.Name)} aria-label={t('deleteSegment')}><Icon path={ICONS.DELETE}/></button>
                             </div>
                         </div>
                         <div className="segment-card-body">

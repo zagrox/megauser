@@ -11,6 +11,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import ActionStatus from '../components/ActionStatus';
 import Modal from '../components/Modal';
 import Icon, { ICONS } from '../components/Icon';
+import ConfirmModal from '../components/ConfirmModal';
 
 const FileUploadModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { isOpen: boolean; onClose: () => void; apiKey: string; onSuccess: (fileInfo: FileInfo) => void; onError: (msg: string) => void; }) => {
     const { t } = useTranslation();
@@ -215,6 +216,41 @@ const FileCard = React.memo(({ fileInfo, apiKey, onView, onDelete }: { fileInfo:
     );
 });
 
+const FileGridCard = React.memo(({ fileInfo, apiKey, onView, onDelete }: { fileInfo: FileInfo, apiKey: string, onView: (file: FileInfo) => void, onDelete: (fileName: string) => void }) => {
+    const { t } = useTranslation();
+    const downloadUrl = `${ELASTIC_EMAIL_API_V4_BASE}/files/${encodeURIComponent(fileInfo.FileName)}?apiKey=${apiKey}`;
+    const isImage = /\.(jpe?g|png|gif|webp|svg)$/i.test(fileInfo.FileName);
+
+    return (
+        <div className="card file-grid-card" onClick={() => onView(fileInfo)}>
+            <div className="file-grid-card-preview">
+                {isImage ? (
+                    <img src={downloadUrl} alt={fileInfo.FileName} className="file-grid-card-thumbnail" loading="lazy" />
+                ) : (
+                    <div className="file-grid-card-placeholder">
+                        <Icon path={ICONS.FILE_TEXT} />
+                    </div>
+                )}
+            </div>
+            <div className="file-grid-card-overlay" onClick={(e) => e.stopPropagation()}>
+                <div className="file-grid-card-actions">
+                    <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="btn-icon" aria-label={t('downloadFile')}>
+                        <Icon path={ICONS.DOWNLOAD} />
+                    </a>
+                    <button className="btn-icon btn-icon-danger" onClick={() => onDelete(fileInfo.FileName)} aria-label={t('deleteFile')}>
+                        <Icon path={ICONS.DELETE} />
+                    </button>
+                </div>
+            </div>
+            <div className="file-grid-card-info">
+                <h4 className="file-grid-card-name" title={fileInfo.FileName}>{fileInfo.FileName}</h4>
+                <p className="file-grid-card-meta">{formatBytes(fileInfo.Size)}</p>
+            </div>
+        </div>
+    );
+});
+
+
 const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
     const { t } = useTranslation();
     const [refetchIndex, setRefetchIndex] = useState(0);
@@ -222,8 +258,13 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [fileToPreview, setFileToPreview] = useState<FileInfo | null>(null);
+    const [fileToDelete, setFileToDelete] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState('DateAdded-descending');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+    const FILES_PER_PAGE = viewMode === 'grid' ? 18 : 12;
 
     const refetch = () => setRefetchIndex(i => i + 1);
 
@@ -237,14 +278,16 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
         setActionStatus({ type: 'error', message: `${t('fileUploadError', { error: '' })} ${message}` });
     };
     
-    const handleDeleteFile = async (fileName: string) => {
-        if (!window.confirm(t('confirmDeleteFile', { fileName }))) return;
+    const confirmDeleteFile = async () => {
+        if (!fileToDelete) return;
         try {
-            await apiFetchV4(`/files/${encodeURIComponent(fileName)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: t('fileDeletedSuccess', { fileName }) });
+            await apiFetchV4(`/files/${encodeURIComponent(fileToDelete)}`, apiKey, { method: 'DELETE' });
+            setActionStatus({ type: 'success', message: t('fileDeletedSuccess', { fileName: fileToDelete }) });
             refetch();
         } catch (err: any) {
             setActionStatus({ type: 'error', message: t('fileDeletedError', { error: err.message }) });
+        } finally {
+            setFileToDelete(null);
         }
     };
     
@@ -272,6 +315,19 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
             });
     }, [files, searchQuery, sortOrder]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, sortOrder, viewMode]);
+
+    const { paginatedFiles, totalPages } = useMemo(() => {
+        const total = Math.ceil(sortedAndFilteredFiles.length / FILES_PER_PAGE);
+        const paginated = sortedAndFilteredFiles.slice(
+            (currentPage - 1) * FILES_PER_PAGE,
+            currentPage * FILES_PER_PAGE
+        );
+        return { paginatedFiles: paginated, totalPages: total };
+    }, [sortedAndFilteredFiles, currentPage, FILES_PER_PAGE]);
+
     const sortOptions = {
         "DateAdded-descending": "Recent first",
         "DateAdded-ascending": "Oldest first",
@@ -297,6 +353,14 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
                 fileInfo={fileToPreview}
                 apiKey={apiKey}
             />
+            <ConfirmModal
+                isOpen={!!fileToDelete}
+                onClose={() => setFileToDelete(null)}
+                onConfirm={confirmDeleteFile}
+                title={t('deleteFile')}
+            >
+                <p>{t('confirmDeleteFile', { fileName: fileToDelete })}</p>
+            </ConfirmModal>
 
             <div className="view-header">
                 <div className="search-bar">
@@ -310,6 +374,14 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
                     />
                 </div>
                 <div className="header-actions">
+                    <div className="view-switcher">
+                        <button onClick={() => setViewMode('list')} className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`} aria-label="List view">
+                            <Icon path={ICONS.EMAIL_LISTS} />
+                        </button>
+                        <button onClick={() => setViewMode('grid')} className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`} aria-label="Grid view">
+                            <Icon path={ICONS.DASHBOARD} />
+                        </button>
+                    </div>
                     <select 
                         value={sortOrder}
                         onChange={(e) => setSortOrder(e.target.value)}
@@ -336,17 +408,41 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
                 </CenteredMessage>
             )}
 
-            <div className="file-grid">
-                {sortedAndFilteredFiles.map((file: FileInfo) => (
-                    <FileCard
-                        key={file.FileName}
-                        fileInfo={file}
-                        apiKey={apiKey}
-                        onView={setFileToPreview}
-                        onDelete={handleDeleteFile}
-                    />
+            <div className={`file-container-view ${viewMode === 'grid' ? 'file-grid-view' : 'file-list-view'}`}>
+                {paginatedFiles.map((file: FileInfo) => (
+                    viewMode === 'grid' ? (
+                        <FileGridCard
+                            key={file.FileName}
+                            fileInfo={file}
+                            apiKey={apiKey}
+                            onView={setFileToPreview}
+                            onDelete={setFileToDelete}
+                        />
+                    ) : (
+                        <FileCard
+                            key={file.FileName}
+                            fileInfo={file}
+                            apiKey={apiKey}
+                            onView={setFileToPreview}
+                            onDelete={setFileToDelete}
+                        />
+                    )
                 ))}
             </div>
+            
+            {totalPages > 1 && (
+                <div className="pagination-controls">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading}>
+                        <Icon path={ICONS.CHEVRON_LEFT} />
+                        <span>{t('previous')}</span>
+                    </button>
+                    <span className="pagination-page-info">{t('page', { page: `${currentPage} / ${totalPages}` })}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || loading}>
+                        <span>{t('next')}</span>
+                        <Icon path={ICONS.CHEVRON_RIGHT} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

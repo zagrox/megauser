@@ -8,6 +8,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import ActionStatus from '../components/ActionStatus';
 import Icon, { ICONS } from '../components/Icon';
 import Badge from '../components/Badge';
+import ConfirmModal from '../components/ConfirmModal';
 
 const DNS_RECORDS_CONFIG = {
     SPF: {
@@ -124,6 +125,7 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
     const [newDomain, setNewDomain] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
+    const [domainToDelete, setDomainToDelete] = useState<string | null>(null);
 
     const { data, loading, error } = useApiV4('/domains', apiKey, {}, refetchIndex);
     const refetch = () => {
@@ -155,14 +157,16 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
         }
     };
     
-    const handleDeleteDomain = async (domainName: string) => {
-        if (!window.confirm(t('confirmDeleteDomain', { domainName }))) return;
+    const confirmDeleteDomain = async () => {
+        if (!domainToDelete) return;
         try {
-            await apiFetchV4(`/domains/${encodeURIComponent(domainName)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: t('domainDeletedSuccess', { domainName }) });
+            await apiFetchV4(`/domains/${encodeURIComponent(domainToDelete)}`, apiKey, { method: 'DELETE' });
+            setActionStatus({ type: 'success', message: t('domainDeletedSuccess', { domainName: domainToDelete }) });
             refetch();
         } catch (err: any) {
             setActionStatus({ type: 'error', message: t('domainDeletedError', { error: err.message }) });
+        } finally {
+            setDomainToDelete(null);
         }
     };
     
@@ -173,6 +177,14 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
     return (
         <div>
             <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
+             <ConfirmModal
+                isOpen={!!domainToDelete}
+                onClose={() => setDomainToDelete(null)}
+                onConfirm={confirmDeleteDomain}
+                title={t('deleteDomain', { domainName: domainToDelete })}
+            >
+                <p>{t('confirmDeleteDomain', { domainName: domainToDelete })}</p>
+            </ConfirmModal>
              <div className="view-header">
                 <form className="add-domain-form" onSubmit={handleAddDomain}>
                     <input
@@ -237,7 +249,7 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
                                             </button>
                                             <button 
                                                 className="btn-icon btn-icon-danger" 
-                                                onClick={() => handleDeleteDomain(domainName)} 
+                                                onClick={() => setDomainToDelete(domainName)} 
                                                 aria-label={t('deleteDomain', { domainName })}
                                             >
                                                 <Icon path={ICONS.DELETE} />

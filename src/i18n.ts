@@ -1,5 +1,6 @@
 
 
+
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
@@ -366,6 +367,7 @@ const resources = {
       noVerifiedDomains: 'No verified domains found.',
       // Campaigns
       searchCampaignsPlaceholder: 'Search by campaign or subject...',
+      createCampaign: 'Create Campaign',
       viewCampaignStats: 'View stats',
       'unknown': 'Unknown',
       noSubject: '(No Subject)',
@@ -816,6 +818,7 @@ const resources = {
       noVerifiedDomains: 'هیچ دامنه تأیید شده‌ای یافت نشد.',
       // Campaigns
       searchCampaignsPlaceholder: 'جستجو بر اساس کمپین یا موضوع...',
+      createCampaign: 'ایجاد کمپین',
       viewCampaignStats: 'مشاهده آمار کمپین',
       'unknown': 'ناشناخته',
       noSubject: '(بدون موضوع)',

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApi from './useApi';
@@ -9,6 +8,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import ActionStatus from '../components/ActionStatus';
 import Modal from '../components/Modal';
 import Icon, { ICONS } from '../components/Icon';
+import ConfirmModal from '../components/ConfirmModal';
 
 const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
 
@@ -113,6 +113,7 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newCredInfo, setNewCredInfo] = useState<any | null>(null);
+    const [credentialToDelete, setCredentialToDelete] = useState<{ name: string; apikey: string } | null>(null);
 
     const { data: mainCreds, loading, error } = useApi('/account/load', apiKey, {}, refetchIndex);
     const { data: addCreds, loading: addLoading, error: addError } = useApi('/account/loadadditionalcredentials', apiKey, {}, refetchIndex);
@@ -121,14 +122,16 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
     const refetch = () => setRefetchIndex(i => i + 1);
 
-    const handleDeleteCredential = async (credName: string, apiKeyToDelete: string) => {
-        if (!window.confirm(t('confirmDeleteCredential', { name: credName }))) return;
+    const confirmDeleteCredential = async () => {
+        if (!credentialToDelete) return;
         try {
-            await apiFetch('/account/deleteadditionalcredential', apiKey, { method: 'POST', params: { apikey: apiKeyToDelete } });
-            setActionStatus({ type: 'success', message: t('credentialDeletedSuccess', { name: credName }) });
+            await apiFetch('/account/deleteadditionalcredential', apiKey, { method: 'POST', params: { apikey: credentialToDelete.apikey } });
+            setActionStatus({ type: 'success', message: t('credentialDeletedSuccess', { name: credentialToDelete.name }) });
             refetch();
         } catch (err: any) {
             setActionStatus({ type: 'error', message: t('credentialDeletedError', { error: err.message }) });
+        } finally {
+            setCredentialToDelete(null);
         }
     };
     
@@ -154,6 +157,14 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                 onClose={() => setNewCredInfo(null)}
                 credInfo={newCredInfo}
             />
+            <ConfirmModal
+                isOpen={!!credentialToDelete}
+                onClose={() => setCredentialToDelete(null)}
+                onConfirm={confirmDeleteCredential}
+                title={t('deleteCredential')}
+            >
+                <p>{t('confirmDeleteCredential', { name: credentialToDelete?.name })}</p>
+            </ConfirmModal>
 
             <div className="card main-credential-card">
                 <div className="card-header"><h3>{t('mainAccountCredentials')}</h3></div>
@@ -201,7 +212,7 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                             <div key={cred.ApiKey} className="card smtp-additional-card">
                                 <div className="card-header">
                                     <h4>{cred.CredentialName}</h4>
-                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteCredential(cred.CredentialName, cred.ApiKey)}>
+                                    <button className="btn-icon btn-icon-danger" onClick={() => setCredentialToDelete({ name: cred.CredentialName, apikey: cred.ApiKey })}>
                                         <Icon path={ICONS.DELETE} />
                                     </button>
                                 </div>

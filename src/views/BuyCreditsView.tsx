@@ -84,10 +84,105 @@ const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onCl
     );
 };
 
+const CreditSelector = ({ packages, onPurchase, isSubmitting }: { packages: any[], onPurchase: (pkg: any) => void, isSubmitting: boolean }) => {
+    const { t, i18n } = useTranslation();
+    const [selectedIndex, setSelectedIndex] = useState(Math.floor(packages.length / 4)); // Start somewhere in the lower-middle
+
+    useEffect(() => {
+        if (packages.length > 0 && selectedIndex >= packages.length) {
+            setSelectedIndex(packages.length - 1);
+        }
+    }, [packages, selectedIndex]);
+
+    if (packages.length === 0) {
+        return null;
+    }
+
+    const selectedPackage = packages[selectedIndex];
+
+    const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSelectedIndex(parseInt(e.target.value, 10));
+    };
+    
+    const handleSubmit = () => {
+        onPurchase(selectedPackage);
+    }
+
+    return (
+        <div className="card credit-selector-container">
+            <div className="credit-selector-display">
+                <div className="credit-amount-display">
+                    <h2>{(selectedPackage.packsize || 0).toLocaleString(i18n.language)}</h2>
+                    <span>{t('credits')}</span>
+                </div>
+                <div className="total-price-display">
+                    <span>{(selectedPackage.packprice || 0).toLocaleString(i18n.language)} {t('priceIRT')}</span>
+                </div>
+            </div>
+
+            <div className="credit-slider-wrapper">
+                <input
+                    type="range"
+                    min="0"
+                    max={packages.length - 1}
+                    value={selectedIndex}
+                    onChange={handleSliderChange}
+                    className="credit-slider"
+                    step="1"
+                />
+                <div className="credit-slider-labels">
+                    {packages.map((pkg, index) => (
+                        <span key={index} style={{
+                            opacity: index === selectedIndex ? 1 : 0.6,
+                            fontWeight: index === selectedIndex ? '700' : '400',
+                        }}>
+                            {pkg.packname}
+                        </span>
+                    ))}
+                </div>
+            </div>
+            
+            <div className="credit-selector-footer">
+                <div className="price-per-credit">
+                     <span>{t('pricePerCreditIRT')}:</span>
+                     <strong>{selectedPackage.packrate}</strong>
+                </div>
+                <button
+                    className="btn btn-primary"
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? <Loader /> : t('order')}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const BalanceDisplayCard = ({ creditLoading, creditError, accountData, onHistoryClick }: { creditLoading: boolean, creditError: any, accountData: any, onHistoryClick: () => void }) => {
+    const { t, i18n } = useTranslation();
+    return (
+        <div className="card balance-display-card">
+            <div className="balance-info">
+                <Icon path={ICONS.BUY_CREDITS} className="balance-icon" />
+                <div>
+                    <span className="balance-title">{t('yourCurrentBalance')}</span>
+                    <span className="balance-amount">
+                        {creditLoading ? <Loader /> : (creditError || accountData?.emailcredits === undefined) ? 'N/A' : Number(accountData.emailcredits).toLocaleString(i18n.language)}
+                    </span>
+                </div>
+            </div>
+            <button className="btn btn-secondary" onClick={onHistoryClick}>
+                <Icon path={ICONS.CALENDAR} />
+                <span>{t('viewHistory')}</span>
+            </button>
+        </div>
+    );
+};
 
 const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const { t, i18n } = useTranslation();
-    const [isSubmitting, setIsSubmitting] = useState<number | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '' });
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     
@@ -102,7 +197,7 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             setPackagesLoading(true);
             setPackagesError(null);
             
-            const url = `${DIRECTUS_CRM_URL}/items/packages`;
+            const url = `${DIRECTUS_CRM_URL}/items/packages?sort=packsize`;
     
             try {
                 const response = await fetch(url, {
@@ -110,7 +205,6 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     headers: { 'Accept': 'application/json' }
                 });
     
-                // Clone the response so we can read it twice (once as JSON, once as text if JSON fails)
                 const responseCloneForText = response.clone();
     
                 if (!response.ok) {
@@ -129,17 +223,13 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     if (result && Array.isArray(result.data)) {
                         setPackages(result.data);
                     } else {
-                        // The response was valid JSON, but didn't have the expected structure.
-                        // This might be a Directus error message (e.g. permissions error).
                         throw new Error(`The server returned an unexpected JSON structure. Expected a 'data' array, but received:\n\n${JSON.stringify(result, null, 2)}`);
                     }
                 } catch (jsonError) {
-                    // This block executes if response.json() fails, e.g., if the response is HTML instead of JSON.
                     const bodyText = await responseCloneForText.text();
                     throw new Error(`Failed to parse the server's response as JSON. This often means the server sent an HTML error page instead of data.\n\nServer Response:\n${bodyText}`);
                 }
             } catch (err: any) {
-                // This top-level catch handles both network errors ("Failed to fetch") and the errors thrown above.
                 setPackagesError(err.message);
                 console.error("Failed to fetch credit packages:", err);
             } finally {
@@ -157,13 +247,14 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             return;
         }
 
-        setIsSubmitting(pkg.id);
+        setIsSubmitting(true);
 
         const params = new URLSearchParams({
             userapikey: apiKey,
             useremail: user.email,
             amount: pkg.packsize.toString(),
             totalprice: pkg.packprice.toString(),
+            packagename: pkg.packname.toString(),
         });
         
         const requestUrl = `${PURCHASE_WEBHOOK_URL}?${params.toString()}`;
@@ -192,7 +283,7 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                 message: t('purchaseFailedMessage', { error: error.message })
             });
         } finally {
-            setIsSubmitting(null);
+            setIsSubmitting(false);
         }
     };
     
@@ -200,28 +291,8 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
     return (
         <div className="buy-credits-view">
-            <div className="account-card current-balance-card">
-                <div className="card-icon-wrapper">
-                    <Icon path={ICONS.BUY_CREDITS} />
-                </div>
-                <div className="card-details">
-                    <div className="card-title">{t('yourCurrentBalance')}</div>
-                    <div className="card-content">
-                        {creditLoading ? <Loader /> : (creditError || accountData?.emailcredits === undefined) ? 'N/A' : Number(accountData.emailcredits).toLocaleString(i18n.language)}
-                    </div>
-                </div>
-            </div>
-            
-            <div className="view-header">
-                <h3>{t('choosePackage')}</h3>
-                <button className="btn" onClick={() => setIsHistoryOpen(true)}>
-                    <Icon path={ICONS.CALENDAR} />
-                    {t('viewHistory')}
-                </button>
-            </div>
             <CreditHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} apiKey={apiKey} />
-
-            <Modal isOpen={modalState.isOpen} onClose={closeModal} title={modalState.title}>
+             <Modal isOpen={modalState.isOpen} onClose={closeModal} title={modalState.title}>
                 <p style={{whiteSpace: "pre-wrap"}}>{modalState.message}</p>
                  {modalState.title === t('purchaseInitiated') && (
                     <small style={{display: 'block', marginTop: '1rem', color: 'var(--subtle-text-color)'}}>
@@ -229,44 +300,25 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     </small>
                 )}
             </Modal>
+
+            <BalanceDisplayCard
+                creditLoading={creditLoading}
+                creditError={creditError}
+                accountData={accountData}
+                onHistoryClick={() => setIsHistoryOpen(true)}
+            />
+            
+            <h3 className="content-title" style={{marginTop: '1.5rem'}}>{t('choosePackage')}</h3>
             
             {packagesLoading && <CenteredMessage><Loader/></CenteredMessage>}
             {packagesError && <ErrorMessage error={{endpoint: 'GET /items/packages', message: packagesError}} />}
             
             {!packagesLoading && !packagesError && (
-                 <div className="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>{t('package')}</th>
-                                <th>{t('credits')}</th>
-                                <th>{t('priceIRT')}</th>
-                                <th>{t('pricePerCreditIRT')}</th>
-                                <th style={{ textAlign: i18n.dir() === 'rtl' ? 'left' : 'right' }}>{t('action')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {packages.map((pkg: any) => (
-                                <tr key={pkg.id}>
-                                    <td><strong>{pkg.packname}</strong></td>
-                                    <td>{(pkg.packsize || 0).toLocaleString(i18n.language)}</td>
-                                    <td>{(pkg.packprice || 0).toLocaleString(i18n.language)}</td>
-                                    <td>{pkg.packrate}</td>
-                                    <td style={{ textAlign: i18n.dir() === 'rtl' ? 'left' : 'right' }}>
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={() => handlePurchase(pkg)}
-                                            disabled={isSubmitting !== null}
-                                            style={{ margin: 0 }}
-                                        >
-                                            {isSubmitting === pkg.id ? <Loader /> : t('order')}
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                 <CreditSelector
+                    packages={packages}
+                    onPurchase={handlePurchase}
+                    isSubmitting={isSubmitting}
+                 />
             )}
 
             <div className="webhook-info">

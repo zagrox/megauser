@@ -12,6 +12,7 @@ import Modal from '../components/Modal';
 import RenameModal from '../components/RenameModal';
 import Icon, { ICONS } from '../components/Icon';
 import Badge from '../components/Badge';
+import ConfirmModal from '../components/ConfirmModal';
 
 const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: boolean, onClose: () => void, listName: string, apiKey: string }) => {
     const { t } = useTranslation();
@@ -66,13 +67,15 @@ const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: bool
                         </table>
                     </div>
                     {contacts && (contacts.length > 0 || offset > 0) && (
-                         <div className="pagination-controls" style={{borderTop: 'none', marginTop: '1rem'}}>
+                         <div className="pagination-controls" style={{borderTop: 'none', marginTop: '1rem', padding: 0}}>
                             <button onClick={() => setOffset(o => Math.max(0, o - CONTACTS_PER_PAGE))} disabled={offset === 0 || loading}>
-                                {t('previous')}
+                                <Icon path={ICONS.CHEVRON_LEFT} />
+                                <span>{t('previous')}</span>
                             </button>
-                            <span>{t('page', { page: offset / CONTACTS_PER_PAGE + 1 })}</span>
-                            <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={contacts.length < CONTACTS_PER_PAGE || loading}>
-                                {t('next')}
+                            <span className="pagination-page-info">{t('page', { page: offset / CONTACTS_PER_PAGE + 1 })}</span>
+                            <button onClick={() => setOffset(o => o + CONTACTS_PER_PAGE)} disabled={!contacts || contacts.length < CONTACTS_PER_PAGE || loading}>
+                                <span>{t('next')}</span>
+                                <Icon path={ICONS.CHEVRON_RIGHT} />
                             </button>
                         </div>
                     )}
@@ -93,9 +96,17 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
     
     const [listToRename, setListToRename] = useState<List | null>(null);
     const [listToView, setListToView] = useState<List | null>(null);
+    const [listToDelete, setListToDelete] = useState<List | null>(null);
 
-    const { data: lists, loading, error } = useApiV4('/lists', apiKey, {}, refetchIndex);
+    const LISTS_PER_PAGE = 25;
+    const [currentPage, setCurrentPage] = useState(1);
+    
+    const { data: lists, loading, error } = useApiV4('/lists', apiKey, { limit: 1000 }, refetchIndex);
     const refetch = () => setRefetchIndex(i => i + 1);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
 
     const handleCreateList = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -113,14 +124,17 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
         }
     };
     
-    const handleDeleteList = async (listName: string) => {
-        if (!window.confirm(t('confirmDeleteList', { listName }))) return;
+    const confirmDeleteList = async () => {
+        if (!listToDelete) return;
+        const listName = listToDelete.ListName;
         try {
             await apiFetchV4(`/lists/${encodeURIComponent(listName)}`, apiKey, { method: 'DELETE' });
             setActionStatus({ type: 'success', message: t('listDeletedSuccess', { listName }) });
             refetch();
         } catch (err: any) {
             setActionStatus({ type: 'error', message: t('listDeletedError', { error: err.message }) });
+        } finally {
+            setListToDelete(null);
         }
     };
 
@@ -133,31 +147,29 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
             });
             setActionStatus({ type: 'success', message: t('listRenamedSuccess', { newName }) });
             setListToRename(null);
-            setTimeout(() => refetch(), 1000); // Wait for API to propagate change
+            refetch();
         } catch (err: any) {
             setActionStatus({ type: 'error', message: t('listRenamedError', { error: err.message }) });
+            setListToRename(null);
         }
     };
-
+    
     const filteredLists: List[] = (lists || [])
-        .filter((list: List) => 
+        .filter((list: List) =>
             list.ListName.toLowerCase().includes(searchQuery.toLowerCase())
         )
         .sort((a, b) => new Date(b.DateAdded).getTime() - new Date(a.DateAdded).getTime());
+    
+    const totalPages = Math.ceil(filteredLists.length / LISTS_PER_PAGE);
+    const paginatedLists = filteredLists.slice(
+        (currentPage - 1) * LISTS_PER_PAGE,
+        currentPage * LISTS_PER_PAGE
+    );
+
 
     return (
         <div>
             <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
-
-            {listToRename && (
-                <RenameModal 
-                    isOpen={!!listToRename}
-                    onClose={() => setListToRename(null)}
-                    entityName={listToRename.ListName}
-                    entityType={t('list')}
-                    onSubmit={handleRenameList}
-                />
-            )}
             
             {listToView && (
                 <ListContactsModal
@@ -167,16 +179,39 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                     apiKey={apiKey}
                 />
             )}
+            
+            {listToRename && (
+                 <RenameModal
+                    isOpen={!!listToRename}
+                    onClose={() => setListToRename(null)}
+                    entityName={listToRename.ListName}
+                    entityType={t('list')}
+                    onSubmit={handleRenameList}
+                />
+            )}
 
+            {listToDelete && (
+                <ConfirmModal
+                    isOpen={!!listToDelete}
+                    onClose={() => setListToDelete(null)}
+                    onConfirm={confirmDeleteList}
+                    title={t('deleteList')}
+                    isDestructive={true}
+                    confirmText={t('delete')}
+                >
+                    <p>{t('confirmDeleteList', { listName: listToDelete.ListName })}</p>
+                </ConfirmModal>
+            )}
 
             <div className="view-header">
-                 <div className="search-bar">
+                <div className="search-bar" style={{flexGrow: 1, marginRight: '1rem'}}>
                     <Icon path={ICONS.SEARCH} />
                     <input
                         type="search"
                         placeholder={t('searchListsPlaceholder')}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        disabled={loading}
                     />
                 </div>
                 <form className="create-list-form" onSubmit={handleCreateList}>
@@ -184,44 +219,75 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                         type="text"
                         placeholder={t('newListNamePlaceholder')}
                         value={newListName}
-                        onChange={e => setNewListName(e.target.value)}
+                        onChange={(e) => setNewListName(e.target.value)}
                         disabled={isSubmitting}
+                        required
                     />
                     <button type="submit" className="btn btn-primary" disabled={!newListName || isSubmitting}>
-                        {isSubmitting ? <Loader /> : <><Icon path={ICONS.PLUS}/> {t('createList')}</>}
+                        {isSubmitting ? <Loader /> : (
+                            <>
+                                <Icon path={ICONS.PLUS} />
+                                <span>{t('createList')}</span>
+                            </>
+                        )}
                     </button>
                 </form>
             </div>
+            
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
             {error && <ErrorMessage error={error} />}
-            {!loading && filteredLists.length === 0 && (
-                 <CenteredMessage>
-                    {searchQuery ? t('noListsForQuery', { query: searchQuery }) : t('noListsFound')}
-                </CenteredMessage>
-            )}
-            <div className="card-grid list-grid">
-                {filteredLists.map((list: List) => (
-                    <div key={list.ListName} className="card list-card">
-                        <div className="list-card-header">
-                             <h3 title={list.ListName}>{list.ListName}</h3>
-                             <div className="list-card-meta-actions">
-                                <span className="list-card-date">{formatDateRelative(list.DateAdded, i18n.language)}</span>
-                                <div className="action-buttons">
-                                    <button className="btn-icon" onClick={() => setListToRename(list)} aria-label={t('renameList')}>
-                                        <Icon path={ICONS.PENCIL} />
-                                    </button>
-                                    <button className="btn-icon" onClick={() => setListToView(list)} aria-label={t('viewContactsInList')}>
-                                        <Icon path={ICONS.CONTACTS} />
-                                    </button>
-                                    <button className="btn-icon btn-icon-danger" onClick={() => handleDeleteList(list.ListName)} aria-label={t('deleteList')}>
-                                        <Icon path={ICONS.DELETE} />
-                                    </button>
-                                </div>
-                             </div>
-                        </div>
+            
+            {!loading && !error && (
+                filteredLists.length === 0 ? (
+                    <CenteredMessage>
+                        {searchQuery ? t('noListsForQuery', { query: searchQuery }) : t('noListsFound')}
+                    </CenteredMessage>
+                ) : (
+                    <>
+                    <div className="table-container">
+                        <table className="simple-table">
+                            <thead>
+                                <tr>
+                                    <th>{t('name')}</th>
+                                    <th>{t('dateAdded')}</th>
+                                    <th style={{ textAlign: i18n.dir() === 'rtl' ? 'left' : 'right' }}>{t('action')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedLists.map((list: List) => {
+                                    return (
+                                        <tr key={list.ListName}>
+                                            <td><strong>{list.ListName}</strong></td>
+                                            <td>{formatDateRelative(list.DateAdded, i18n.language)}</td>
+                                            <td>
+                                                <div className="action-buttons" style={{justifyContent: 'flex-end'}}>
+                                                    <button className="btn-icon btn-icon-primary" onClick={() => setListToView(list)} aria-label={t('viewContactsInList')}><Icon path={ICONS.CONTACTS}/></button>
+                                                    <button className="btn-icon btn-icon-primary" onClick={() => setListToRename(list)} aria-label={t('renameList')}><Icon path={ICONS.PENCIL}/></button>
+                                                    <button className="btn-icon btn-icon-danger" onClick={() => setListToDelete(list)} aria-label={t('deleteList')}><Icon path={ICONS.DELETE}/></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
-                ))}
-            </div>
+                     {totalPages > 1 && (
+                        <div className="pagination-controls">
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading}>
+                                <Icon path={ICONS.CHEVRON_LEFT} />
+                                <span>{t('previous')}</span>
+                            </button>
+                            <span className="pagination-page-info">Page {currentPage} of {totalPages}</span>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || loading}>
+                                <span>{t('next')}</span>
+                                <Icon path={ICONS.CHEVRON_RIGHT} />
+                            </button>
+                        </div>
+                    )}
+                    </>
+                )
+            )}
         </div>
     );
 };
