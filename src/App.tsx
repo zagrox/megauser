@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './contexts/AuthContext';
@@ -17,8 +18,9 @@ import ContactsView from './views/ContactsView';
 import EmailListView from './views/EmailListView';
 import SegmentsView from './views/SegmentsView';
 import MediaManagerView from './views/MediaManagerView';
-import SendEmailView from './views/SendEmailView';
+import EmailBuilderView from './views/EmailBuilderView';
 import CampaignsView from './views/CampaignsView';
+import TemplatesView from './views/TemplatesView';
 import DomainsView from './views/DomainsView';
 import SmtpView from './views/SmtpView';
 import Icon from './components/Icon';
@@ -153,8 +155,9 @@ const App = () => {
         'Email Lists': { component: <EmailListView apiKey={apiKey} />, title: t('emailLists'), icon: ICONS.EMAIL_LISTS },
         'Segments': { component: <SegmentsView apiKey={apiKey} />, title: t('segments'), icon: ICONS.SEGMENTS },
         'Media Manager': { component: <MediaManagerView apiKey={apiKey} />, title: t('mediaManager'), icon: ICONS.FOLDER },
-        'Send Email': { component: <SendEmailView apiKey={apiKey} user={user} />, title: t('sendEmail'), icon: ICONS.SEND_EMAIL },
         'Campaigns': { component: <CampaignsView apiKey={apiKey} setView={handleSetView} />, title: t('campaigns'), icon: ICONS.CAMPAIGNS },
+        'Templates': { component: <TemplatesView apiKey={apiKey} setView={handleSetView} />, title: t('templates'), icon: ICONS.ARCHIVE },
+        'Email Builder': { component: <EmailBuilderView apiKey={apiKey} user={user} />, title: t('emailBuilder'), icon: ICONS.SEND_EMAIL },
         'Domains': { component: <DomainsView apiKey={apiKey} />, title: t('domains'), icon: ICONS.DOMAINS },
         'SMTP': { component: <SmtpView apiKey={apiKey} user={user}/>, title: t('smtp'), icon: ICONS.SMTP }
     };
@@ -167,7 +170,8 @@ const App = () => {
         { name: t('segments'), view: 'Segments', icon: ICONS.SEGMENTS },
         { name: t('mediaManager'), view: 'Media Manager', icon: ICONS.FOLDER },
         { name: t('campaigns'), view: 'Campaigns', icon: ICONS.CAMPAIGNS },
-        { name: t('sendEmail'), view: 'Send Email', icon: ICONS.SEND_EMAIL },
+        { name: t('templates'), view: 'Templates', icon: ICONS.ARCHIVE },
+        { name: t('emailBuilder'), view: 'Email Builder', icon: ICONS.SEND_EMAIL },
     ];
     
     const SidebarContent = () => (
@@ -198,7 +202,7 @@ const App = () => {
     );
     
     const currentView = views[view];
-    const showHeader = view !== 'Dashboard';
+    const showHeader = view !== 'Dashboard' && view !== 'Email Builder';
 
     return (
         <div ref={appContainerRef} className={`app-container ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
