@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 'first_name', 
                 'last_name', 
                 'email', 
-                'elastic_email_api_key', 
+                'panelkey', 
                 'public_id', 
                 'date_created', 
                 'last_access',
@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 if (apiKey) {
                     const accountData = await apiFetch('/account/load', apiKey); // Validate key
                     setUser({
-                        elastic_email_api_key: apiKey,
+                        panelkey: apiKey,
                         first_name: accountData.firstname,
                         email: accountData.email,
                         isApiKeyUser: true,

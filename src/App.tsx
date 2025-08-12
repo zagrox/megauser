@@ -131,7 +131,7 @@ const App = () => {
         return <AuthView />;
     }
     
-    const apiKey = user?.elastic_email_api_key;
+    const apiKey = user?.panelkey;
     if (!apiKey) {
         return <OnboardingView />;
     }
