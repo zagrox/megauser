@@ -4,7 +4,6 @@ const CACHE_NAME = 'megamail-v1.5';
 const APP_SHELL_URLS = [
   '/',
   '/index.html',
-  '/src/index.css',
   '/manifest.json'
 ];
 

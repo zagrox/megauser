@@ -10,15 +10,9 @@
   "icons": [
     {
       "src": "https://mailzila.com/logo/app-logo-red.png",
-      "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "https://mailzila.com/logo/app-logo-red.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any maskable",
+      "sizes": "512x512"
     }
   ]
 }

@@ -1,4 +1,6 @@
 
+
+
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
@@ -56,6 +58,7 @@ const resources = {
       complaints: 'Complaints',
       bounced: 'Bounced',
       emailsSent: 'Emails Sent',
+      theme: 'Theme',
       // Auth
       signIn: 'Sign In',
       signUp: 'Sign Up',
@@ -178,6 +181,24 @@ const resources = {
       city: 'City',
       stateProvince: 'State / Province',
       zipPostalCode: 'ZIP / Postal Code',
+      birthDate: 'Date of Birth',
+      nationalCode: 'National Code',
+      location: 'Location',
+      accountDetails: 'Account Details',
+      directusId: 'User ID',
+      panelId: 'Panel ID',
+      joinDate: 'Join Date',
+      lastAccess: 'Last Access',
+      preferences: 'Preferences',
+      textDirection: 'Text Direction',
+      emailNotifications: 'Email Notifications',
+      yes: 'Yes',
+      no: 'No',
+      role: 'Role',
+      editProfile: 'Edit Profile',
+      changeAvatar: 'Change Avatar',
+      profileUpdateSuccess: 'Profile updated successfully!',
+      profileUpdateError: 'Failed to update profile: {{error}}',
       // Embed
       embedDashboard: 'Embed Dashboard',
       embedDashboardSubtitle: 'Copy and paste this HTML snippet into your website or application to embed a live view of your Mailzila dashboard.',
@@ -642,6 +663,7 @@ const resources = {
       complaints: 'شکایات',
       bounced: 'برگشت خورده',
       emailsSent: 'ایمیل‌های ارسال شده',
+      theme: 'پوسته',
       // Auth
       signIn: 'ورود',
       signUp: 'ثبت نام',
@@ -764,6 +786,24 @@ const resources = {
       city: 'شهر',
       stateProvince: 'استان',
       zipPostalCode: 'کد پستی',
+      birthDate: 'تاریخ تولد',
+      nationalCode: 'کد ملی',
+      location: 'موقعیت',
+      accountDetails: 'جزئیات حساب',
+      directusId: 'شناسه کاربری',
+      panelId: 'شناسه پنل',
+      joinDate: 'تاریخ عضویت',
+      lastAccess: 'آخرین دسترسی',
+      preferences: 'تنظیمات',
+      textDirection: 'جهت متن',
+      emailNotifications: 'اطلاعیه‌های ایمیل',
+      yes: 'بله',
+      no: 'خیر',
+      role: 'نقش',
+      editProfile: 'ویرایش پروفایل',
+      changeAvatar: 'تغییر آواتار',
+      profileUpdateSuccess: 'پروفایل با موفقیت به روز شد!',
+      profileUpdateError: 'به روز رسانی پروفایل ناموفق بود: {{error}}',
       // Embed
       embedDashboard: 'جاسازی داشبورد',
       embedDashboardSubtitle: 'این قطعه کد HTML را در وب‌سایت یا برنامه خود کپی و جایگذاری کنید تا نمای زنده‌ای از داشبورد میلزیلا خود را جاسازی کنید.',

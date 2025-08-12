@@ -546,7 +546,7 @@ html[data-theme='dark'] .from-email-composer select {
     border: 0;
     height: 1px;
     background-color: var(--border-color);
-    margin: 0.5rem 0;
+    margin: 1.5rem 0;
 }
 
 /* --- AUTH VIEW --- */
@@ -1544,6 +1544,11 @@ tbody tr:hover {
     padding: 2rem;
     border-radius: 12px;
     border: 1px solid var(--border-color);
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+.profile-actions {
+    align-self: flex-start;
 }
 .profile-field-value {
     font-size: 1rem;
@@ -1572,6 +1577,12 @@ html[dir="rtl"] .profile-field-value {
     align-items: center;
     justify-content: center;
 }
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
 .profile-avatar .icon {
     width: 40px;
     height: 40px;
@@ -1583,27 +1594,15 @@ html[dir="rtl"] .profile-field-value {
 }
 .profile-email {
     color: var(--subtle-text-color);
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
 }
 .profile-meta {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
     gap: 0.75rem;
     font-size: 0.9rem;
-    margin-top: 1.5rem;
-}
-.meta-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.meta-item label {
-    color: var(--subtle-text-color);
-    margin-bottom: 0;
-}
-.meta-item span {
-    font-weight: 500;
-    text-align: right;
+    margin-top: 1rem;
 }
 .reputation-score {
     font-size: inherit;
@@ -1613,6 +1612,69 @@ html[dir="rtl"] .profile-field-value {
 .reputation-score.good { color: var(--success-color); }
 .reputation-score.medium { color: var(--warning-color); }
 .reputation-score.bad { color: var(--danger-color); }
+
+.edit-profile-avatar-uploader {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+.edit-profile-avatar-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: var(--subtle-background);
+    border: 2px solid var(--border-color);
+}
+.edit-profile-avatar-uploader .form-group {
+    flex-grow: 1;
+}
+.edit-profile-avatar-uploader label {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+    flex-shrink: 0;
+}
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border-color);
+    transition: .4s;
+    border-radius: 28px;
+}
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .toggle-slider {
+    background-color: var(--secondary-color);
+}
+input:checked + .toggle-slider:before {
+    transform: translateX(22px);
+}
 
 /* Credit History Modal */
 .credit-history-table td:last-child {

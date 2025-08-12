@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext } from 'react';
-import { readMe, registerUser, updateMe } from '@directus/sdk';
+import { readMe, registerUser, updateMe, uploadFiles } from '@directus/sdk';
 import sdk from '../api/directus';
 import { apiFetch } from '../api/elasticEmail';
 import { DIRECTUS_URL } from '../api/config';
@@ -31,8 +31,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 'first_name', 
                 'last_name', 
                 'email', 
+                'location',
+                'avatar',
+                'language',
+                'status',
+                'role.*', // Fetch the entire role object
+                'last_access',
+                'email_notifications',
+                'theme_dark',
+                'theme_light',
+                'text_direction',
+                'nationalCode',
+                'birthDate',
                 'panelkey',
-                'last_access'
+                'panelid',
+                'joindate'
             ] }));
             setUser(me);
         } catch (directusError) {
