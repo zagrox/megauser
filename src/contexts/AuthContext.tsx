@@ -31,17 +31,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 'first_name', 
                 'last_name', 
                 'email', 
-                'panelkey', 
-                'public_id', 
-                'date_created', 
+                'panelkey',
                 'last_access',
-                'phone',
-                'company',
-                'address1',
-                'city',
-                'state',
-                'zip',
-                'country'
+                'date_created'
             ] }));
             setUser(me);
         } catch (directusError) {

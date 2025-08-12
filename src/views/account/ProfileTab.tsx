@@ -25,7 +25,7 @@ const ProfileTab = ({ accountData, user }: { accountData: any, user: any }) => {
     const email = user?.email || accountData?.email;
     const fullName = [firstName, lastName].filter(Boolean).join(' ');
 
-    const publicId = user?.public_id || accountData?.publicaccountid;
+    const publicId = user?.id || accountData?.publicaccountid;
     const dateJoined = user?.date_created || accountData?.datecreated;
     const lastActivity = user?.last_access || accountData?.lastactivity;
 

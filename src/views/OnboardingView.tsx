@@ -18,7 +18,7 @@ const OnboardingView = () => {
         setError('');
         try {
             await apiFetch('/account/load', apiKey); // Validate key
-            await updateUser({ elastic_email_api_key: apiKey });
+            await updateUser({ panelkey: apiKey });
         } catch (err: any) {
             setError(err.message || t('invalidApiKey'));
         } finally {

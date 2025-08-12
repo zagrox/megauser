@@ -18,7 +18,7 @@ const ApiKeyTab = ({ apiKey: initialApiKey }: { apiKey: string }) => {
         setStatus(null);
         try {
             await apiFetch('/account/load', newApiKey);
-            await updateUser({ elastic_email_api_key: newApiKey });
+            await updateUser({ panelkey: newApiKey });
             setStatus({ type: 'success', message: t('apiKeyUpdateSuccess') });
         } catch (err: any) {
             setStatus({ type: 'error', message: err.message || t('apiKeyUpdateError') });
