@@ -26,7 +26,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
             // The Directus SDK will automatically use the stored token.
             // A failed `readMe` request is the canonical way to check for an invalid/expired session.
-            const me = await sdk.request(readMe({ fields: ['*.*'] }));
+            const me = await sdk.request(readMe({ fields: [
+                'id', 
+                'first_name', 
+                'last_name', 
+                'email', 
+                'elastic_email_api_key', 
+                'public_id', 
+                'date_created', 
+                'last_access',
+                'phone',
+                'company',
+                'address1',
+                'city',
+                'state',
+                'zip',
+                'country'
+            ] }));
             setUser(me);
         } catch (directusError) {
             // This block correctly handles fallback logic when not logged in with Directus
