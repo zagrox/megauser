@@ -72,6 +72,9 @@ const resources = {
       confirmPassword: 'Confirm Password',
       passwordsDoNotMatch: 'Passwords do not match.',
       or: 'OR',
+      registrationSuccessTitle: 'Registration Successful!',
+      registrationSuccessMessage: 'Your account has been created. You can now sign in.',
+      goToLogin: 'Go to Login',
       // Onboarding
       welcomeOnboard: 'Welcome, {{name}}!',
       onboardingSubtitle: 'To get started, please enter your Mailzila API key.',
@@ -655,6 +658,9 @@ const resources = {
       confirmPassword: 'تکرار رمز عبور',
       passwordsDoNotMatch: 'رمزهای عبور یکسان نیستند.',
       or: 'یا',
+      registrationSuccessTitle: 'ثبت نام موفق!',
+      registrationSuccessMessage: 'حساب کاربری شما ایجاد شد. اکنون می‌توانید وارد شوید.',
+      goToLogin: 'رفتن به صفحه ورود',
       // Onboarding
       welcomeOnboard: 'خوش آمدی، {{name}}!',
       onboardingSubtitle: 'برای شروع، لطفاً کلید Mailzila API Key خود را وارد کنید.',

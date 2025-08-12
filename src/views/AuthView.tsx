@@ -12,32 +12,76 @@ const AuthView = () => {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [isApiKeyLogin, setIsApiKeyLogin] = useState(false);
+    const [registrationSuccess, setRegistrationSuccess] = useState(false);
     const { t } = useTranslation();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
         setLoading(true);
-        const formData = new FormData(e.currentTarget);
-        const data = Object.fromEntries(formData.entries());
+        setRegistrationSuccess(false);
+        const form = e.currentTarget;
 
         try {
             if (isApiKeyLogin) {
-                await loginWithApiKey(data.apikey as string);
+                const apikey = (form.elements.namedItem('apikey') as HTMLInputElement).value;
+                await loginWithApiKey(apikey);
             } else if (isLogin) {
-                await login({ email: data.email, password: data.password });
+                const email = (form.elements.namedItem('email') as HTMLInputElement).value;
+                const password = (form.elements.namedItem('password') as HTMLInputElement).value;
+                await login({ email, password });
             } else {
-                if (data.password !== data.confirm_password) {
+                const email = (form.elements.namedItem('email') as HTMLInputElement).value;
+                const password = (form.elements.namedItem('password') as HTMLInputElement).value;
+                const confirm_password = (form.elements.namedItem('confirm_password') as HTMLInputElement).value;
+                const first_name = (form.elements.namedItem('first_name') as HTMLInputElement).value;
+                const last_name = (form.elements.namedItem('last_name') as HTMLInputElement).value;
+
+                if (password !== confirm_password) {
                     throw new Error(t('passwordsDoNotMatch'));
                 }
-                await register({ email: data.email, password: data.password, first_name: data.first_name });
+                await register({ email, password, first_name, last_name });
+                setRegistrationSuccess(true);
             }
         } catch (err: any) {
-            setError(err.message || t('unknownError'));
+            let errorMessage = err.message;
+            if (err.errors && Array.isArray(err.errors) && err.errors.length > 0) {
+                errorMessage = err.errors[0].message;
+            }
+            setError(errorMessage || t('unknownError'));
         } finally {
             setLoading(false);
         }
     };
+
+    const switchToLogin = () => {
+        setIsLogin(true);
+        setError('');
+        setRegistrationSuccess(false);
+    };
+
+    const switchToRegister = () => {
+        setIsLogin(false);
+        setError('');
+        setRegistrationSuccess(false);
+    };
+
+    if (registrationSuccess) {
+        return (
+            <div className="auth-container">
+                <div className="auth-box">
+                    <div style={{ marginBottom: '1rem' }}>
+                        <Icon path={ICONS.CHECK} style={{ width: 48, height: 48, color: 'var(--success-color)' }} />
+                    </div>
+                    <h2>{t('registrationSuccessTitle')}</h2>
+                    <p>{t('registrationSuccessMessage')}</p>
+                    <button onClick={switchToLogin} className="btn btn-primary full-width" style={{ marginTop: '1.5rem' }}>
+                        {t('goToLogin')}
+                    </button>
+                </div>
+            </div>
+        );
+    }
     
     return (
         <div className="auth-container">
@@ -60,7 +104,10 @@ const AuthView = () => {
                     ) : (
                         <div className="form-grid" style={{gridTemplateColumns: '1fr', gap: '1rem'}}>
                             {!isLogin && (
-                                <input name="first_name" type="text" placeholder={t('firstName')} required />
+                                <div className="form-grid" style={{gap: '1rem'}}>
+                                    <input name="first_name" type="text" placeholder={t('firstName')} required />
+                                    <input name="last_name" type="text" placeholder={t('lastName')} required />
+                                </div>
                             )}
                             <input name="email" type="email" placeholder={t('emailAddress')} required />
                             <div className="input-group">
@@ -76,7 +123,7 @@ const AuthView = () => {
                     )}
 
                     <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? <Loader /> : (isLogin ? t('signIn') : t('createAccount'))}
+                        {loading ? <Loader /> : (isLogin ? t('signIn') : t('signUp'))}
                     </button>
                 </form>
 
@@ -88,7 +135,7 @@ const AuthView = () => {
 
                 <div className="auth-switch">
                     {isLogin ? t('noAccount') : t('alreadyHaveAccount')}
-                    <button onClick={() => setIsLogin(!isLogin)}>{isLogin ? t('signUp') : t('signIn')}</button>
+                    <button onClick={isLogin ? switchToRegister : switchToLogin}>{isLogin ? t('signUp') : t('signIn')}</button>
                 </div>
             </div>
         </div>

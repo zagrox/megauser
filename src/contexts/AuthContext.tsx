@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext } from 'react';
-import { readMe, createUser, updateMe } from '@directus/sdk';
+import { readMe, registerUser, updateMe } from '@directus/sdk';
 import sdk from '../api/directus';
 import { apiFetch } from '../api/elasticEmail';
+import { DIRECTUS_URL } from '../api/config';
 
 interface AuthContextType {
     user: any | null;
@@ -9,7 +10,7 @@ interface AuthContextType {
     loading: boolean;
     login: (credentials: any) => Promise<void>;
     loginWithApiKey: (apiKey: string) => Promise<void>;
-    register: (details: any) => Promise<void>;
+    register: (details: any) => Promise<any>;
     logout: () => void;
     updateUser: (data: any) => Promise<void>;
 }
@@ -58,7 +59,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, [getMe]);
 
     const login = async (credentials: any) => {
-        await sdk.login(credentials);
+        // Bypassing the SDK's login method to manually construct the request.
+        // This provides full control over the payload and headers to fix the "Invalid payload" error.
+        const response = await fetch(`${DIRECTUS_URL}/auth/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include', // Crucial for sending cookies with cross-origin requests
+            body: JSON.stringify({
+                email: credentials.email,
+                password: credentials.password,
+                mode: 'session', // Explicitly request a cookie-based session
+            }),
+        });
+    
+        if (!response.ok) {
+            let errorMessage = 'Login failed.';
+            try {
+                const errorData = await response.json();
+                if (errorData.errors && errorData.errors[0]) {
+                    errorMessage = errorData.errors[0].message;
+                }
+            } catch (e) {
+                // Response was not JSON or another error occurred
+            }
+            throw new Error(errorMessage);
+        }
+        
+        // A successful login in cookie mode sets an httpOnly cookie.
+        // We can now call getMe() which will be authenticated by the new cookie.
         await getMe();
     };
     
@@ -69,9 +99,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const register = async (details: any) => {
-        // With public registration enabled in Directus, the default role is assigned automatically.
-        await sdk.request(createUser(details));
-        await login({ email: details.email, password: details.password });
+        const { email, password, confirm_password, ...otherDetails } = details;
+        // This will now return the created user object or throw on error.
+        // The automatic login is removed to provide a better user experience,
+        // especially if email verification is required.
+        return await sdk.request(registerUser(email, password, otherDetails));
     };
 
     const logoutAsync = async () => {
