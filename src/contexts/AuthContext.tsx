@@ -32,8 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 'last_name', 
                 'email', 
                 'panelkey',
-                'last_access',
-                'date_created'
+                'last_access'
             ] }));
             setUser(me);
         } catch (directusError) {
@@ -67,36 +66,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, [getMe]);
 
     const login = async (credentials: any) => {
-        // Bypassing the SDK's login method to manually construct the request.
-        // This provides full control over the payload and headers to fix the "Invalid payload" error.
-        const response = await fetch(`${DIRECTUS_URL}/auth/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include', // Crucial for sending cookies with cross-origin requests
-            body: JSON.stringify({
-                email: credentials.email,
-                password: credentials.password,
-                mode: 'session', // Explicitly request a cookie-based session
-            }),
-        });
-    
-        if (!response.ok) {
-            let errorMessage = 'Login failed.';
-            try {
-                const errorData = await response.json();
-                if (errorData.errors && errorData.errors[0]) {
-                    errorMessage = errorData.errors[0].message;
-                }
-            } catch (e) {
-                // Response was not JSON or another error occurred
-            }
-            throw new Error(errorMessage);
-        }
-        
-        // A successful login in cookie mode sets an httpOnly cookie.
-        // We can now call getMe() which will be authenticated by the new cookie.
+        // Use the SDK's login method, which handles token storage automatically.
+        // It will throw a DirectusError on failure, which is caught by the AuthView.
+        await sdk.login(credentials.email, credentials.password);
         await getMe();
     };
     

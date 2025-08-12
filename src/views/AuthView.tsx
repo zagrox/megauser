@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -44,11 +45,16 @@ const AuthView = () => {
                 setRegistrationSuccess(true);
             }
         } catch (err: any) {
-            let errorMessage = err.message;
-            if (err.errors && Array.isArray(err.errors) && err.errors.length > 0) {
-                errorMessage = err.errors[0].message;
+            if (err.data) {
+                const debugMessage = `DEBUG - Server Response:\n${JSON.stringify(err.data, null, 2)}`;
+                setError(debugMessage);
+            } else {
+                let errorMessage = err.message;
+                if (err.errors && Array.isArray(err.errors) && err.errors.length > 0) {
+                    errorMessage = err.errors[0].message;
+                }
+                setError(errorMessage || t('unknownError'));
             }
-            setError(errorMessage || t('unknownError'));
         } finally {
             setLoading(false);
         }
@@ -95,31 +101,56 @@ const AuthView = () => {
                     {error && <ActionStatus status={{ type: 'error', message: error }} onDismiss={() => setError('')} />}
 
                     {isApiKeyLogin ? (
-                        <div className="input-group">
+                        <div className="input-group has-btn">
+                            <span className="input-icon"><Icon path={ICONS.KEY} /></span>
                             <input name="apikey" type={showPassword ? "text" : "password"} placeholder={t('enterYourApiKey')} required />
                             <button type="button" className="input-icon-btn" onClick={() => setShowPassword(!showPassword)}>
                                 <Icon path={showPassword ? ICONS.EYE_OFF : ICONS.EYE} />
                             </button>
                         </div>
-                    ) : (
-                        <div className="form-grid" style={{gridTemplateColumns: '1fr', gap: '1rem'}}>
-                            {!isLogin && (
-                                <div className="form-grid" style={{gap: '1rem'}}>
-                                    <input name="first_name" type="text" placeholder={t('firstName')} required />
-                                    <input name="last_name" type="text" placeholder={t('lastName')} required />
-                                </div>
-                            )}
-                            <input name="email" type="email" placeholder={t('emailAddress')} required />
+                    ) : isLogin ? (
+                         <>
                             <div className="input-group">
+                                <span className="input-icon"><Icon path={ICONS.MAIL} /></span>
+                                <input name="email" type="email" placeholder={t('emailAddress')} required />
+                            </div>
+                            <div className="input-group has-btn">
+                                <span className="input-icon"><Icon path={ICONS.LOCK} /></span>
                                 <input name="password" type={showPassword ? "text" : "password"} placeholder={t('password')} required />
                                 <button type="button" className="input-icon-btn" onClick={() => setShowPassword(!showPassword)}>
                                     <Icon path={showPassword ? ICONS.EYE_OFF : ICONS.EYE} />
                                 </button>
                             </div>
-                            {!isLogin && (
-                                 <input name="confirm_password" type="password" placeholder={t('confirmPassword')} required />
-                            )}
-                        </div>
+                        </>
+                    ) : (
+                        // Registration Form
+                        <>
+                            <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div className="input-group">
+                                    <span className="input-icon"><Icon path={ICONS.ACCOUNT} /></span>
+                                    <input name="first_name" type="text" placeholder={t('firstName')} required />
+                                </div>
+                                <div className="input-group">
+                                    <span className="input-icon"><Icon path={ICONS.ACCOUNT} /></span>
+                                    <input name="last_name" type="text" placeholder={t('lastName')} required />
+                                </div>
+                            </div>
+                            <div className="input-group">
+                                <span className="input-icon"><Icon path={ICONS.MAIL} /></span>
+                                <input name="email" type="email" placeholder={t('emailAddress')} required />
+                            </div>
+                            <div className="input-group has-btn">
+                                <span className="input-icon"><Icon path={ICONS.LOCK} /></span>
+                                <input name="password" type={showPassword ? "text" : "password"} placeholder={t('password')} required />
+                                <button type="button" className="input-icon-btn" onClick={() => setShowPassword(!showPassword)}>
+                                    <Icon path={showPassword ? ICONS.EYE_OFF : ICONS.EYE} />
+                                </button>
+                            </div>
+                            <div className="input-group">
+                                <span className="input-icon"><Icon path={ICONS.LOCK} /></span>
+                                <input name="confirm_password" type="password" placeholder={t('confirmPassword')} required />
+                            </div>
+                        </>
                     )}
 
                     <button type="submit" className="btn btn-primary" disabled={loading}>

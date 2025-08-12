@@ -134,7 +134,7 @@ a:hover {
     font-size: 0.9rem;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 1rem;
 }
 .action-status.success {
@@ -146,6 +146,8 @@ a:hover {
     background-color: rgba(var(--danger-color), 0.1);
     color: var(--danger-color);
     border: 1px solid rgba(var(--danger-color), 0.2);
+    white-space: pre-wrap;
+    text-align: left;
 }
 .dismiss-btn {
     background: transparent;
@@ -584,7 +586,18 @@ html[data-theme='dark'] .from-email-composer select {
 .input-group {
     position: relative;
 }
+.input-group .input-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--subtle-text-color);
+    pointer-events: none;
+}
 .input-group input {
+    padding-left: 2.5rem;
+}
+.input-group.has-btn input {
     padding-right: 3rem;
 }
 .input-icon-btn {
@@ -597,6 +610,7 @@ html[data-theme='dark'] .from-email-composer select {
     border: none;
     color: var(--subtle-text-color);
     cursor: pointer;
+    z-index: 2;
 }
 .auth-form .btn {
     margin-top: 1rem;

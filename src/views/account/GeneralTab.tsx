@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
@@ -78,7 +79,7 @@ const GeneralTab = ({ accountData, contactsCountData, contactsCountLoading, inst
                     <div className="account-tab-card-body">
                         <p>{t('installAppSubtitle')}</p>
                         <button className="btn btn-secondary" onClick={handleInstallClick} style={{maxWidth: '250px'}}>
-                            <Icon path={ICONS.DOWNLOAD} /> {t('installMegaMail')}
+                            <Icon path={ICONS.DOWNLOAD} /> {t('installMailzila')}
                         </button>
                     </div>
                 </div>

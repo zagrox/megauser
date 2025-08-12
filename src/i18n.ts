@@ -1,3 +1,4 @@
+
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
@@ -143,7 +144,7 @@ const resources = {
       switchToTheme: 'Switch to {{theme}} theme',
       installApp: 'Install App',
       installAppSubtitle: 'Get a native-like experience by installing Mailzila on your device.',
-      installMegaMail: 'Install Mailzila',
+      installMailzila: 'Install Mailzila',
       apiKey: 'API Key',
       yourApiKey: 'Your API Key',
       saveAndVerifyKey: 'Save & Verify Key',
@@ -729,7 +730,7 @@ const resources = {
       switchToTheme: 'تغییر به تم {{theme}}',
       installApp: 'نصب برنامه',
       installAppSubtitle: 'با نصب میلزیلا روی دستگاه خود، تجربه‌ای شبیه به برنامه بومی داشته باشید.',
-      installMegaMail: 'نصب میلزیلا',
+      installMailzila: 'نصب میلزیلا',
       apiKey: 'کلید API',
       yourApiKey: 'کلید API شما',
       saveAndVerifyKey: 'ذخیره و تأیید کلید',
