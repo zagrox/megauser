@@ -1533,8 +1533,7 @@ tbody tr:hover {
 
 /* --- PROFILE VIEW & ACCOUNT TABS --- */
 .account-view-container {
-    max-width: 1200px;
-    margin: 0 auto;
+    width: 100%;
 }
 .profile-hero {
     display: flex;
@@ -2124,7 +2123,6 @@ html[data-theme='dark'] .credit-slider {
     display: flex;
     flex-direction: column;
     gap: 2rem;
-    max-width: 900px;
 }
 .account-tab-card {
     background-color: var(--surface-color);

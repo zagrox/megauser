@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext } from 'react';
-import { readMe, registerUser, updateMe, uploadFiles } from '@directus/sdk';
+import { readMe, registerUser, updateMe, uploadFiles, updateUser as sdkUpdateUser } from '@directus/sdk';
 import sdk from '../api/directus';
 import { apiFetch } from '../api/elasticEmail';
 import { DIRECTUS_URL } from '../api/config';
@@ -13,6 +13,7 @@ interface AuthContextType {
     register: (details: any) => Promise<any>;
     logout: () => void;
     updateUser: (data: any) => Promise<void>;
+    changePassword: (passwords: { old: string; new: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -126,6 +127,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await getMe();
     }
 
+    const changePassword = async (passwords: { old: string; new: string }) => {
+        if (!user?.id) {
+            throw new Error('User not authenticated or ID is missing.');
+        }
+
+        // Per user request, using PATCH /users/:id to update the password.
+        const payload = {
+            password: passwords.new,
+        };
+
+        // The Directus SDK's `updateUser` function handles PATCH /users/:id.
+        await sdk.request(sdkUpdateUser(user.id, payload));
+    };
+
     const value = {
         user,
         isAuthenticated: !!user,
@@ -135,6 +150,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         register,
         logout,
         updateUser,
+        changePassword,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
