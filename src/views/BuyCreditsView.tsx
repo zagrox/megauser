@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApi from './useApi';
@@ -9,9 +10,7 @@ import Modal from '../components/Modal';
 import ErrorMessage from '../components/ErrorMessage';
 import CenteredMessage from '../components/CenteredMessage';
 import { DIRECTUS_CRM_URL } from '../api/config';
-
-
-const PURCHASE_WEBHOOK_URL = 'https://mailzila.com/webhook-test/emailpack'; // As requested, URL is here for easy changes.
+import sdk from '../api/directus';
 
 const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onClose: () => void, apiKey: string }) => {
     const { t, i18n } = useTranslation();
@@ -183,8 +182,10 @@ const BalanceDisplayCard = ({ creditLoading, creditError, accountData, onHistory
 const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const { t, i18n } = useTranslation();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isPaying, setIsPaying] = useState(false);
     const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '' });
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [createdOrder, setCreatedOrder] = useState<any | null>(null);
     
     const [packages, setPackages] = useState<any[]>([]);
     const [packagesLoading, setPackagesLoading] = useState(true);
@@ -242,41 +243,52 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
 
     const handlePurchase = async (pkg: any) => {
-        if (!user || !user.email) {
-            setModalState({ isOpen: true, title: t('error'), message: t('userInfoUnavailable') });
+        if (!user || !user.id) {
+            setModalState({
+                isOpen: true,
+                title: t('error'),
+                message: t('userInfoUnavailable')
+            });
             return;
         }
 
         setIsSubmitting(true);
-
-        const params = new URLSearchParams({
-            userapikey: apiKey,
-            useremail: user.email,
-            amount: pkg.packsize.toString(),
-            totalprice: pkg.packprice.toString(),
-            packagename: pkg.packname.toString(),
-        });
-        
-        const requestUrl = `${PURCHASE_WEBHOOK_URL}?${params.toString()}`;
+        setModalState({ isOpen: false, title: '', message: '' });
 
         try {
-            const response = await fetch(requestUrl, {
-                method: 'GET',
+            const token = await sdk.getToken();
+            if (!token) {
+                throw new Error("Authentication token not found. Please log in again.");
+            }
+
+            const orderPayload = {
+                status: "draft",
+                user_created: user.id,
+                order_total: pkg.packprice,
+                project_name: "Mailzila",
+                order_note: pkg.packname || `Package of ${pkg.packsize} credits`,
+            };
+
+            const response = await fetch(`${DIRECTUS_CRM_URL}/items/orders`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(orderPayload),
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Webhook failed with status: ${response.status}. ${errorText}`);
+                const errorData = await response.json();
+                const errorMessage = errorData?.errors?.[0]?.message || 'Failed to create order.';
+                throw new Error(errorMessage);
             }
 
-            setModalState({
-                isOpen: true,
-                title: t('purchaseInitiated'),
-                message: t('purchaseInitiatedMessage', { count: (pkg.packsize || 0).toLocaleString(i18n.language) })
-            });
+            const newOrder = await response.json();
+            setCreatedOrder(newOrder.data);
 
         } catch (error: any) {
-            console.error('Purchase webhook error:', error);
+            console.error('Order creation error:', error);
             setModalState({
                 isOpen: true,
                 title: t('purchaseFailed'),
@@ -286,19 +298,135 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             setIsSubmitting(false);
         }
     };
+
+    const handleConfirmAndPay = async () => {
+        if (!createdOrder) return;
+
+        setIsPaying(true);
+        setModalState({ isOpen: false, title: '', message: '' });
+
+        try {
+            // Step 1: Request trackId from Zibal
+            const zibalPayload = {
+                merchant: "62f36ca618f934159dd26c19",
+                amount: createdOrder.order_total,
+                callbackUrl: "https://my.mailzila.com/callback.php",
+                description: createdOrder.order_note,
+                orderId: createdOrder.id,
+            };
+
+            const zibalResponse = await fetch("https://gateway.zibal.ir/v1/request", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(zibalPayload),
+            });
+
+            const zibalData = await zibalResponse.json();
+
+            if (zibalData.result !== 100) {
+                throw new Error(`ZibalPay Error: ${zibalData.message}`);
+            }
+
+            const trackId = zibalData.trackId;
+
+            // Step 2: Create transaction record in Directus
+            const token = await sdk.getToken();
+            if (!token) {
+                throw new Error("Authentication token not found. Please log in again.");
+            }
+            
+            const transactionPayload = {
+                // The trackid from Zibal. Assuming the field in Directus is 'trackid'
+                trackid: trackId,
+                // The ID of the order we created. Assuming the relation field is 'order'
+                order: createdOrder.id,
+            };
+
+            const directusResponse = await fetch(`${DIRECTUS_CRM_URL}/items/trackid`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(transactionPayload),
+            });
+
+            if (!directusResponse.ok) {
+                 const errorText = await directusResponse.text();
+                 try {
+                    const errorData = JSON.parse(errorText);
+                    const errorMessage = errorData?.errors?.[0]?.message || 'Failed to create transaction record.';
+                    throw new Error(errorMessage);
+                 } catch (e) {
+                    throw new Error(`Failed to create transaction record. Server responded with: ${errorText}`);
+                 }
+            }
+
+            // Step 3: Redirect user to payment gateway
+            window.location.href = `https://gateway.zibal.ir/start/${trackId}`;
+
+        } catch (error: any) {
+            console.error('Payment initiation error:', error);
+            setModalState({
+                isOpen: true,
+                title: t('purchaseFailed'),
+                message: error.message,
+            });
+            setIsPaying(false);
+        }
+    };
     
     const closeModal = () => setModalState({ isOpen: false, title: '', message: '' });
+
+    if (createdOrder) {
+        return (
+            <div className="order-confirmation-view">
+                <div className="card" style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                        <Icon path={ICONS.CHECK} style={{ width: 48, height: 48, color: 'var(--success-color)' }} />
+                        <h2 style={{ marginTop: '1rem' }}>{t('orderSuccessMessage')}</h2>
+                        <p>{t('orderSuccessSubtitle')}</p>
+                    </div>
+    
+                    <h3>{t('orderDetails')}</h3>
+                    <div className="table-container-simple" style={{ marginBottom: '2rem' }}>
+                        <table className="simple-table">
+                            <tbody>
+                                <tr><td>{t('orderId')}</td><td style={{textAlign: 'right'}}><strong>#{createdOrder.id}</strong></td></tr>
+                                <tr><td>{t('package')}</td><td style={{textAlign: 'right'}}><strong>{createdOrder.order_note}</strong></td></tr>
+                                <tr><td>{t('total')}</td><td style={{textAlign: 'right'}}><strong>{Number(createdOrder.order_total).toLocaleString(i18n.language)} {t('priceIRT')}</strong></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+    
+                    <h3>{t('paymentMethod')}</h3>
+                    <div className="form-group" style={{ marginBottom: '2rem' }}>
+                        <select className="full-width">
+                            <option>{t('paymentMethodBank')}</option>
+                            <option>{t('paymentMethodCard')}</option>
+                        </select>
+                    </div>
+                    
+                    <div className="form-actions" style={{justifyContent: 'space-between', padding: 0}}>
+                        <button className="btn btn-secondary" onClick={() => setCreatedOrder(null)} disabled={isPaying}>
+                            <Icon path={ICONS.CHEVRON_LEFT} />
+                            <span>{t('buyDifferentPackage')}</span>
+                        </button>
+                        <button className="btn btn-primary" onClick={handleConfirmAndPay} disabled={isPaying}>
+                            {isPaying ? <Loader /> : <Icon path={ICONS.LOCK_OPEN} />}
+                            <span>{t('confirmAndPay')}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="buy-credits-view">
             <CreditHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} apiKey={apiKey} />
              <Modal isOpen={modalState.isOpen} onClose={closeModal} title={modalState.title}>
                 <p style={{whiteSpace: "pre-wrap"}}>{modalState.message}</p>
-                 {modalState.title === t('purchaseInitiated') && (
-                    <small style={{display: 'block', marginTop: '1rem', color: 'var(--subtle-text-color)'}}>
-                        {t('testEnvironmentNotice')}
-                    </small>
-                )}
             </Modal>
 
             <BalanceDisplayCard
@@ -320,12 +448,6 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     isSubmitting={isSubmitting}
                  />
             )}
-
-            <div className="webhook-info">
-                <p>
-                    <strong>{t('developerNote')}:</strong> {t('webhookInfoText')} <code>PURCHASE_WEBHOOK_URL</code> {t('inComponent')} <code>BuyCreditsView</code> {t('in')} <code>src/views/BuyCreditsView.tsx</code>.
-                </p>
-            </div>
         </div>
     );
 };
