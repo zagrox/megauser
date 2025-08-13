@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useEffect, ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './contexts/AuthContext';
@@ -25,6 +27,7 @@ import DomainsView from './views/DomainsView';
 import SmtpView from './views/SmtpView';
 import Icon from './components/Icon';
 import EmbedView from './views/EmbedView';
+import ResetPasswordView from './views/ResetPasswordView';
 
 
 const App = () => {
@@ -36,6 +39,7 @@ const App = () => {
 
     const urlParams = new URLSearchParams(window.location.search);
     const isEmbedMode = urlParams.get('embed') === 'true';
+    const isResetPasswordMode = window.location.pathname.startsWith('/reset-password');
 
     useEffect(() => {
         if (!isEmbedMode) {
@@ -118,6 +122,10 @@ const App = () => {
             container.removeEventListener('touchcancel', handleTouchEnd);
         };
     }, [isMobileMenuOpen, i18n, isEmbedMode, setIsMobileMenuOpen]);
+
+    if (isResetPasswordMode) {
+        return <ResetPasswordView />;
+    }
 
     if (isEmbedMode) {
         return <EmbedView />;

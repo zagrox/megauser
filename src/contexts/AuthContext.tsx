@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext } from 'react';
-import { readMe, registerUser, updateMe, uploadFiles, updateUser as sdkUpdateUser } from '@directus/sdk';
+import { readMe, registerUser, updateMe, updateUser as sdkUpdateUser } from '@directus/sdk';
 import sdk from '../api/directus';
 import { apiFetch } from '../api/elasticEmail';
 import { DIRECTUS_URL } from '../api/config';
@@ -14,6 +14,8 @@ interface AuthContextType {
     logout: () => void;
     updateUser: (data: any) => Promise<void>;
     changePassword: (passwords: { old: string; new: string }) => Promise<void>;
+    requestPasswordReset: (email: string) => Promise<void>;
+    resetPassword: (token: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -141,6 +143,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await sdk.request(sdkUpdateUser(user.id, payload));
     };
 
+    const requestPasswordReset = async (email: string) => {
+        const payload = {
+            email,
+            reset_url: 'https://my.mailzila.com/reset-password',
+        };
+        // Explicitly stringify the body and set the Content-Type header
+        // to prevent the SDK from incorrectly formatting the request payload.
+        await sdk.request(() => ({
+            method: 'POST',
+            path: '/auth/password/request',
+            body: JSON.stringify(payload),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        }));
+    };
+
+    const resetPassword = async (token: string, password: string) => {
+        const payload = {
+            token,
+            password,
+        };
+        // Explicitly stringify the body and set the Content-Type header
+        // to prevent the SDK from incorrectly formatting the request payload.
+        await sdk.request(() => ({
+            method: 'POST',
+            path: '/auth/password/reset',
+            body: JSON.stringify(payload),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        }));
+    };
+
     const value = {
         user,
         isAuthenticated: !!user,
@@ -151,6 +187,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         updateUser,
         changePassword,
+        requestPasswordReset,
+        resetPassword,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

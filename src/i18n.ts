@@ -1,6 +1,7 @@
 
 
 
+
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
@@ -64,7 +65,7 @@ const resources = {
       signUp: 'Sign Up',
       signInWithEmail: 'Sign In with Email',
       signInWithApiKey: 'Sign In with API Key',
-      signInSubtitle: 'Welcome back! Please sign in to your account.',
+      signInSubtitle: 'Welcome back! Please login to your account.',
       createAccountSubtitle: 'Create an account to get started.',
       signInWithApiKeySubtitle: 'Enter your Mailzila API Key to sign in.',
       noAccount: "Don't have an account?",
@@ -79,6 +80,17 @@ const resources = {
       registrationSuccessTitle: 'Registration Successful!',
       registrationSuccessMessage: 'Your account has been created. You can now sign in.',
       goToLogin: 'Go to Login',
+      forgotPassword: 'Forgot Password?',
+      forgotPasswordTitle: 'Reset Your Password',
+      forgotPasswordSubtitle: 'Enter your email and we will send you a link to reset your password.',
+      sendResetLink: 'Send Reset Link',
+      backToSignIn: 'Back to Sign In',
+      passwordResetEmailSent: 'If an account exists for this email, a reset link has been sent.',
+      resetPassword: 'Reset Password',
+      resetPasswordSubtitle: 'Enter your new password below.',
+      passwordResetSuccessTitle: 'Password Reset!',
+      passwordResetSuccessMessage: 'Your password has been changed successfully. You can now sign in with your new password.',
+      invalidResetToken: 'Invalid or expired password reset token.',
       // Onboarding
       welcomeOnboard: 'Welcome, {{name}}!',
       onboardingSubtitle: 'To get started, please enter your Mailzila API key.',
@@ -684,6 +696,17 @@ const resources = {
       registrationSuccessTitle: 'ثبت نام موفق!',
       registrationSuccessMessage: 'حساب کاربری شما ایجاد شد. اکنون می‌توانید وارد شوید.',
       goToLogin: 'رفتن به صفحه ورود',
+      forgotPassword: 'فراموشی رمز عبور؟',
+      forgotPasswordTitle: 'بازنشانی رمز عبور',
+      forgotPasswordSubtitle: 'ایمیل خود را وارد کنید تا لینک بازنشانی رمز عبور برای شما ارسال شود.',
+      sendResetLink: 'ارسال لینک بازنشانی',
+      backToSignIn: 'بازگشت به صفحه ورود',
+      passwordResetEmailSent: 'اگر حسابی با این ایمیل وجود داشته باشد، لینک بازنشانی ارسال شده است.',
+      resetPassword: 'بازنشانی رمز عبور',
+      resetPasswordSubtitle: 'رمز عبور جدید خود را در زیر وارد کنید.',
+      passwordResetSuccessTitle: 'رمز عبور بازنشانی شد!',
+      passwordResetSuccessMessage: 'رمز عبور شما با موفقیت تغییر کرد. اکنون می‌توانید با رمز عبور جدید خود وارد شوید.',
+      invalidResetToken: 'توکن بازنشانی رمز عبور نامعتبر یا منقضی شده است.',
       // Onboarding
       welcomeOnboard: 'خوش آمدی، {{name}}!',
       onboardingSubtitle: 'برای شروع، لطفاً کلید Mailzila API Key خود را وارد کنید.',
