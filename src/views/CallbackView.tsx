@@ -8,20 +8,30 @@ import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import Icon, { ICONS } from '../components/Icon';
 
+type ProcessedOrder = {
+    id: string;
+    note: string;
+    creditsAdded?: number;
+    total: number;
+};
+
 const CallbackView = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState('');
+    const [processedOrder, setProcessedOrder] = useState<ProcessedOrder | null>(null);
 
     useEffect(() => {
         const handleCallback = async () => {
             setLoading(true);
             try {
+                // Be robust: check both hash and search for parameters, as gateways can handle redirects differently.
                 const hash = window.location.hash.substring(1);
-                const queryString = hash.split('?')[1] || '';
-                const params = new URLSearchParams(queryString);
+                const hashQueryString = hash.split('?')[1] || '';
+                const searchQueryString = window.location.search.substring(1) || '';
+                const params = new URLSearchParams(hashQueryString || searchQueryString);
                 
                 const trackId = params.get('trackId');
                 const status = params.get('status');
@@ -75,12 +85,23 @@ const CallbackView = () => {
                             }
                         });
                         setMessage(`Payment successful! ${packsize.toLocaleString()} credits have been added to your account.`);
+                        setProcessedOrder({
+                            id: order.id,
+                            note: order.order_note,
+                            creditsAdded: packsize,
+                            total: order.order_total,
+                        });
                     } else {
                         throw new Error("User authentication not found. Could not add credits.");
                     }
                 } else {
                     // Payment failed or was canceled
                     await sdk.request(updateItem('orders', order.id, { order_status: 'failed' }));
+                     setProcessedOrder({
+                        id: order.id,
+                        note: order.order_note,
+                        total: order.order_total,
+                    });
                     throw new Error('Payment was not successful.');
                 }
 
@@ -88,14 +109,15 @@ const CallbackView = () => {
                 setError(err.message || 'An unknown error occurred during payment verification.');
             } finally {
                 setLoading(false);
-                setTimeout(() => {
-                    window.location.href = '/'; // Redirect to dashboard
-                }, 4000);
             }
         };
 
         handleCallback();
-    }, [user, t]);
+    }, [user]);
+
+    const handleReturn = () => {
+        window.location.href = '/';
+    };
 
     if (loading) {
         return (
@@ -108,24 +130,52 @@ const CallbackView = () => {
         );
     }
 
-    if (error) {
-        return (
-            <CenteredMessage style={{ height: '100vh', gap: '1rem' }}>
-                <Icon path={ICONS.X_CIRCLE} style={{ width: 48, height: 48, color: 'var(--danger-color)'}} />
-                <h3 style={{ color: 'var(--danger-color)' }}>Payment Failed</h3>
-                <p style={{ color: 'var(--subtle-text-color)', maxWidth: '400px' }}>{error}</p>
-                <p style={{ fontSize: '0.9rem', color: 'var(--subtle-text-color)' }}>You will be redirected shortly.</p>
-            </CenteredMessage>
-        );
-    }
-
     return (
-        <CenteredMessage style={{ height: '100vh', gap: '1rem' }}>
-            <Icon path={ICONS.CHECK} style={{ width: 48, height: 48, color: 'var(--success-color)'}} />
-            <h3 style={{ color: 'var(--success-color)' }}>Success!</h3>
-            <p style={{ color: 'var(--subtle-text-color)', maxWidth: '400px' }}>{message}</p>
-            <p style={{ fontSize: '0.9rem', color: 'var(--subtle-text-color)' }}>You will be redirected shortly.</p>
-        </CenteredMessage>
+        <div className="auth-container">
+            <div className="card" style={{ maxWidth: '500px', width: '100%', margin: '0 auto', padding: '2rem', textAlign: 'center' }}>
+                {error ? (
+                    <>
+                        <Icon path={ICONS.X_CIRCLE} style={{ width: 48, height: 48, color: 'var(--danger-color)', margin: '0 auto 1rem' }} />
+                        <h2 style={{ color: 'var(--danger-color)' }}>{t('paymentFailed')}</h2>
+                        <p style={{ color: 'var(--subtle-text-color)', maxWidth: '400px', margin: '0 auto 1.5rem' }}>{error}</p>
+                        {processedOrder && (
+                             <div className="table-container-simple" style={{ marginBottom: '2rem', textAlign: 'left' }}>
+                                <table className="simple-table">
+                                     <tbody>
+                                        <tr><td>{t('orderId')}</td><td style={{textAlign: 'right'}}><strong>#{processedOrder.id}</strong></td></tr>
+                                        <tr><td>{t('package')}</td><td style={{textAlign: 'right'}}><strong>{processedOrder.note}</strong></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                        <div className="form-actions" style={{ justifyContent: 'center' }}>
+                            <button onClick={handleReturn} className="btn btn-primary">{t('returnToDashboard')}</button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <Icon path={ICONS.CHECK} style={{ width: 48, height: 48, color: 'var(--success-color)', margin: '0 auto 1rem' }} />
+                        <h2 style={{ color: 'var(--success-color)' }}>{t('paymentSuccess')}</h2>
+                        <p style={{ color: 'var(--subtle-text-color)', maxWidth: '400px', margin: '0 auto 1.5rem' }}>{message}</p>
+                        {processedOrder && (
+                            <div className="table-container-simple" style={{ marginBottom: '2rem', textAlign: 'left' }}>
+                                <table className="simple-table">
+                                    <tbody>
+                                        <tr><td>{t('orderId')}</td><td style={{textAlign: 'right'}}><strong>#{processedOrder.id}</strong></td></tr>
+                                        <tr><td>{t('package')}</td><td style={{textAlign: 'right'}}><strong>{processedOrder.note}</strong></td></tr>
+                                        {processedOrder.creditsAdded && <tr><td>{t('credits')}</td><td style={{textAlign: 'right'}}><strong>+{processedOrder.creditsAdded.toLocaleString(i18n.language)}</strong></td></tr>}
+                                        <tr><td>{t('total')}</td><td style={{textAlign: 'right'}}><strong>{processedOrder.total.toLocaleString(i18n.language)} {t('priceIRT')}</strong></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                        <div className="form-actions" style={{ justifyContent: 'center' }}>
+                            <button onClick={handleReturn} className="btn btn-primary">{t('returnToDashboard')}</button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
     );
 };
 

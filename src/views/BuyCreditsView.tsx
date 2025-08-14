@@ -1,13 +1,7 @@
 
-
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApi from './useApi';
-import { formatDateForDisplay } from '../utils/helpers';
 import Icon, { ICONS } from '../components/Icon';
 import Loader from '../components/Loader';
 import Modal from '../components/Modal';
@@ -15,77 +9,6 @@ import ErrorMessage from '../components/ErrorMessage';
 import CenteredMessage from '../components/CenteredMessage';
 import { DIRECTUS_CRM_URL } from '../api/config';
 import sdk from '../api/directus';
-
-const CreditHistoryModal = ({ isOpen, onClose, apiKey }: { isOpen: boolean, onClose: () => void, apiKey: string }) => {
-    const { t, i18n } = useTranslation();
-    const refetchIndex = isOpen ? 1 : 0;
-    const { data: history, loading, error } = useApi('/account/loadsubaccountsemailcreditshistory', apiKey, {}, refetchIndex);
-    
-    const isAccessDenied = error && error.message.toLowerCase().includes('access denied');
-    
-    // The v2 API is inconsistent. This handles if the data is a direct array or nested in `historyitems`
-    const historyItems = useMemo(() => {
-        if (!history) return [];
-        if (Array.isArray(history)) return history;
-        if (history && Array.isArray(history.historyitems)) return history.historyitems;
-        if (history && Array.isArray(history.HistoryItems)) return history.HistoryItems;
-        return [];
-    }, [history]);
-
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title={t('creditHistoryTitle')}>
-            {loading && <CenteredMessage><Loader /></CenteredMessage>}
-            {error && (
-                isAccessDenied ? (
-                    <div className="info-message warning" style={{maxWidth: 'none', alignItems: 'flex-start'}}>
-                        <Icon path={ICONS.COMPLAINT} style={{flexShrink: 0, marginTop: '0.2rem'}} />
-                        <div>
-                            <strong>{t('featureNotAvailable')}</strong>
-                            <p style={{color: 'var(--subtle-text-color)', margin: '0.25rem 0 0', padding: 0}}>
-                                {t('creditHistoryNotAvailable')}
-                            </p>
-                        </div>
-                    </div>
-                ) : (
-                    <ErrorMessage error={error} />
-                )
-            )}
-            {!loading && !error && (
-                <div className="table-container">
-                    <table className="credit-history-table">
-                        <thead>
-                            <tr>
-                                <th>{t('date')}</th>
-                                <th>{t('description')}</th>
-                                <th style={{ textAlign: i18n.dir() === 'rtl' ? 'left' : 'right' }}>{t('amount')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {historyItems.length > 0 ? (
-                                historyItems.map((item: any, index: number) => (
-                                    <tr key={index}>
-                                        <td>{formatDateForDisplay(item.Date || item.historydate, i18n.language)}</td>
-                                        <td>{item.Notes || item.notes}</td>
-                                        <td className="credit-history-amount">
-                                            +{(item.Amount?.toLocaleString(i18n.language) ?? item.amount?.toLocaleString(i18n.language) ?? '0')}
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>
-                                        {t('noCreditHistory')}
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </Modal>
-    );
-};
 
 const CreditSelector = ({ packages, onPurchase, isSubmitting }: { packages: any[], onPurchase: (pkg: any) => void, isSubmitting: boolean }) => {
     const { t, i18n } = useTranslation();
@@ -183,12 +106,11 @@ const BalanceDisplayCard = ({ creditLoading, creditError, accountData, onHistory
     );
 };
 
-const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
+const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, setView: (view: string) => void }) => {
     const { t, i18n } = useTranslation();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
     const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '' });
-    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [createdOrder, setCreatedOrder] = useState<any | null>(null);
     
     const [packages, setPackages] = useState<any[]>([]);
@@ -414,6 +336,11 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     
     const closeModal = () => setModalState({ isOpen: false, title: '', message: '' });
 
+    const handleViewHistory = () => {
+        sessionStorage.setItem('account-tab', 'orders');
+        setView('Account');
+    };
+
     if (createdOrder) {
         return (
             <div className="order-confirmation-view">
@@ -460,7 +387,6 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
     return (
         <div className="buy-credits-view">
-            <CreditHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} apiKey={apiKey} />
              <Modal isOpen={modalState.isOpen} onClose={closeModal} title={modalState.title}>
                 <p style={{whiteSpace: "pre-wrap"}}>{modalState.message}</p>
             </Modal>
@@ -469,7 +395,7 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                 creditLoading={creditLoading}
                 creditError={creditError}
                 accountData={accountData}
-                onHistoryClick={() => setIsHistoryOpen(true)}
+                onHistoryClick={handleViewHistory}
             />
             
             <h3 className="content-title" style={{marginTop: '1.5rem'}}>{t('choosePackage')}</h3>

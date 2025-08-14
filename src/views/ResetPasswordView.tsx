@@ -1,37 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import ActionStatus from '../components/ActionStatus';
+import { useToast } from '../contexts/ToastContext';
 import Loader from '../components/Loader';
 import Icon, { ICONS } from '../components/Icon';
 
 const ResetPasswordView = () => {
     const { resetPassword } = useAuth();
     const { t } = useTranslation();
+    const { addToast } = useToast();
     const [token, setToken] = useState<string | null>(null);
-    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [success, setSuccess] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
+        // Be robust: check both hash and search for parameters
         const hash = window.location.hash.substring(1);
-        const queryString = hash.split('?')[1] || '';
-        const params = new URLSearchParams(queryString);
+        const hashQueryString = hash.split('?')[1] || '';
+        const searchQueryString = window.location.search.substring(1) || '';
+        const params = new URLSearchParams(hashQueryString || searchQueryString);
         const tokenFromUrl = params.get('token');
 
         if (tokenFromUrl) {
             setToken(tokenFromUrl);
         } else {
-            setError(t('invalidResetToken'));
+            addToast(t('invalidResetToken'), 'error');
         }
-    }, [t]);
+    }, [t, addToast]);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setError('');
         if (!token) {
-            setError(t('invalidResetToken'));
+            addToast(t('invalidResetToken'), 'error');
             return;
         }
 
@@ -40,20 +40,23 @@ const ResetPasswordView = () => {
         const confirm_password = (form.elements.namedItem('confirm_password') as HTMLInputElement).value;
 
         if (password !== confirm_password) {
-            setError(t('passwordsDoNotMatch'));
+            addToast(t('passwordsDoNotMatch'), 'error');
             return;
         }
 
         setLoading(true);
         try {
             await resetPassword(token, password);
-            setSuccess(true);
+            addToast(t('passwordResetSuccessMessage'), 'success');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
         } catch (err: any) {
             let errorMessage = err.message;
             if (err.errors && Array.isArray(err.errors) && err.errors.length > 0) {
                 errorMessage = err.errors[0].message;
             }
-            setError(errorMessage || t('unknownError'));
+            addToast(errorMessage || t('unknownError'), 'error');
         } finally {
             setLoading(false);
         }
@@ -63,23 +66,6 @@ const ResetPasswordView = () => {
         window.location.href = '/';
     }
 
-    if (success) {
-        return (
-            <div className="auth-container">
-                <div className="auth-box">
-                    <div style={{ marginBottom: '1rem' }}>
-                        <Icon path={ICONS.CHECK} style={{ width: 48, height: 48, color: 'var(--success-color)' }} />
-                    </div>
-                    <h2>{t('passwordResetSuccessTitle')}</h2>
-                    <p>{t('passwordResetSuccessMessage')}</p>
-                    <button onClick={goToLogin} className="btn btn-primary full-width" style={{ marginTop: '1.5rem' }}>
-                        {t('goToLogin')}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="auth-container">
             <div className="auth-box">
@@ -87,8 +73,6 @@ const ResetPasswordView = () => {
                 <p>{t('resetPasswordSubtitle')}</p>
 
                 <form className="auth-form" onSubmit={handleSubmit}>
-                    {error && <ActionStatus status={{ type: 'error', message: error }} onDismiss={() => setError('')} />}
-
                     <fieldset disabled={!token || loading} style={{border: 'none', padding: 0, margin: 0, display: 'contents'}}>
                         <div className="input-group has-btn">
                             <span className="input-icon"><Icon path={ICONS.LOCK} /></span>

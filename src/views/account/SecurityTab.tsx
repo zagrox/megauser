@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
-import ActionStatus from '../../components/ActionStatus';
+import { useToast } from '../../contexts/ToastContext';
 import Loader from '../../components/Loader';
 
 const SecurityTab = ({ isApiKeyUser }: { isApiKeyUser: boolean }) => {
     const { t } = useTranslation();
     const { changePassword } = useAuth();
-    const [status, setStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
+    const { addToast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
     
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
-        setStatus(null);
         const form = e.target as HTMLFormElement;
         const data = new FormData(form);
         const currentPassword = data.get('current_password') as string;
@@ -20,7 +19,7 @@ const SecurityTab = ({ isApiKeyUser }: { isApiKeyUser: boolean }) => {
         const confirmPassword = data.get('confirm_password') as string;
         
         if (newPassword !== confirmPassword) {
-            setStatus({ type: 'error', message: t('passwordsDoNotMatch') });
+            addToast(t('passwordsDoNotMatch'), 'error');
             return;
         }
 
@@ -34,14 +33,14 @@ const SecurityTab = ({ isApiKeyUser }: { isApiKeyUser: boolean }) => {
                 old: currentPassword,
                 new: newPassword
             });
-            setStatus({ type: 'success', message: t('passwordUpdateSuccess') });
+            addToast(t('passwordUpdateSuccess'), 'success');
             form.reset();
         } catch (err: any) {
             let errorMessage = err.message;
             if (err.errors && err.errors[0]?.message) {
                  errorMessage = err.errors[0].message;
             }
-            setStatus({ type: 'error', message: `${t('passwordUpdateError')} ${errorMessage}` });
+            addToast(`${t('passwordUpdateError')} ${errorMessage}`, 'error');
         } finally {
             setIsSaving(false);
         }
@@ -74,7 +73,6 @@ const SecurityTab = ({ isApiKeyUser }: { isApiKeyUser: boolean }) => {
                                 <label htmlFor="confirm_password">{t('confirmPassword')}</label>
                                 <input id="confirm_password" name="confirm_password" type="password" required />
                             </div>
-                            {status && <ActionStatus status={status} onDismiss={() => setStatus(null)} />}
                         </div>
                         <div className="form-actions">
                             <button type="submit" className="btn btn-primary" disabled={isSaving}>

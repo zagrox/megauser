@@ -41,6 +41,7 @@ const DashboardView = ({ setView, apiKey, user, isEmbed = false }: { setView: (v
         { name: t('mediaManager'), icon: ICONS.FOLDER, desc: t('mediaManagerDesc'), view: 'Media Manager' },
         { name: t('campaigns'), icon: ICONS.CAMPAIGNS, desc: t('campaignsDesc'), view: 'Campaigns' },
         { name: t('templates'), icon: ICONS.ARCHIVE, desc: t('templatesDesc'), view: 'Templates' },
+        { name: t('emailBuilder'), icon: ICONS.SEND_EMAIL, desc: t('emailBuilderDesc'), view: 'Email Builder' },
         { name: t('domains'), icon: ICONS.DOMAINS, desc: t('domainsDesc'), view: 'Domains' },
         { name: t('smtp'), icon: ICONS.SMTP, desc: t('smtpDesc'), view: 'SMTP' },
     ], [t]);

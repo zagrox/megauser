@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import ActionStatus from '../components/ActionStatus';
+import { useToast } from '../contexts/ToastContext';
 import Loader from '../components/Loader';
 import Icon, { ICONS } from '../components/Icon';
 
@@ -12,20 +12,15 @@ type AuthMode = 'login' | 'register' | 'forgot';
 const AuthView = () => {
     const { login, loginWithApiKey, register, requestPasswordReset } = useAuth();
     const [mode, setMode] = useState<AuthMode>('login');
-    const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [isApiKeyLogin, setIsApiKeyLogin] = useState(false);
-    const [registrationSuccess, setRegistrationSuccess] = useState(false);
-    const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
     const { t } = useTranslation();
+    const { addToast } = useToast();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setError('');
         setLoading(true);
-        setRegistrationSuccess(false);
-        setForgotPasswordSuccess(false);
         const form = e.currentTarget;
 
         try {
@@ -47,11 +42,13 @@ const AuthView = () => {
                     throw new Error(t('passwordsDoNotMatch'));
                 }
                 await register({ email, password, first_name, last_name });
-                setRegistrationSuccess(true);
+                addToast(t('registrationSuccessMessage'), 'success');
+                setViewMode('login');
             } else if (mode === 'forgot') {
                 const email = (form.elements.namedItem('email') as HTMLInputElement).value;
                 await requestPasswordReset(email);
-                setForgotPasswordSuccess(true);
+                addToast(t('passwordResetEmailSent'), 'success');
+                setViewMode('login');
             }
         } catch (err: any) {
             let errorMessage = err.message;
@@ -59,7 +56,7 @@ const AuthView = () => {
             if (err.errors && Array.isArray(err.errors) && err.errors.length > 0) {
                 errorMessage = err.errors[0].message;
             }
-            setError(errorMessage || t('unknownError'));
+            addToast(errorMessage || t('unknownError'), 'error');
         } finally {
             setLoading(false);
         }
@@ -67,44 +64,7 @@ const AuthView = () => {
 
     const setViewMode = (newMode: AuthMode) => {
         setMode(newMode);
-        setError('');
-        setRegistrationSuccess(false);
-        setForgotPasswordSuccess(false);
         setIsApiKeyLogin(false);
-    }
-
-    if (registrationSuccess) {
-        return (
-            <div className="auth-container">
-                <div className="auth-box">
-                    <div style={{ marginBottom: '1rem' }}>
-                        <Icon path={ICONS.CHECK} style={{ width: 48, height: 48, color: 'var(--success-color)' }} />
-                    </div>
-                    <h2>{t('registrationSuccessTitle')}</h2>
-                    <p>{t('registrationSuccessMessage')}</p>
-                    <button onClick={() => setViewMode('login')} className="btn btn-primary full-width" style={{ marginTop: '1.5rem' }}>
-                        {t('goToLogin')}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    if (forgotPasswordSuccess) {
-        return (
-            <div className="auth-container">
-                <div className="auth-box">
-                    <div style={{ marginBottom: '1rem' }}>
-                        <Icon path={ICONS.MAIL} style={{ width: 48, height: 48, color: 'var(--success-color)' }} />
-                    </div>
-                    <h2>{t('sendResetLink')}</h2>
-                    <p>{t('passwordResetEmailSent')}</p>
-                    <button onClick={() => setViewMode('login')} className="btn btn-primary full-width" style={{ marginTop: '1.5rem' }}>
-                        {t('backToSignIn')}
-                    </button>
-                </div>
-            </div>
-        );
     }
     
     const getTitle = () => {
@@ -127,7 +87,6 @@ const AuthView = () => {
                 <p>{getSubtitle()}</p>
 
                 <form className="auth-form" onSubmit={handleSubmit}>
-                    {error && <ActionStatus status={{ type: 'error', message: error }} onDismiss={() => setError('')} />}
 
                     {isApiKeyLogin ? (
                         <div className="input-group has-btn">

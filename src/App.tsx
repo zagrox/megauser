@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import React, { useState, useEffect, ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './contexts/AuthContext';
@@ -41,11 +36,12 @@ const App = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const isEmbedMode = urlParams.get('embed') === 'true';
     
-    // Use hash-based routing for callback and reset password to avoid server-side 404s
+    // Check both hash and pathname for routing to handle different redirect behaviors
     const hash = window.location.hash.substring(1); // remove '#'
     const [hashPath] = hash.split('?');
-    const isResetPasswordMode = hashPath.startsWith('/reset-password');
-    const isCallbackMode = hashPath.startsWith('/callback');
+    const pathname = window.location.pathname;
+    const isResetPasswordMode = hashPath.startsWith('/reset-password') || pathname.startsWith('/reset-password');
+    const isCallbackMode = hashPath.startsWith('/callback') || pathname.startsWith('/callback');
 
     useEffect(() => {
         if (!isEmbedMode) {
@@ -168,7 +164,7 @@ const App = () => {
         'Dashboard': { component: <DashboardView setView={handleSetView} apiKey={apiKey} user={user} />, title: t('dashboard'), icon: ICONS.DASHBOARD },
         'Statistics': { component: <StatisticsView apiKey={apiKey} />, title: t('statistics'), icon: ICONS.STATISTICS },
         'Account': { component: <AccountView apiKey={apiKey} user={user} />, title: t('account'), icon: ICONS.ACCOUNT },
-        'Buy Credits': { component: <BuyCreditsView apiKey={apiKey} user={user} />, title: t('buyCredits'), icon: ICONS.BUY_CREDITS },
+        'Buy Credits': { component: <BuyCreditsView apiKey={apiKey} user={user} setView={handleSetView} />, title: t('buyCredits'), icon: ICONS.BUY_CREDITS },
         'Contacts': { component: <ContactsView apiKey={apiKey} />, title: t('contacts'), icon: ICONS.CONTACTS },
         'Email Lists': { component: <EmailListView apiKey={apiKey} />, title: t('emailLists'), icon: ICONS.EMAIL_LISTS },
         'Segments': { component: <SegmentsView apiKey={apiKey} />, title: t('segments'), icon: ICONS.SEGMENTS },
@@ -220,7 +216,7 @@ const App = () => {
     );
     
     const currentView = views[view];
-    const showHeader = view !== 'Dashboard' && view !== 'Email Builder';
+    const showHeader = view !== 'Dashboard' && view !== 'Email Builder' && view !== 'Account';
 
     return (
         <div ref={appContainerRef} className={`app-container ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>

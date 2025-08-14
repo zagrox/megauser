@@ -5,7 +5,7 @@ import sdk from '../../api/directus';
 import { uploadFiles } from '@directus/sdk';
 import Modal from '../../components/Modal';
 import Loader from '../../components/Loader';
-import ActionStatus from '../../components/ActionStatus';
+import { useToast } from '../../contexts/ToastContext';
 import Icon, { ICONS } from '../../components/Icon';
 import { DIRECTUS_URL } from '../../api/config';
 
@@ -47,11 +47,11 @@ const LanguageSwitcherForm = ({ value, onChange }: { value: string; onChange: (v
 const EditProfileModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose: () => void, user: any }) => {
     const { t } = useTranslation();
     const { updateUser } = useAuth();
+    const { addToast } = useToast();
     const [formData, setFormData] = useState<any>({});
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-    const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -99,7 +99,6 @@ const EditProfileModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose:
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
-        setStatus(null);
 
         try {
             const payload: any = { ...formData };
@@ -119,7 +118,7 @@ const EditProfileModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose:
             // 2. Update user data
             await updateUser(payload);
             
-            setStatus({ type: 'success', message: t('profileUpdateSuccess') });
+            addToast(t('profileUpdateSuccess'), 'success');
             setTimeout(() => {
                 onClose();
             }, 1500);
@@ -129,7 +128,7 @@ const EditProfileModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose:
             if (err.errors && err.errors[0]?.message) {
                  errorMessage = err.errors[0].message;
             }
-            setStatus({ type: 'error', message: t('profileUpdateError', { error: errorMessage }) });
+            addToast(t('profileUpdateError', { error: errorMessage }), 'error');
         } finally {
             setIsSaving(false);
         }
@@ -138,7 +137,6 @@ const EditProfileModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose:
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={t('editProfile')}>
             <form onSubmit={handleSubmit} className="modal-form">
-                {status && <ActionStatus status={status} onDismiss={() => setStatus(null)} />}
                 
                 <div className="edit-profile-avatar-uploader">
                     <img src={avatarPreview || `https://ui-avatars.com/api/?name=${user.first_name}+${user.last_name}`} alt="Avatar Preview" className="edit-profile-avatar-preview" />

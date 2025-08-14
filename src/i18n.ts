@@ -1,7 +1,3 @@
-
-
-
-
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
@@ -60,6 +56,7 @@ const resources = {
       bounced: 'Bounced',
       emailsSent: 'Emails Sent',
       theme: 'Theme',
+      close: 'Close',
       // Auth
       signIn: 'Sign In',
       signUp: 'Sign Up',
@@ -115,11 +112,13 @@ const resources = {
       segmentsDesc: 'Create dynamic contact segments.',
       mediaManagerDesc: 'Upload and manage your files.',
       sendEmailDesc: 'Send an email to your contacts.',
+      emailBuilderDesc: 'Design beautiful, responsive emails with a drag-and-drop editor.',
       campaignsDesc: 'View your past campaigns.',
       templatesDesc: 'Create, view, and manage your email templates.',
       domainsDesc: 'Manage and verify your domains.',
       smtpDesc: 'View your SMTP credentials.',
       buyCreditsDesc: 'Purchase more email credits.',
+      returnToDashboard: 'Return to Dashboard',
       // Statistics View
       dateRange: 'Date Range',
       last7Days: 'Last 7 Days',
@@ -241,6 +240,7 @@ const resources = {
       testEnvironmentNotice: 'This is a test environment. No real transaction will occur.',
       userInfoUnavailable: 'User information is not available. Cannot proceed with purchase.',
       purchaseFailed: 'Purchase Failed',
+      paymentFailed: 'Payment Failed',
       purchaseFailedMessage: 'There was an error processing your request: {{error}}',
       creditHistoryTitle: 'Credit Purchase History',
       featureNotAvailable: 'Feature Not Available',
@@ -255,6 +255,7 @@ const resources = {
       paymentMethodCard: 'Credit/Debit Card',
       buyDifferentPackage: 'Choose a Different Package',
       confirmAndPay: 'Confirm and Pay',
+      paymentSuccess: 'Payment Successful',
       // Contacts View
       searchContactsPlaceholder: 'Search by name or email...',
       importContacts: 'Import Contacts',
@@ -630,6 +631,13 @@ const resources = {
       templateNameRequired: 'Template name is required.',
       saveTemplateSuccess: 'Template "{{name}}" saved successfully!',
       saveTemplateError: 'Failed to save template: {{error}}',
+      // Order History
+      orders: 'Orders',
+      totalAmount: 'Total Amount',
+      transactions: 'Transactions',
+      noOrdersFound: 'No orders found.',
+      noTransactionsFound: 'No transactions found for this order.',
+      payNow: 'Pay Now',
     }
   },
   fa: {
@@ -685,6 +693,7 @@ const resources = {
       bounced: 'برگشت خورده',
       emailsSent: 'ایمیل‌های ارسال شده',
       theme: 'پوسته',
+      close: 'بستن',
       // Auth
       signIn: 'ورود',
       signUp: 'ثبت نام',
@@ -740,11 +749,13 @@ const resources = {
       segmentsDesc: 'ایجاد بخش‌های پویا از مخاطبین.',
       mediaManagerDesc: 'فایل‌های خود را آپلود و مدیریت کنید.',
       sendEmailDesc: 'ارسال ایمیل به مخاطبین خود.',
+      emailBuilderDesc: 'طراحی ایمیل‌های زیبا و واکنش‌گرا با ویرایشگر کشیدن و رها کردن.',
       campaignsDesc: 'مشاهده کمپین‌های گذشته خود.',
       templatesDesc: 'ایجاد، مشاهده و مدیریت قالب‌های ایمیل شما.',
       domainsDesc: 'مدیریت و تأیید دامنه‌های خود.',
       smtpDesc: 'مشاهده اطلاعات SMTP شما.',
       buyCreditsDesc: 'خرید اعتبار ایمیل بیشتر.',
+      returnToDashboard: 'بازگشت به داشبورد',
       // Statistics View
       dateRange: 'تاریخ',
       last7Days: '۷ روز گذشته',
@@ -866,6 +877,7 @@ const resources = {
       testEnvironmentNotice: 'این یک محیط آزمایشی است. هیچ تراکنش واقعی انجام نخواهد شد.',
       userInfoUnavailable: 'اطلاعات کاربری در دسترس نیست. امکان ادامه خرید وجود ندارد.',
       purchaseFailed: 'خرید ناموفق',
+      paymentFailed: 'پرداخت ناموفق',
       purchaseFailedMessage: 'در پردازش درخواست شما خطایی روی داد: {{error}}',
       creditHistoryTitle: 'تاریخچه خرید اعتبار',
       featureNotAvailable: 'ویژگی در دسترس نیست',
@@ -880,6 +892,7 @@ const resources = {
       paymentMethodCard: 'کارت اعتباری/شتاب',
       buyDifferentPackage: 'انتخاب بسته دیگر',
       confirmAndPay: 'تایید و پرداخت',
+      paymentSuccess: 'پرداخت موفق',
       // Contacts View
       searchContactsPlaceholder: 'جستجو بر اساس نام یا ایمیل...',
       importContacts: 'وارد کردن مخاطبین',
@@ -1255,6 +1268,13 @@ const resources = {
       templateNameRequired: 'نام قالب الزامی است.',
       saveTemplateSuccess: 'قالب «{{name}}» با موفقیت ذخیره شد!',
       saveTemplateError: 'خطا در ذخیره قالب: {{error}}',
+      // Order History
+      orders: 'سفارشات',
+      totalAmount: 'مبلغ کل',
+      transactions: 'تراکنش‌ها',
+      noOrdersFound: 'سفارشی یافت نشد.',
+      noTransactionsFound: 'تراکنشی برای این سفارش یافت نشد.',
+      payNow: 'پرداخت',
     }
   }
 };
