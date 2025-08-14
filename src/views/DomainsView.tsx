@@ -5,7 +5,7 @@ import { apiFetchV4 } from '../api/elasticEmail';
 import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
-import ActionStatus from '../components/ActionStatus';
+import { useToast } from '../contexts/ToastContext';
 import Icon, { ICONS } from '../components/Icon';
 import Badge from '../components/Badge';
 import ConfirmModal from '../components/ConfirmModal';
@@ -120,8 +120,8 @@ const DomainVerificationChecker = ({ domainName }: { domainName: string }) => {
 
 const DomainsView = ({ apiKey }: { apiKey: string }) => {
     const { t, i18n } = useTranslation();
+    const { addToast } = useToast();
     const [refetchIndex, setRefetchIndex] = useState(0);
-    const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [newDomain, setNewDomain] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
@@ -147,11 +147,11 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
         setIsSubmitting(true);
         try {
             await apiFetchV4('/domains', apiKey, { method: 'POST', body: { Domain: newDomain } });
-            setActionStatus({ type: 'success', message: t('domainAddedSuccess', { domain: newDomain }) });
+            addToast(t('domainAddedSuccess', { domain: newDomain }), 'success');
             setNewDomain('');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('domainAddedError', { error: err.message }) });
+            addToast(t('domainAddedError', { error: err.message }), 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -161,10 +161,10 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
         if (!domainToDelete) return;
         try {
             await apiFetchV4(`/domains/${encodeURIComponent(domainToDelete)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: t('domainDeletedSuccess', { domainName: domainToDelete }) });
+            addToast(t('domainDeletedSuccess', { domainName: domainToDelete }), 'success');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('domainDeletedError', { error: err.message }) });
+            addToast(t('domainDeletedError', { error: err.message }), 'error');
         } finally {
             setDomainToDelete(null);
         }
@@ -176,7 +176,6 @@ const DomainsView = ({ apiKey }: { apiKey: string }) => {
 
     return (
         <div>
-            <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
              <ConfirmModal
                 isOpen={!!domainToDelete}
                 onClose={() => setDomainToDelete(null)}

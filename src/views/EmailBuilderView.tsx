@@ -1,3 +1,5 @@
+
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -22,7 +24,7 @@ import { renderBlock } from '../components/email_builder/blocks';
 import MediaManagerModal from '../components/media_manager/MediaManagerModal';
 import { FileInfo } from '../api/types';
 import { ELASTIC_EMAIL_API_V4_BASE } from '../api/config';
-import ActionStatus from '../components/ActionStatus';
+import { useToast } from '../contexts/ToastContext';
 import Loader from '../components/Loader';
 import SettingsPanel from '../components/email_builder/SettingsPanel';
 import useApiV4 from '../hooks/useApiV4';
@@ -200,13 +202,13 @@ const findBlockById = (items: any[], id: string): any | null => {
 
 const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const { t } = useTranslation();
+    const { addToast } = useToast();
     const [items, setItems] = useState<any[]>([]);
     const [activeItem, setActiveItem] = useState<any | null>(null);
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
     const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
     const [editingImageBlockId, setEditingImageBlockId] = useState<string | null>(null);
     const [isUpdatingImage, setIsUpdatingImage] = useState(false);
-    const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const canvasWrapperRef = useRef<HTMLDivElement>(null);
     const [latestImageContent, setLatestImageContent] = useState<{ src: string, alt: string } | null>(null);
 
@@ -214,10 +216,12 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
     const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
     const [generatedHtml, setGeneratedHtml] = useState('');
-    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [templateName, setTemplateName] = useState('');
     const [subject, setSubject] = useState('');
+    const [fromName, setFromName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    
+    const [settingsView, setSettingsView] = useState<'block' | 'global' | null>(null);
     
     const [globalStyles, setGlobalStyles] = useState({
         backdropColor: '#F7F9FC',
@@ -335,16 +339,14 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             </html>
         `;
     }, [items, globalStyles, subject]);
-
-    const handleSaveTemplate = async (e: React.FormEvent) => {
-        e.preventDefault();
+    
+    const handleSaveTemplate = async () => {
         if (!templateName) {
-            setActionStatus({ type: 'error', message: t('templateNameRequired') });
+            addToast(t('templateNameRequired'), 'error');
             return;
         }
         setIsSaving(true);
-        setActionStatus(null);
-
+    
         const htmlContent = generateEmailHtml();
         const payload = {
             Name: templateName,
@@ -356,18 +358,37 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             }],
             TemplateScope: "Personal"
         };
-
+    
         try {
-            await apiFetchV4('/templates', apiKey, { method: 'POST', body: payload });
-            setActionStatus({ type: 'success', message: t('saveTemplateSuccess', { name: templateName }) });
-            setIsSaveModalOpen(false);
-            setTemplateName('');
+            let existingTemplate = null;
+            try {
+                // Check if a template with this name already exists
+                existingTemplate = await apiFetchV4(`/templates/${encodeURIComponent(templateName)}`, apiKey);
+            } catch (e: any) {
+                // A 404 error is expected if the template is new, so we can ignore it.
+                if (e.message.includes('404')) {
+                    // Not found, which is fine for creation.
+                } else {
+                    throw e; // Re-throw other errors
+                }
+            }
+    
+            if (existingTemplate) {
+                // If it exists, update it (PUT)
+                await apiFetchV4(`/templates/${encodeURIComponent(templateName)}`, apiKey, { method: 'PUT', body: payload });
+            } else {
+                // If it doesn't exist, create it (POST)
+                await apiFetchV4('/templates', apiKey, { method: 'POST', body: payload });
+            }
+    
+            addToast(t('saveTemplateSuccess', { name: templateName }), 'success');
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('saveTemplateError', { error: err.message }) });
+            addToast(t('saveTemplateError', { error: err.message }), 'error');
         } finally {
             setIsSaving(false);
         }
     };
+    
 
     const toggleMobileView = () => setIsMobileView(v => !v);
 
@@ -410,6 +431,7 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     
     const handleDragStart = useCallback((event: DragStartEvent) => {
         setSelectedBlockId(null);
+        setSettingsView(null);
         const { active } = event;
         const activeId = active.id as string;
         
@@ -575,6 +597,7 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
         }));
         if (selectedBlockId === id) {
             setSelectedBlockId(null);
+            setSettingsView(null);
         }
     }, [selectedBlockId]);
 
@@ -601,12 +624,14 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                 
                 container.splice(index + 1, 0, duplicateItem);
                 setSelectedBlockId(duplicateItem.id);
+                setSettingsView('block');
             }
         }));
     }, []);
 
     const handleSelectBlock = useCallback((id: string) => {
         setSelectedBlockId(id);
+        setSettingsView('block');
     }, []);
     
     const handleGlobalStyleChange = (newStyles: any) => {
@@ -639,7 +664,7 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
 
         setIsMediaModalOpen(false);
         setIsUpdatingImage(true);
-        setActionStatus({ type: 'success', message: `Updating image to ${fileInfo.FileName}...`});
+        addToast(`Updating image to ${fileInfo.FileName}...`, 'info');
 
         try {
             const url = `${ELASTIC_EMAIL_API_V4_BASE}/files/${encodeURIComponent(fileInfo.FileName)}`;
@@ -650,10 +675,10 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             const base64 = await toBase64(blob);
 
             handleContentChange(editingImageBlockId, { src: base64, alt: fileInfo.FileName });
-            setActionStatus({ type: 'success', message: `Image updated successfully!`});
+            addToast(`Image updated successfully!`, 'success');
 
         } catch (error: any) {
-            setActionStatus({ type: 'error', message: error.message });
+            addToast(error.message, 'error');
         } finally {
             setIsUpdatingImage(false);
             setEditingImageBlockId(null);
@@ -678,6 +703,7 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             return newItems;
         });
         setSelectedBlockId(newBlock.id);
+        setSettingsView('block');
     }, []);
     
     const handleSetColumns = useCallback((blockId: string, layoutConfig: { flex: number }[]) => {
@@ -693,27 +719,143 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
         }));
     }, []);
 
-    const selectedBlock = selectedBlockId ? findBlockById(items, selectedBlockId) : null;
+    const handleAddComponentFromToolbar = useCallback((blockType: string) => {
+        const toolbarItem = TOOLBAR_COMPONENTS.find(c => c.type === blockType);
+        if (!toolbarItem) return;
 
+        let newBlock;
+        if (toolbarItem.type === 'Product') {
+            const imageId = generateId('image');
+            const titleId = generateId('header');
+            const descId = generateId('text');
+            const priceId = generateId('text');
+            const buttonId = generateId('button');
+            newBlock = {
+                id: generateId('product'),
+                type: 'Product',
+                content: {
+                    columns: [
+                        {
+                            id: generateId('col'),
+                            flex: 1,
+                            items: [{
+                                id: imageId,
+                                type: 'Image',
+                                content: { ...TOOLBAR_COMPONENTS.find(c => c.type === 'Image')!.defaultContent },
+                                style: { ...TOOLBAR_COMPONENTS.find(c => c.type === 'Image')!.defaultStyle, backgroundColor: '#ffffff' }
+                            }]
+                        },
+                        {
+                            id: generateId('col'),
+                            flex: 1,
+                            items: [
+                                {
+                                    id: titleId,
+                                    type: 'Header',
+                                    content: { html: '<h2>Product Title</h2>' },
+                                    style: { ...TOOLBAR_COMPONENTS.find(c => c.type === 'Header')!.defaultStyle, fontSize: '22px', paddingLeft: 10, paddingRight: 10 }
+                                },
+                                {
+                                    id: descId,
+                                    type: 'Text',
+                                    content: { html: '<p>A brief description of your amazing product goes here. Highlight the key features and benefits.</p>' },
+                                    style: { ...TOOLBAR_COMPONENTS.find(c => c.type === 'Text')!.defaultStyle, fontSize: '14px', paddingLeft: 10, paddingRight: 10 }
+                                },
+                                {
+                                    id: priceId,
+                                    type: 'Text',
+                                    content: { html: '<p style="font-size: 20px; font-weight: bold;">$19.99</p>' },
+                                    style: { ...TOOLBAR_COMPONENTS.find(c => c.type === 'Text')!.defaultStyle, fontSize: '20px', fontWeight: 'bold', paddingLeft: 10, paddingRight: 10, textAlign: 'left' }
+                                },
+                                {
+                                    id: buttonId,
+                                    type: 'Button',
+                                    content: { text: 'Buy Now', href: '#' },
+                                    style: { ...TOOLBAR_COMPONENTS.find(c => c.type === 'Button')!.defaultStyle, textAlign: 'left' }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                style: { ...TOOLBAR_COMPONENTS.find(c => c.type === 'Columns')!.defaultStyle }
+            }
+        } else {
+             newBlock = {
+                id: generateId(toolbarItem.type.toLowerCase()),
+                type: toolbarItem.type,
+                content: JSON.parse(JSON.stringify(toolbarItem.defaultContent)),
+                style: JSON.parse(JSON.stringify(toolbarItem.defaultStyle))
+            };
+        }
+
+        setItems(produce(draft => {
+            draft.push(newBlock);
+        }));
+        setSelectedBlockId(newBlock.id);
+        setSettingsView('block');
+    }, []);
+    
+    const handleOpenGlobalSettings = () => {
+        setSelectedBlockId(null);
+        setSettingsView('global');
+    };
+
+    const handleCloseSettingsPanel = () => {
+        setSelectedBlockId(null);
+        setSettingsView(null);
+    };
+
+    const selectedBlock = selectedBlockId ? findBlockById(items, selectedBlockId) : null;
+    
     return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="email-builder-view-container">
                 {isUpdatingImage && <div className="page-overlay"><Loader /></div>}
-                 <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
                  <header className="email-builder-header">
                     <div className="email-builder-header-left">
-                        <h2>{t('emailBuilder')}</h2>
-                        <div className="form-group">
-                            <input
-                                type="text"
-                                placeholder={t('subject')}
-                                value={subject}
-                                onChange={(e) => setSubject(e.target.value)}
-                            />
+                       <div className="email-builder-main-inputs">
+                            <div className="form-group template-name-group">
+                                <div className="input-with-icon">
+                                    <Icon path={ICONS.ARCHIVE} />
+                                    <input
+                                        type="text"
+                                        placeholder={t('templateName')}
+                                        value={templateName}
+                                        onChange={(e) => setTemplateName(e.target.value)}
+                                        aria-label={t('templateName')}
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <div className="input-with-icon">
+                                    <Icon path={ICONS.MAIL} />
+                                    <input
+                                        type="text"
+                                        placeholder={t('subject')}
+                                        value={subject}
+                                        onChange={(e) => setSubject(e.target.value)}
+                                        aria-label={t('subject')}
+                                    />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <div className="input-with-icon">
+                                    <Icon path={ICONS.ACCOUNT} />
+                                    <input
+                                        type="text"
+                                        placeholder={t('fromName')}
+                                        value={fromName}
+                                        onChange={(e) => setFromName(e.target.value)}
+                                        aria-label={t('fromName')}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                      <div className="header-actions">
                         <div className="header-tool-actions">
+                            <button className="btn-icon" onClick={handleOpenGlobalSettings} title={t('global')}><Icon path={ICONS.SETTINGS} /></button>
                             <button className={`btn-icon ${isMobileView ? 'active' : ''}`} onClick={toggleMobileView} title={t('mobileView')}><Icon path={ICONS.MOBILE} /></button>
                             <button className="btn-icon" onClick={() => prepareAndShowHtml('preview')} title={t('previewEmail')}><Icon path={ICONS.EYE} /></button>
                             <button className="btn-icon" onClick={() => prepareAndShowHtml('code')} title={t('viewCode')}><Icon path={ICONS.CODE} /></button>
@@ -721,35 +863,43 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                             <button className="btn-icon" onClick={handleExportJson} title={t('exportJson')}><Icon path={ICONS.FILE_TEXT} /></button>
                         </div>
                         <div className="header-main-actions">
-                             <button className="btn btn-primary" onClick={() => setIsSaveModalOpen(true)}><Icon path={ICONS.SAVE_CHANGES} /> {t('saveChanges')}</button>
+                             <button className="btn-icon-primary-save" onClick={handleSaveTemplate} disabled={isSaving} title={t('saveChanges')}>
+                                {isSaving ? <Loader /> : <Icon path={ICONS.SAVE_CHANGES} />}
+                            </button>
                         </div>
                     </div>
                 </header>
                 <div className="email-builder-container">
-                    <Toolbar />
-                    <div ref={canvasWrapperRef} className={`builder-canvas-wrapper ${isMobileView ? 'is-mobile-view' : ''}`} style={{backgroundColor: globalStyles.backdropColor}}>
-                         <Canvas
-                            items={items}
-                            removeItem={removeItem}
-                            onDuplicateBlock={handleDuplicateBlock}
-                            onEditImageBlock={handleEditImageBlock}
-                            selectedBlockId={selectedBlockId}
-                            onSelectBlock={handleSelectBlock}
-                            onContentChange={handleContentChange}
-                            onStyleChange={handleStyleChange}
-                            onInsertBlock={handleInsertBlock}
-                            onSetColumns={handleSetColumns}
+                    <Toolbar onAddComponent={handleAddComponentFromToolbar} />
+                    <div ref={canvasWrapperRef} className="builder-canvas-wrapper" style={{backgroundColor: globalStyles.backdropColor}}>
+                         <div className={isMobileView ? 'is-mobile-view' : ''}>
+                             <Canvas
+                                items={items}
+                                removeItem={removeItem}
+                                onDuplicateBlock={handleDuplicateBlock}
+                                onEditImageBlock={handleEditImageBlock}
+                                selectedBlockId={selectedBlockId}
+                                onSelectBlock={handleSelectBlock}
+                                onContentChange={handleContentChange}
+                                onStyleChange={handleStyleChange}
+                                onInsertBlock={handleInsertBlock}
+                                onSetColumns={handleSetColumns}
+                                globalStyles={globalStyles}
+                            />
+                        </div>
+                    </div>
+                    <div className={`settings-panel-wrapper ${settingsView ? 'is-open' : ''}`}>
+                        <div className="settings-panel-overlay" onClick={handleCloseSettingsPanel}></div>
+                        <SettingsPanel
+                            block={settingsView === 'block' ? selectedBlock : null}
                             globalStyles={globalStyles}
+                            onGlobalStyleChange={handleGlobalStyleChange}
+                            onStyleChange={handleStyleChange}
+                            onContentChange={handleContentChange}
+                            onOpenMediaManager={handleEditImageBlock}
+                            onClose={handleCloseSettingsPanel}
                         />
                     </div>
-                    <SettingsPanel
-                        block={selectedBlock}
-                        globalStyles={globalStyles}
-                        onGlobalStyleChange={handleGlobalStyleChange}
-                        onStyleChange={handleStyleChange}
-                        onContentChange={handleContentChange}
-                        onOpenMediaManager={handleEditImageBlock}
-                    />
                 </div>
             </div>
             
@@ -768,38 +918,6 @@ const EmailBuilderView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                 <pre className="code-view-pre">
                     <code>{generatedHtml}</code>
                 </pre>
-            </Modal>
-
-             <Modal isOpen={isSaveModalOpen} onClose={() => setIsSaveModalOpen(false)} title={t('saveTemplate')}>
-                <form onSubmit={handleSaveTemplate} className="modal-form">
-                    <div className="form-group">
-                        <label htmlFor="template-name">{t('templateName')}</label>
-                        <input
-                            id="template-name"
-                            type="text"
-                            value={templateName}
-                            onChange={e => setTemplateName(e.target.value)}
-                            required
-                            disabled={isSaving}
-                        />
-                    </div>
-                     <div className="form-group">
-                        <label htmlFor="template-subject">{t('subject')}</label>
-                        <input
-                            id="template-subject"
-                            type="text"
-                            value={subject}
-                            onChange={e => setSubject(e.target.value)}
-                            disabled={isSaving}
-                        />
-                    </div>
-                    <div className="form-actions">
-                        <button type="button" className="btn" onClick={() => setIsSaveModalOpen(false)} disabled={isSaving}>{t('cancel')}</button>
-                        <button type="submit" className="btn btn-primary" disabled={isSaving || !templateName}>
-                            {isSaving ? <Loader /> : t('saveChanges')}
-                        </button>
-                    </div>
-                </form>
             </Modal>
 
             <DragOverlay>

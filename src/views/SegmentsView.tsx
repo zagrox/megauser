@@ -6,7 +6,7 @@ import { Segment } from '../api/types';
 import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
-import ActionStatus from '../components/ActionStatus';
+import { useToast } from '../contexts/ToastContext';
 import Modal from '../components/Modal';
 import RenameModal from '../components/RenameModal';
 import RuleBuilder from '../components/RuleBuilder';
@@ -64,9 +64,9 @@ const CreateSegmentModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { i
 
 const SegmentsView = ({ apiKey }: { apiKey: string }) => {
     const { t, i18n } = useTranslation();
+    const { addToast } = useToast();
     const [refetchIndex, setRefetchIndex] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
-    const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [segmentToRename, setSegmentToRename] = useState<Segment | null>(null);
     const [segmentToDelete, setSegmentToDelete] = useState<string | null>(null);
@@ -76,7 +76,7 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
 
     const handleCreateSuccess = (name: string) => {
         setIsCreateModalOpen(false);
-        setActionStatus({ type: 'success', message: t('segmentCreatedSuccess', { name }) });
+        addToast(t('segmentCreatedSuccess', { name }), 'success');
         refetch();
     };
     
@@ -84,10 +84,10 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
         if (!segmentToDelete) return;
         try {
             await apiFetchV4(`/segments/${encodeURIComponent(segmentToDelete)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: t('segmentDeletedSuccess', { segmentName: segmentToDelete }) });
+            addToast(t('segmentDeletedSuccess', { segmentName: segmentToDelete }), 'success');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('segmentDeletedError', { error: err.message }) });
+            addToast(t('segmentDeletedError', { error: err.message }), 'error');
         } finally {
             setSegmentToDelete(null);
         }
@@ -100,11 +100,11 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
                 method: 'PUT',
                 body: { Name: newName }
             });
-            setActionStatus({ type: 'success', message: t('segmentRenamedSuccess', { newName }) });
+            addToast(t('segmentRenamedSuccess', { newName }), 'success');
             setSegmentToRename(null);
             setTimeout(() => refetch(), 1000);
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('segmentRenamedError', { error: err.message }) });
+            addToast(t('segmentRenamedError', { error: err.message }), 'error');
         }
     };
     
@@ -116,13 +116,12 @@ const SegmentsView = ({ apiKey }: { apiKey: string }) => {
 
     return (
         <div>
-            <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
             <CreateSegmentModal 
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 apiKey={apiKey}
                 onSuccess={handleCreateSuccess}
-                onError={(msg: string) => setActionStatus({type: 'error', message: msg})}
+                onError={(msg: string) => addToast(msg, 'error')}
             />
             {segmentToRename && (
                 <RenameModal

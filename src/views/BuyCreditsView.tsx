@@ -235,7 +235,7 @@ const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, 
         try {
             // Step 1: Request trackId from Zibal
             const zibalPayload = {
-                merchant: "zibal",
+                merchant: "62f36ca618f934159dd26c19",
                 amount: createdOrder.order_total * 10, // Convert Toman to Rial for Zibal
                 callbackUrl: "https://my.mailzila.com/#/callback",
                 description: createdOrder.order_note,

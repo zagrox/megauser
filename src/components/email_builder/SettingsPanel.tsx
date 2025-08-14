@@ -675,7 +675,7 @@ const FooterSettings = ({ block, onStyleChange, onContentChange }: { block: any,
 };
 
 
-const SettingsPanel = ({ block, globalStyles, onGlobalStyleChange, onStyleChange, onContentChange, onOpenMediaManager }: { block: any, globalStyles: any, onGlobalStyleChange: any, onStyleChange: any, onContentChange: any, onOpenMediaManager: any }) => {
+const SettingsPanel = ({ block, globalStyles, onGlobalStyleChange, onStyleChange, onContentChange, onOpenMediaManager, onClose }: { block: any, globalStyles: any, onGlobalStyleChange: any, onStyleChange: any, onContentChange: any, onOpenMediaManager: any, onClose: () => void }) => {
     const { t } = useTranslation();
 
     const renderSettingsForBlock = () => {
@@ -725,28 +725,27 @@ const SettingsPanel = ({ block, globalStyles, onGlobalStyleChange, onStyleChange
         }
     }
 
+    const title = !block ? t('global') : t(getBlockTypeTranslationKey(block.type));
+
     return (
         <aside
             className="builder-settings-panel"
             onClick={e => e.stopPropagation()}
         >
+            <div className="settings-panel-header">
+                <h3>{title}</h3>
+                <button className="modal-close-btn" onClick={onClose} aria-label={t('close')}>
+                    &times;
+                </button>
+            </div>
+            
+            <div className="settings-panel-body">
             {!block ? (
-                <>
-                    <div className="settings-panel-header"><h3>{t('global')}</h3></div>
-                    <div className="settings-panel-body">
-                        <GlobalSettings styles={globalStyles} onChange={onGlobalStyleChange} />
-                    </div>
-                </>
+                <GlobalSettings styles={globalStyles} onChange={onGlobalStyleChange} />
             ) : (
-                <>
-                    <div className="settings-panel-header">
-                        <h3>{t(getBlockTypeTranslationKey(block.type))}</h3>
-                    </div>
-                    <div className="settings-panel-body">
-                        {renderSettingsForBlock()}
-                    </div>
-                </>
+                renderSettingsForBlock()
             )}
+            </div>
         </aside>
     );
 };

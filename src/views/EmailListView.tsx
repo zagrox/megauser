@@ -7,7 +7,7 @@ import { formatDateRelative } from '../utils/helpers';
 import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
-import ActionStatus from '../components/ActionStatus';
+import { useToast } from '../contexts/ToastContext';
 import Modal from '../components/Modal';
 import RenameModal from '../components/RenameModal';
 import Icon, { ICONS } from '../components/Icon';
@@ -88,9 +88,9 @@ const ListContactsModal = ({ isOpen, onClose, listName, apiKey }: { isOpen: bool
 
 const EmailListView = ({ apiKey }: { apiKey: string }) => {
     const { t, i18n } = useTranslation();
+    const { addToast } = useToast();
     const [refetchIndex, setRefetchIndex] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
-    const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [newListName, setNewListName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -114,11 +114,11 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
         setIsSubmitting(true);
         try {
             await apiFetchV4('/lists', apiKey, { method: 'POST', body: { ListName: newListName } });
-            setActionStatus({ type: 'success', message: t('listCreatedSuccess', { listName: newListName }) });
+            addToast(t('listCreatedSuccess', { listName: newListName }), 'success');
             setNewListName('');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('listCreatedError', { error: err.message }) });
+            addToast(t('listCreatedError', { error: err.message }), 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -129,10 +129,10 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
         const listName = listToDelete.ListName;
         try {
             await apiFetchV4(`/lists/${encodeURIComponent(listName)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: t('listDeletedSuccess', { listName }) });
+            addToast(t('listDeletedSuccess', { listName }), 'success');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('listDeletedError', { error: err.message }) });
+            addToast(t('listDeletedError', { error: err.message }), 'error');
         } finally {
             setListToDelete(null);
         }
@@ -145,11 +145,11 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
                 method: 'PUT',
                 body: { ListName: newName }
             });
-            setActionStatus({ type: 'success', message: t('listRenamedSuccess', { newName }) });
+            addToast(t('listRenamedSuccess', { newName }), 'success');
             setListToRename(null);
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('listRenamedError', { error: err.message }) });
+            addToast(t('listRenamedError', { error: err.message }), 'error');
             setListToRename(null);
         }
     };
@@ -169,8 +169,6 @@ const EmailListView = ({ apiKey }: { apiKey: string }) => {
 
     return (
         <div>
-            <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
-            
             {listToView && (
                 <ListContactsModal
                     isOpen={!!listToView}

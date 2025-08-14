@@ -6,7 +6,7 @@ import { formatDateForDisplay } from '../utils/helpers';
 import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
-import ActionStatus from '../components/ActionStatus';
+import { useToast } from '../contexts/ToastContext';
 import Modal from '../components/Modal';
 import Icon, { ICONS } from '../components/Icon';
 import ConfirmModal from '../components/ConfirmModal';
@@ -55,9 +55,9 @@ const TemplateCard = ({ template, onPreview, onUse, onDelete }: { template: Temp
 
 const TemplatesView = ({ apiKey, setView }: { apiKey: string; setView: (view: string) => void }) => {
     const { t } = useTranslation();
+    const { addToast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [refetchIndex, setRefetchIndex] = useState(0);
-    const [actionStatus, setActionStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [templateToPreview, setTemplateToPreview] = useState<Template | null>(null);
     const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
     const [offset, setOffset] = useState(0);
@@ -83,10 +83,10 @@ const TemplatesView = ({ apiKey, setView }: { apiKey: string; setView: (view: st
         const templateName = templateToDelete.Name;
         try {
             await apiFetchV4(`/templates/${encodeURIComponent(templateName)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: t('templateDeletedSuccess', { name: templateName }) });
+            addToast(t('templateDeletedSuccess', { name: templateName }), 'success');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('templateDeletedError', { error: err.message }) });
+            addToast(t('templateDeletedError', { error: err.message }), 'error');
         } finally {
             setTemplateToDelete(null);
         }
@@ -99,7 +99,6 @@ const TemplatesView = ({ apiKey, setView }: { apiKey: string; setView: (view: st
 
     return (
         <div>
-            <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
             <TemplatePreviewModal isOpen={!!templateToPreview} onClose={() => setTemplateToPreview(null)} template={templateToPreview} />
             <ConfirmModal
                 isOpen={!!templateToDelete}

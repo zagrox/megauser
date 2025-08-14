@@ -8,7 +8,7 @@ import { formatDateForDisplay, formatBytes } from '../utils/helpers';
 import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
-import ActionStatus from '../components/ActionStatus';
+import { useToast } from '../contexts/ToastContext';
 import Modal from '../components/Modal';
 import Icon, { ICONS } from '../components/Icon';
 import ConfirmModal from '../components/ConfirmModal';
@@ -162,9 +162,9 @@ const FileGridCard = React.memo(({ fileInfo, apiKey, onView, onDelete }: { fileI
 
 const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
     const { t } = useTranslation();
+    const { addToast } = useToast();
     const [refetchIndex, setRefetchIndex] = useState(0);
     const { data: files, loading, error } = useApiV4('/files', apiKey, {}, refetchIndex);
-    const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [fileToPreview, setFileToPreview] = useState<FileInfo | null>(null);
     const [fileToDelete, setFileToDelete] = useState<string | null>(null);
@@ -179,22 +179,22 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
 
     const handleUploadSuccess = (fileInfo: FileInfo) => {
         setIsUploadModalOpen(false);
-        setActionStatus({ type: 'success', message: t('fileUploadSuccess') });
+        addToast(t('fileUploadSuccess'), 'success');
         setTimeout(refetch, 1000);
     };
 
     const handleUploadError = (message: string) => {
-        setActionStatus({ type: 'error', message: `${t('fileUploadError', { error: '' })} ${message}` });
+        addToast(`${t('fileUploadError', { error: '' })} ${message}`, 'error');
     };
     
     const confirmDeleteFile = async () => {
         if (!fileToDelete) return;
         try {
             await apiFetchV4(`/files/${encodeURIComponent(fileToDelete)}`, apiKey, { method: 'DELETE' });
-            setActionStatus({ type: 'success', message: t('fileDeletedSuccess', { fileName: fileToDelete }) });
+            addToast(t('fileDeletedSuccess', { fileName: fileToDelete }), 'success');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('fileDeletedError', { error: err.message }) });
+            addToast(t('fileDeletedError', { error: err.message }), 'error');
         } finally {
             setFileToDelete(null);
         }
@@ -248,7 +248,6 @@ const MediaManagerView = ({ apiKey }: { apiKey: string }) => {
 
     return (
         <div>
-            <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
             <FileUploadModal
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}

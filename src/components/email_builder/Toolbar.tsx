@@ -148,7 +148,7 @@ export const TOOLBAR_COMPONENTS = [
     },
 ];
 
-const ToolbarItem = ({ component }: { component: typeof TOOLBAR_COMPONENTS[0] }) => {
+const ToolbarItem = ({ component, onAddComponent }: { component: typeof TOOLBAR_COMPONENTS[0], onAddComponent: (type: string) => void }) => {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef } = useDraggable({
         id: component.id,
@@ -163,6 +163,11 @@ const ToolbarItem = ({ component }: { component: typeof TOOLBAR_COMPONENTS[0] })
             {...listeners}
             {...attributes}
             className="toolbar-item"
+            onClick={(e) => {
+                if(e.detail) { // Prevents click firing during drag
+                     onAddComponent(component.type)
+                }
+            }}
         >
             <Icon path={component.icon} />
             <span>{t(component.type.toLowerCase())}</span>
@@ -170,14 +175,14 @@ const ToolbarItem = ({ component }: { component: typeof TOOLBAR_COMPONENTS[0] })
     );
 };
 
-const Toolbar = () => {
+const Toolbar = ({ onAddComponent }: { onAddComponent: (type: string) => void }) => {
     const { t } = useTranslation();
     return (
         <aside className="builder-toolbar">
             <h3>{t('components')}</h3>
             <div className="toolbar-grid">
                 {TOOLBAR_COMPONENTS.map(comp => (
-                    <ToolbarItem key={comp.id} component={comp} />
+                    <ToolbarItem key={comp.id} component={comp} onAddComponent={onAddComponent} />
                 ))}
             </div>
         </aside>

@@ -5,7 +5,7 @@ import { apiFetch } from '../api/elasticEmail';
 import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
-import ActionStatus from '../components/ActionStatus';
+import { useToast } from '../contexts/ToastContext';
 import Modal from '../components/Modal';
 import Icon, { ICONS } from '../components/Icon';
 import ConfirmModal from '../components/ConfirmModal';
@@ -109,8 +109,8 @@ const NewCredentialInfoModal = ({ isOpen, onClose, credInfo }: { isOpen: boolean
 
 const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const { t } = useTranslation();
+    const { addToast } = useToast();
     const [refetchIndex, setRefetchIndex] = useState(0);
-    const [actionStatus, setActionStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newCredInfo, setNewCredInfo] = useState<any | null>(null);
     const [credentialToDelete, setCredentialToDelete] = useState<{ name: string; apikey: string } | null>(null);
@@ -126,10 +126,10 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
         if (!credentialToDelete) return;
         try {
             await apiFetch('/account/deleteadditionalcredential', apiKey, { method: 'POST', params: { apikey: credentialToDelete.apikey } });
-            setActionStatus({ type: 'success', message: t('credentialDeletedSuccess', { name: credentialToDelete.name }) });
+            addToast(t('credentialDeletedSuccess', { name: credentialToDelete.name }), 'success');
             refetch();
         } catch (err: any) {
-            setActionStatus({ type: 'error', message: t('credentialDeletedError', { error: err.message }) });
+            addToast(t('credentialDeletedError', { error: err.message }), 'error');
         } finally {
             setCredentialToDelete(null);
         }
@@ -137,20 +137,19 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     
     const handleCreateSuccess = (data: any) => {
         setIsAddModalOpen(false);
-        setActionStatus({ type: 'success', message: t('credentialCreatedSuccess', { name: data.name }) });
+        addToast(t('credentialCreatedSuccess', { name: data.name }), 'success');
         setNewCredInfo(data);
         refetch();
     };
 
     return (
         <div>
-            <ActionStatus status={actionStatus} onDismiss={() => setActionStatus(null)} />
             <AddCredentialModal 
                 isOpen={isAddModalOpen} 
                 onClose={() => setIsAddModalOpen(false)}
                 apiKey={apiKey}
                 onSuccess={handleCreateSuccess}
-                onError={(msg) => setActionStatus({type: 'error', message: msg})}
+                onError={(msg) => addToast(msg, 'error')}
             />
             <NewCredentialInfoModal 
                 isOpen={!!newCredInfo}
