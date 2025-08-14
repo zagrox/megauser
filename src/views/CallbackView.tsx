@@ -19,7 +19,10 @@ const CallbackView = () => {
         const handleCallback = async () => {
             setLoading(true);
             try {
-                const params = new URLSearchParams(window.location.search);
+                const hash = window.location.hash.substring(1);
+                const queryString = hash.split('?')[1] || '';
+                const params = new URLSearchParams(queryString);
+                
                 const trackId = params.get('trackId');
                 const status = params.get('status');
                 const success = params.get('success');
@@ -30,7 +33,7 @@ const CallbackView = () => {
                 }
 
                 // Find the transaction by trackId
-                const { data: transactions } = await sdk.request(readItems('transactions', {
+                const transactions = await sdk.request(readItems('transactions', {
                     filter: { trackid: { _eq: trackId } },
                     fields: ['*', 'transaction_order.*'],
                     limit: 1
@@ -53,7 +56,7 @@ const CallbackView = () => {
                     await sdk.request(updateItem('orders', order.id, { order_status: 'completed' }));
                     
                     // Find package to get credit amount
-                    const { data: packages } = await sdk.request(readItems('packages', {
+                    const packages = await sdk.request(readItems('packages', {
                         filter: { packname: { _eq: order.order_note } }
                     }));
                     

@@ -146,7 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const requestPasswordReset = async (email: string) => {
         const payload = {
             email,
-            reset_url: 'https://my.mailzila.com/reset-password',
+            reset_url: 'https://my.mailzila.com/#/reset-password',
         };
         // Explicitly stringify the body and set the Content-Type header
         // to prevent the SDK from incorrectly formatting the request payload.

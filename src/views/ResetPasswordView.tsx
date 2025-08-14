@@ -15,8 +15,11 @@ const ResetPasswordView = () => {
     const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
+        const hash = window.location.hash.substring(1);
+        const queryString = hash.split('?')[1] || '';
+        const params = new URLSearchParams(queryString);
         const tokenFromUrl = params.get('token');
+
         if (tokenFromUrl) {
             setToken(tokenFromUrl);
         } else {

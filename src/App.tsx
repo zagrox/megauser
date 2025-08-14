@@ -40,8 +40,12 @@ const App = () => {
 
     const urlParams = new URLSearchParams(window.location.search);
     const isEmbedMode = urlParams.get('embed') === 'true';
-    const isResetPasswordMode = window.location.pathname.startsWith('/reset-password');
-    const isCallbackMode = window.location.pathname.startsWith('/callback');
+    
+    // Use hash-based routing for callback and reset password to avoid server-side 404s
+    const hash = window.location.hash.substring(1); // remove '#'
+    const [hashPath] = hash.split('?');
+    const isResetPasswordMode = hashPath.startsWith('/reset-password');
+    const isCallbackMode = hashPath.startsWith('/callback');
 
     useEffect(() => {
         if (!isEmbedMode) {

@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApi from './useApi';
@@ -313,7 +315,7 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             const zibalPayload = {
                 merchant: "zibal",
                 amount: createdOrder.order_total * 10, // Convert Toman to Rial for Zibal
-                callbackUrl: "https://my.mailzila.com/callback",
+                callbackUrl: "https://my.mailzila.com/#/callback",
                 description: createdOrder.order_note,
                 orderId: createdOrder.id,
             };
