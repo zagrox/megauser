@@ -28,6 +28,7 @@ import SmtpView from './views/SmtpView';
 import Icon from './components/Icon';
 import EmbedView from './views/EmbedView';
 import ResetPasswordView from './views/ResetPasswordView';
+import CallbackView from './views/CallbackView';
 
 
 const App = () => {
@@ -40,6 +41,7 @@ const App = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const isEmbedMode = urlParams.get('embed') === 'true';
     const isResetPasswordMode = window.location.pathname.startsWith('/reset-password');
+    const isCallbackMode = window.location.pathname.startsWith('/callback');
 
     useEffect(() => {
         if (!isEmbedMode) {
@@ -125,6 +127,10 @@ const App = () => {
 
     if (isResetPasswordMode) {
         return <ResetPasswordView />;
+    }
+
+    if (isCallbackMode) {
+        return <CallbackView />;
     }
 
     if (isEmbedMode) {

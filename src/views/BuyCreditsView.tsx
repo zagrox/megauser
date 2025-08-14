@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApi from './useApi';
@@ -262,11 +264,12 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             }
 
             const orderPayload = {
-                status: "draft",
+                status: "published",
                 user_created: user.id,
                 order_total: pkg.packprice,
                 project_name: "Mailzila",
                 order_note: pkg.packname || `Package of ${pkg.packsize} credits`,
+                order_status: "pending",
             };
 
             const response = await fetch(`${DIRECTUS_CRM_URL}/items/orders`, {
@@ -308,9 +311,9 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
         try {
             // Step 1: Request trackId from Zibal
             const zibalPayload = {
-                merchant: "62f36ca618f934159dd26c19",
-                amount: createdOrder.order_total,
-                callbackUrl: "https://my.mailzila.com/callback.php",
+                merchant: "zibal",
+                amount: createdOrder.order_total * 10, // Convert Toman to Rial for Zibal
+                callbackUrl: "https://my.mailzila.com/callback",
                 description: createdOrder.order_note,
                 orderId: createdOrder.id,
             };
@@ -322,11 +325,6 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             });
 
             const zibalData = await zibalResponse.json();
-
-            if (zibalData.result !== 100) {
-                throw new Error(`ZibalPay Error: ${zibalData.message}`);
-            }
-
             const trackId = zibalData.trackId;
 
             // Step 2: Create transaction record in Directus
@@ -336,13 +334,14 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
             }
             
             const transactionPayload = {
-                // The trackid from Zibal. Assuming the field in Directus is 'trackid'
-                trackid: trackId,
-                // The ID of the order we created. Assuming the relation field is 'order'
-                order: createdOrder.id,
+                trackid: String(trackId),
+                transaction_order: createdOrder.id,
+                transaction_result: String(zibalData.result),
+                transaction_message: zibalData.message,
+                status: 'published'
             };
 
-            const directusResponse = await fetch(`${DIRECTUS_CRM_URL}/items/trackid`, {
+            const directusResponse = await fetch(`${DIRECTUS_CRM_URL}/items/transactions`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -360,6 +359,41 @@ const BuyCreditsView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                  } catch (e) {
                     throw new Error(`Failed to create transaction record. Server responded with: ${errorText}`);
                  }
+            }
+            
+            // Check for Zibal success AFTER logging the transaction attempt
+            if (zibalData.result !== 100) {
+                throw new Error(`ZibalPay Error (${zibalData.result}): ${zibalData.message}`);
+            }
+
+            const newTransaction = await directusResponse.json();
+            const newTransactionId = newTransaction?.data?.id;
+
+            if (newTransactionId) {
+                const orderUpdatePayload = {
+                    transactions: [newTransactionId],
+                };
+
+                const orderUpdateResponse = await fetch(`${DIRECTUS_CRM_URL}/items/orders/${createdOrder.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderUpdatePayload),
+                });
+
+                if (!orderUpdateResponse.ok) {
+                    const errorText = await orderUpdateResponse.text();
+                    let detailedError = 'Failed to link transaction back to order.';
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        detailedError = errorJson?.errors?.[0]?.message || errorText;
+                    } catch (e) {
+                        detailedError = errorText;
+                    }
+                    throw new Error(`Order Update Failed: ${detailedError}`);
+                }
             }
 
             // Step 3: Redirect user to payment gateway
