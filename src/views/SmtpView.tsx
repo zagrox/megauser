@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApi from './useApi';
-import { apiFetch } from '../api/elasticEmail';
 import CenteredMessage from '../components/CenteredMessage';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
-import { useToast } from '../contexts/ToastContext';
-import Modal from '../components/Modal';
 import Icon, { ICONS } from '../components/Icon';
-import ConfirmModal from '../components/ConfirmModal';
 
 const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
 
@@ -44,127 +40,13 @@ const SecretValue = ({ value, type = "password" }: { value: string, type?: "text
     );
 };
 
-
-const AddCredentialModal = ({ isOpen, onClose, apiKey, onSuccess, onError }: { isOpen: boolean, onClose: () => void, apiKey: string, onSuccess: (data: any) => void, onError: (msg: string) => void }) => {
-    const { t } = useTranslation();
-    const [name, setName] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name) {
-            onError(t('credentialNameEmptyError'));
-            return;
-        }
-        setIsSubmitting(true);
-        try {
-            const data = await apiFetch('/account/addadditionalcredential', apiKey, {
-                method: 'POST',
-                params: { credentialName: name, accessLevel: 'Smtp' }
-            });
-            onSuccess({ ...data, name });
-            setName('');
-        } catch (err: any) {
-            onError(t('credentialCreateError'));
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-    
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title={t('addSmtpCredentialTitle')}>
-            <form onSubmit={handleSubmit} className="modal-form">
-                <div className="form-group">
-                    <label htmlFor="cred-name">{t('credentialName')}</label>
-                    <input id="cred-name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t('credentialNamePlaceholder')} required />
-                    <small>{t('credentialNameSubtitle')}</small>
-                </div>
-                <div className="form-actions">
-                    <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>{t('cancel')}</button>
-                    <button type="submit" className="btn btn-primary" disabled={isSubmitting}>{isSubmitting ? <Loader /> : t('createCredential')}</button>
-                </div>
-            </form>
-        </Modal>
-    );
-};
-
-const NewCredentialInfoModal = ({ isOpen, onClose, credInfo }: { isOpen: boolean, onClose: () => void, credInfo: any | null }) => {
-    const { t } = useTranslation();
-    if (!credInfo) return null;
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title={t('credentialCreatedSuccessTitle')}>
-            <div className="new-api-key-display">
-                <div className="info-message warning">{t('copyApiKeyNotice')}</div>
-                <div className="form-group">
-                    <label htmlFor="new-apikey">{t('apiKeyPassword')}</label>
-                    <SecretValue value={credInfo.apikey} />
-                </div>
-                <div className="form-actions" style={{justifyContent: 'flex-end'}}>
-                    <button type="button" className="btn btn-primary" onClick={onClose}>{t('done')}</button>
-                </div>
-            </div>
-        </Modal>
-    );
-};
-
 const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
     const { t } = useTranslation();
-    const { addToast } = useToast();
-    const [refetchIndex, setRefetchIndex] = useState(0);
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [newCredInfo, setNewCredInfo] = useState<any | null>(null);
-    const [credentialToDelete, setCredentialToDelete] = useState<{ name: string; apikey: string } | null>(null);
-
-    const { data: mainCreds, loading, error } = useApi('/account/load', apiKey, {}, refetchIndex);
-    const { data: addCreds, loading: addLoading, error: addError } = useApi('/account/loadadditionalcredentials', apiKey, {}, refetchIndex);
     
-    const isAccessDenied = addError && addError.message.toLowerCase().includes('access denied');
-
-    const refetch = () => setRefetchIndex(i => i + 1);
-
-    const confirmDeleteCredential = async () => {
-        if (!credentialToDelete) return;
-        try {
-            await apiFetch('/account/deleteadditionalcredential', apiKey, { method: 'POST', params: { apikey: credentialToDelete.apikey } });
-            addToast(t('credentialDeletedSuccess', { name: credentialToDelete.name }), 'success');
-            refetch();
-        } catch (err: any) {
-            addToast(t('credentialDeletedError', { error: err.message }), 'error');
-        } finally {
-            setCredentialToDelete(null);
-        }
-    };
+    const { data: mainCreds, loading, error } = useApi('/account/load', apiKey);
     
-    const handleCreateSuccess = (data: any) => {
-        setIsAddModalOpen(false);
-        addToast(t('credentialCreatedSuccess', { name: data.name }), 'success');
-        setNewCredInfo(data);
-        refetch();
-    };
-
     return (
         <div>
-            <AddCredentialModal 
-                isOpen={isAddModalOpen} 
-                onClose={() => setIsAddModalOpen(false)}
-                apiKey={apiKey}
-                onSuccess={handleCreateSuccess}
-                onError={(msg) => addToast(msg, 'error')}
-            />
-            <NewCredentialInfoModal 
-                isOpen={!!newCredInfo}
-                onClose={() => setNewCredInfo(null)}
-                credInfo={newCredInfo}
-            />
-            <ConfirmModal
-                isOpen={!!credentialToDelete}
-                onClose={() => setCredentialToDelete(null)}
-                onConfirm={confirmDeleteCredential}
-                title={t('deleteCredential')}
-            >
-                <p>{t('confirmDeleteCredential', { name: credentialToDelete?.name })}</p>
-            </ConfirmModal>
-
             <div className="card main-credential-card">
                 <div className="card-header"><h3>{t('mainAccountCredentials')}</h3></div>
                 <div className="card-body">
@@ -180,51 +62,6 @@ const SmtpView = ({ apiKey, user }: { apiKey: string, user: any }) => {
                     )}
                 </div>
             </div>
-
-            <div className="view-header" style={{ marginTop: '2rem' }}>
-                <h3>{t('additionalCredentials')}</h3>
-                {!isAccessDenied && (
-                    <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-                        <Icon path={ICONS.PLUS} /> {t('addCredential')}
-                    </button>
-                )}
-            </div>
-            
-            {addLoading && <CenteredMessage><Loader /></CenteredMessage>}
-            {addError && (
-                 isAccessDenied ? (
-                    <div className="info-message warning">
-                        <strong>{t('featureNotAvailableTitle')}</strong>
-                        <p>{t('smtpFeatureNotAvailable')}</p>
-                    </div>
-                 ) : (
-                    <ErrorMessage error={addError} />
-                 )
-            )}
-            
-            {!addError && !addLoading && (
-                !addCreds || addCreds.length === 0 ? (
-                    <CenteredMessage>{t('noAdditionalCredentials')}</CenteredMessage>
-                ) : (
-                    <div className="card-grid smtp-additional-grid">
-                        {addCreds.map((cred: any) => (
-                            <div key={cred.ApiKey} className="card smtp-additional-card">
-                                <div className="card-header">
-                                    <h4>{cred.CredentialName}</h4>
-                                    <button className="btn-icon btn-icon-danger" onClick={() => setCredentialToDelete({ name: cred.CredentialName, apikey: cred.ApiKey })}>
-                                        <Icon path={ICONS.DELETE} />
-                                    </button>
-                                </div>
-                                <div className="card-body">
-                                    <div className="smtp-additional-detail"><label>{t('accessLevel')}:</label> <strong>{cred.AccessLevel}</strong></div>
-                                    <div className="smtp-additional-detail"><label>{t('lastUsed')}:</label> <strong>{cred.LastUsed || 'N/A'}</strong></div>
-                                    <div className="smtp-detail-item"><label>{t('apiKeyPassword')}</label><SecretValue value={cred.ApiKey} /></div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )
-            )}
         </div>
     );
 };

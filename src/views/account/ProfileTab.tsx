@@ -102,19 +102,6 @@ const ProfileTab = ({ accountData, user }: { accountData: any, user: any }) => {
                     </div>
                 </div>
             </div>
-
-            <div className="account-tab-card">
-                <div className="account-tab-card-header">
-                    <h3>{t('preferences')}</h3>
-                </div>
-                <div className="account-tab-card-body">
-                    <div className="form-grid">
-                        <ProfileField label={t('language')} value={user.language} />
-                        <ProfileField label={t('textDirection')} value={user.text_direction} />
-                        <ProfileField label={t('emailNotifications')} value={user.email_notifications ? t('yes') : t('no')} />
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };
