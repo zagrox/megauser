@@ -7,7 +7,7 @@ const APP_SHELL_URLS = [
   '/manifest.json'
 ];
 
-// URLs for runtime caching using a stale-while-revalidate strategy
+// URLs for runtime caching
 const RUNTIME_CACHE_HOSTS = [
   'https://crm.mailzila.com',
   'https://api.elasticemail.com',
@@ -47,23 +47,24 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // If the request is for an API or external resource, use a stale-while-revalidate strategy.
+  // Network-First strategy for API and external resources to ensure fresh data
   if (RUNTIME_CACHE_HOSTS.some(host => url.hostname.endsWith(host) || url.hostname.startsWith(host))) {
     event.respondWith(
-      caches.open(CACHE_NAME).then((cache) => {
-        return cache.match(event.request).then((cachedResponse) => {
-          const fetchPromise = fetch(event.request).then((networkResponse) => {
-            // Check if we received a valid response
-            if (networkResponse && networkResponse.status === 200) {
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          }).catch(err => {
-            console.warn('Service Worker: Fetch failed, falling back to cache if available.', err);
-          });
-          return cachedResponse || fetchPromise;
-        });
-      })
+      fetch(event.request)
+        .then((networkResponse) => {
+          // If the request is successful, update the cache with the new data
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // If the network fails, serve the content from the cache
+          return caches.match(event.request);
+        })
     );
     return;
   }

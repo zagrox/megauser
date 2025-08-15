@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './contexts/AuthContext';
@@ -145,8 +146,8 @@ const App = () => {
         return <AuthView />;
     }
     
-    const apiKey = user?.panelkey;
-    if (!apiKey) {
+    const apiKey = user?.elastickey;
+    if (!user.isApiKeyUser && !apiKey) {
         return <OnboardingView />;
     }
 

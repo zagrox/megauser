@@ -3129,3 +3129,55 @@ html[data-theme='dark'] .slider-control input[type="range"] {
         transform: translateX(0);
     }
 }
+
+/* --- USER ACTIVITY LOG --- */
+.activity-log-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+.activity-log-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.activity-log-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.activity-log-item:first-child {
+    padding-top: 0;
+}
+.activity-log-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--subtle-background);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--subtle-text-color);
+}
+.activity-log-icon .icon {
+    width: 20px;
+    height: 20px;
+}
+.activity-log-details {
+    flex-grow: 1;
+    overflow: hidden;
+}
+.activity-log-description {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.activity-log-meta {
+    font-size: 0.85rem;
+    color: var(--subtle-text-color);
+}

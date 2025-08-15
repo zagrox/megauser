@@ -16,7 +16,7 @@ const OrdersTab = () => {
     const { user } = useAuth();
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<{ message: string, endpoint: string } | null>(null);
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
 
     useEffect(() => {
@@ -37,14 +37,35 @@ const OrdersTab = () => {
                 setOrders(response);
             } catch (err: any) {
                 console.error("Failed to fetch orders:", err);
-                setError(err.message || 'Failed to fetch orders');
+                
+                // This function safely extracts a string message from various error formats.
+                const getErrorMessage = (error: any): string => {
+                    // Directus SDK error format
+                    if (error?.errors?.[0]?.message) {
+                        return error.errors[0].message;
+                    }
+                    // Standard Error or object with a message property
+                    if (error?.message) {
+                        // If message is an object, stringify it to avoid [object Object]
+                        return typeof error.message === 'string' ? error.message : JSON.stringify(error.message);
+                    }
+                    // If the error itself is a string
+                    if (typeof error === 'string') {
+                        return error;
+                    }
+                    // Fallback for other unexpected error structures
+                    return t('unknownError');
+                };
+
+                const errorMessage = getErrorMessage(err);
+                setError({ message: errorMessage, endpoint: 'GET /items/orders' });
             } finally {
                 setLoading(false);
             }
         };
 
         fetchOrders();
-    }, [user]);
+    }, [user, t]);
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -60,7 +81,7 @@ const OrdersTab = () => {
     }
 
     if (error) {
-        return <ErrorMessage error={{ endpoint: 'GET /items/orders', message: error }} />;
+        return <ErrorMessage error={error} />;
     }
 
     return (

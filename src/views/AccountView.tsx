@@ -43,7 +43,7 @@ const AccountView = ({ apiKey, user }: { apiKey: string, user: any }) => {
         { id: 'profile', label: t('profile'), icon: ICONS.ACCOUNT, component: <ProfileTab accountData={accountData} user={user} /> },
         { id: 'orders', label: t('orders'), icon: ICONS.BUY_CREDITS, component: <OrdersTab /> },
         { id: 'api_key', label: t('apiKey'), icon: ICONS.KEY, component: <ApiKeyTab apiKey={apiKey} /> },
-        { id: 'security', label: t('security'), icon: ICONS.DOMAINS, component: <SecurityTab isApiKeyUser={user?.isApiKeyUser} /> },
+        { id: 'security', label: t('security'), icon: ICONS.DOMAINS, component: <SecurityTab user={user} /> },
         { id: 'domains', label: t('domains'), icon: ICONS.LANGUAGE, component: <DomainsView apiKey={apiKey} /> },
         { id: 'smtp', label: t('smtp'), icon: ICONS.SMTP, component: <SmtpView apiKey={apiKey} user={user} /> },
         { id: 'share', label: t('share'), icon: ICONS.SHARE, component: <ShareTab apiKey={apiKey} /> },

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDateForDisplay } from '../../utils/helpers';
@@ -99,7 +100,6 @@ const ProfileTab = ({ accountData, user }: { accountData: any, user: any }) => {
                 <div className="account-tab-card-body">
                     <div className="form-grid">
                         <ProfileField label={t('directusId')} value={user.id} />
-                        <ProfileField label={t('panelId')} value={user.panelid} />
                         <ProfileField label={t('joinDate')} value={formatDateForDisplay(user.joindate, i18n.language)} />
                         <ProfileField label={t('lastAccess')} value={formatDateForDisplay(user.last_access, i18n.language)} />
                     </div>

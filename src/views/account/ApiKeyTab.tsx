@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,7 +18,7 @@ const ApiKeyTab = ({ apiKey: initialApiKey }: { apiKey: string }) => {
         setIsSaving(true);
         try {
             await apiFetch('/account/load', newApiKey);
-            await updateUser({ panelkey: newApiKey });
+            await updateUser({ elastickey: newApiKey });
             addToast(t('apiKeyUpdateSuccess'), 'success');
         } catch (err: any) {
             addToast(err.message || t('apiKeyUpdateError'), 'error');

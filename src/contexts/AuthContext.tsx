@@ -1,5 +1,7 @@
+
+
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext } from 'react';
-import { readMe, registerUser, updateMe, updateUser as sdkUpdateUser } from '@directus/sdk';
+import { readMe, registerUser, updateMe, updateUser as sdkUpdateUser, createItem, readItems, updateItem } from '@directus/sdk';
 import sdk from '../api/directus';
 import { apiFetch } from '../api/elasticEmail';
 import { DIRECTUS_URL } from '../api/config';
@@ -46,20 +48,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 'text_direction',
                 'nationalCode',
                 'birthDate',
-                'panelkey',
-                'panelid',
                 'joindate'
             ] }));
-            setUser(me);
+            
+            // After successfully fetching the user, try to fetch or create their associated profile.
+            try {
+                const profiles = await sdk.request(readItems('profiles', {
+                    filter: { user_created: { _eq: me.id } },
+                    limit: 1
+                }));
+                
+                let mergedUser;
+                
+                if (profiles && profiles.length > 0) {
+                    const profile = profiles[0];
+                    mergedUser = { ...me, ...profile, profileId: profile.id };
+                } else {
+                    // If no profile exists (e.g., for a user who registered before this change), create one.
+                    const newProfile = await sdk.request(createItem('profiles', {}));
+                    mergedUser = { ...me, ...newProfile, profileId: newProfile.id };
+                }
+    
+                setUser(mergedUser);
+
+            } catch (profileError) {
+                // If profile operations fail, log the error but still log the user in.
+                // This prevents a login loop. The app can handle the missing profile data.
+                console.error("Failed to fetch or create user profile. Logging in with base user data.", profileError);
+                setUser(me);
+            }
+
         } catch (directusError) {
-            // This block correctly handles fallback logic when not logged in with Directus
-            // or if the token is invalid. The console error is removed to reduce noise.
+            // This catch block now correctly handles only primary auth failures
+            // and falls back to checking for a locally stored API key.
             try {
                 const apiKey = localStorage.getItem('elastic_email_api_key');
                 if (apiKey) {
                     const accountData = await apiFetch('/account/load', apiKey); // Validate key
                     setUser({
-                        panelkey: apiKey,
+                        elastickey: apiKey,
                         first_name: accountData.firstname,
                         email: accountData.email,
                         isApiKeyUser: true,
@@ -99,6 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // This will now return the created user object or throw on error.
         // The automatic login is removed to provide a better user experience,
         // especially if email verification is required.
+        // The user's profile will be created on their first login via getMe.
         return await sdk.request(registerUser(email, password, otherDetails));
     };
 
@@ -124,9 +152,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     
     const updateUser = async (data: any) => {
-        // Use `updateMe` for the currently authenticated user
-        await sdk.request(updateMe(data));
-        await getMe();
+        if (!user || !user.id || user.isApiKeyUser) throw new Error("User not authenticated or is an API key user.");
+
+        const userFields = ['first_name', 'last_name', 'location', 'avatar', 'language', 'theme_dark', 'theme_light', 'email_notifications', 'text_direction', 'nationalCode', 'birthDate'];
+        const profileFields = ['company', 'website', 'mobile', 'elastickey', 'elasticid'];
+
+        const userPayload: any = {};
+        const profilePayload: any = {};
+
+        Object.keys(data).forEach(key => {
+            if (userFields.includes(key)) {
+                userPayload[key] = data[key];
+            } else if (profileFields.includes(key)) {
+                profilePayload[key] = data[key];
+            }
+        });
+        
+        const promises = [];
+        if (Object.keys(userPayload).length > 0) {
+            promises.push(sdk.request(updateMe(userPayload)));
+        }
+        if (Object.keys(profilePayload).length > 0 && user.profileId) {
+            promises.push(sdk.request(updateItem('profiles', user.profileId, profilePayload)));
+        }
+        
+        await Promise.all(promises);
+        
+        // Optimistically update the user state instead of re-fetching to avoid cache issues.
+        // This ensures the UI reflects the change immediately and breaks the onboarding loop.
+        setUser(currentUser => ({ ...currentUser, ...data }));
     }
 
     const changePassword = async (passwords: { old: string; new: string }) => {
