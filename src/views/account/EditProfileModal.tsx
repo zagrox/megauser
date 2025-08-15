@@ -59,12 +59,13 @@ const EditProfileModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose:
             setFormData({
                 first_name: user.first_name || '',
                 last_name: user.last_name || '',
-                location: user.location || '',
+                company: user.company || '',
+                website: user.website || '',
+                mobile: user.mobile || '',
                 language: user.language || 'en-US',
                 theme_dark: user.theme_dark || false,
                 theme_light: user.theme_light || true,
                 email_notifications: user.email_notifications || false,
-                birthDate: user.birthDate ? user.birthDate.split('T')[0] : '',
             });
             const initialAvatarUrl = user.avatar ? `${DIRECTUS_URL}/assets/${user.avatar}` : null;
             setAvatarPreview(initialAvatarUrl);
@@ -159,13 +160,17 @@ const EditProfileModal = ({ isOpen, onClose, user }: { isOpen: boolean, onClose:
                         <label htmlFor="last_name">{t('lastName')}</label>
                         <input id="last_name" name="last_name" type="text" value={formData.last_name || ''} onChange={handleChange} />
                     </div>
-                    <div className="form-group full-width">
-                        <label htmlFor="location">{t('location')}</label>
-                        <input id="location" name="location" type="text" value={formData.location || ''} onChange={handleChange} />
+                     <div className="form-group">
+                        <label htmlFor="company">{t('company')}</label>
+                        <input id="company" name="company" type="text" value={formData.company || ''} onChange={handleChange} />
                     </div>
                     <div className="form-group">
-                        <label htmlFor="birthDate">{t('birthDate')}</label>
-                        <input id="birthDate" name="birthDate" type="date" value={formData.birthDate || ''} onChange={handleChange} />
+                        <label htmlFor="website">{t('website')}</label>
+                        <input id="website" name="website" type="url" value={formData.website || ''} onChange={handleChange} placeholder="https://example.com" />
+                    </div>
+                    <div className="form-group full-width">
+                        <label htmlFor="mobile">{t('mobile')}</label>
+                        <input id="mobile" name="mobile" type="tel" value={formData.mobile || ''} onChange={handleChange} />
                     </div>
                 </div>
                 

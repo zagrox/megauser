@@ -1,7 +1,7 @@
 
+
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatDateForDisplay } from '../../utils/helpers';
 import Icon, { ICONS } from '../../components/Icon';
 import { DIRECTUS_URL } from '../../api/config';
 import Badge from '../../components/Badge';
@@ -23,9 +23,9 @@ const ProfileTab = ({ accountData, user }: { accountData: any, user: any }) => {
         return null; 
     }
 
-    const firstName = user?.first_name || accountData?.firstname;
-    const lastName = user?.last_name || accountData?.lastname;
-    const email = user?.email || accountData?.email;
+    const firstName = user?.first_name;
+    const lastName = user?.last_name;
+    const email = user?.email;
     const fullName = [firstName, lastName].filter(Boolean).join(' ');
     
     const avatarUrl = user?.avatar ? `${DIRECTUS_URL}/assets/${user.avatar}` : null;
@@ -86,22 +86,19 @@ const ProfileTab = ({ accountData, user }: { accountData: any, user: any }) => {
                     <div className="form-grid">
                         <ProfileField label={t('firstName')} value={user.first_name} />
                         <ProfileField label={t('lastName')} value={user.last_name} />
-                        <ProfileField label={t('birthDate')} value={formatDateForDisplay(user.birthDate, i18n.language)} />
-                        <ProfileField label={t('nationalCode')} value={user.nationalCode} />
-                        <ProfileField label={t('location')} value={user.location} />
                     </div>
                 </div>
             </div>
-
+            
             <div className="account-tab-card">
                 <div className="account-tab-card-header">
-                    <h3>{t('accountDetails')}</h3>
+                    <h3>{t('companyInformation')}</h3>
                 </div>
                 <div className="account-tab-card-body">
                     <div className="form-grid">
-                        <ProfileField label={t('directusId')} value={user.id} />
-                        <ProfileField label={t('joinDate')} value={formatDateForDisplay(user.joindate, i18n.language)} />
-                        <ProfileField label={t('lastAccess')} value={formatDateForDisplay(user.last_access, i18n.language)} />
+                        <ProfileField label={t('company')} value={user.company} />
+                        <ProfileField label={t('website')} value={user.website} />
+                        <ProfileField label={t('mobile')} value={user.mobile} />
                     </div>
                 </div>
             </div>
