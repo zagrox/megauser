@@ -32,6 +32,35 @@ import { apiFetchV4 } from '../api/elasticEmail';
 
 const generateId = (prefix = 'block') => `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+// --- START UNICODE-SAFE BASE64 HELPERS ---
+// Encode a UTF-8 string to Base64 using modern browser APIs
+const encodeState = (str: string): string => {
+    // 1. Encode the string to a Uint8Array of UTF-8 bytes.
+    const bytes = new TextEncoder().encode(str);
+    // 2. Create a binary string from the byte array.
+    let binary = '';
+    bytes.forEach(byte => {
+        binary += String.fromCharCode(byte);
+    });
+    // 3. Base64 encode the binary string.
+    return window.btoa(binary);
+}
+
+// Decode a Base64 string to UTF-8 using modern browser APIs
+const decodeState = (base64: string): string => {
+    // 1. Decode the Base64 string to a binary string.
+    const binary_string = window.atob(base64);
+    // 2. Create a Uint8Array from the binary string.
+    const bytes = new Uint8Array(binary_string.length);
+    for (let i = 0; i < binary_string.length; i++) {
+        bytes[i] = binary_string.charCodeAt(i);
+    }
+    // 3. Decode the UTF-8 bytes back to a string.
+    return new TextDecoder().decode(bytes);
+}
+// --- END UNICODE-SAFE BASE64 HELPERS ---
+
+
 // --- START HTML GENERATION ---
 const styleObjectToString = (style: React.CSSProperties | undefined): string => {
     if (!style) return '';
@@ -242,7 +271,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
         const resetToNew = () => {
             setIsEditing(false);
             setOriginalTemplateName(null);
-            setTemplateName(`${t('templateName')}: ${new Date().toLocaleString()}`);
+            setTemplateName(t('newTemplateName'));
             setSubject('');
             setItems([]);
             setGlobalStyles({
@@ -268,8 +297,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
 
                 if (base64State) {
                     try {
-                        // Unicode-safe base64 decoding
-                        const jsonState = decodeURIComponent(escape(atob(base64State)));
+                        const jsonState = decodeState(base64State);
                         const state = JSON.parse(jsonState);
                         setGlobalStyles(state.globalStyles || globalStyles);
                         setItems(state.items || []);
@@ -327,8 +355,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
         
         const state = { globalStyles, items, subject, templateName };
         const jsonState = JSON.stringify(state);
-        // Unicode-safe base64 encoding to prevent parsing issues
-        const base64State = btoa(unescape(encodeURIComponent(jsonState)));
+        const base64State = encodeState(jsonState);
 
         return `
             <!DOCTYPE html>
