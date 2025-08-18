@@ -7,7 +7,7 @@ import { ICONS } from './components/Icon';
 import CenteredMessage from './components/CenteredMessage';
 import Loader from './components/Loader';
 import AuthView from './views/AuthView';
-import OnboardingView from './views/OnboardingView';
+import OnboardingFlowView from './views/OnboardingFlowView';
 import DashboardView from './views/DashboardView';
 import StatisticsView from './views/StatisticsView';
 import AccountView from './views/AccountView';
@@ -33,6 +33,18 @@ const App = () => {
     const [view, setView] = useState('Dashboard');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const appContainerRef = useRef<HTMLDivElement>(null);
+
+    // When a user logs in, their profile might have a language preference.
+    // This effect syncs the app's language with this preference for a consistent experience.
+    useEffect(() => {
+        if (user?.language) {
+            // Directus stores locales like 'en-US' or 'fa-IR'. i18next uses short codes like 'en', 'fa'.
+            const langCode = user.language.split('-')[0];
+            if (langCode !== i18n.language) {
+                i18n.changeLanguage(langCode);
+            }
+        }
+    }, [user, i18n]);
 
     const urlParams = new URLSearchParams(window.location.search);
     const isEmbedMode = urlParams.get('embed') === 'true';
@@ -145,11 +157,14 @@ const App = () => {
     if (!isAuthenticated) {
         return <AuthView />;
     }
+
+    // If the user is authenticated but has not completed onboarding (i.e., no elastickey),
+    // show the onboarding flow.
+    if (!user?.elastickey) {
+        return <OnboardingFlowView onComplete={() => { /* Auth context handles user refresh */ }} />;
+    }
     
     const apiKey = user?.elastickey;
-    if (!user.isApiKeyUser && !apiKey) {
-        return <OnboardingView />;
-    }
 
     const handleLogout = () => {
         logout();

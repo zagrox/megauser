@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useCallback, ReactNode, createContext, useContext } from 'react';
 import { readMe, registerUser, updateMe, updateUser as sdkUpdateUser, createItem, readItems, updateItem } from '@directus/sdk';
 import sdk from '../api/directus';
@@ -18,6 +20,7 @@ interface AuthContextType {
     changePassword: (passwords: { old: string; new: string }) => Promise<void>;
     requestPasswordReset: (email: string) => Promise<void>;
     resetPassword: (token: string, password: string) => Promise<void>;
+    createElasticSubaccount: (email: string, password: string) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -218,6 +221,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             },
         }));
     };
+    
+    const createElasticSubaccount = async (email: string, password: string) => {
+        const FLOW_ID = 'ba831cd4-2b5d-494a-aacb-17c934d969a1';
+        const currentUser = user;
+        if (!currentUser || !currentUser.id) {
+            throw new Error("Current user not found, cannot start account creation flow.");
+        }
+    
+        // Trigger the flow
+        await sdk.request(() => ({
+            method: 'POST',
+            path: `/flows/trigger/${FLOW_ID}`,
+            body: JSON.stringify({ email, password }),
+            headers: { 'Content-Type': 'application/json' },
+        }));
+    
+        // Wait for a moment to allow the async flow to complete and write data.
+        await new Promise(resolve => setTimeout(resolve, 3000));
+    
+        // Refetch the user's profile to verify the outcome of the flow.
+        const profiles = await sdk.request(readItems('profiles', {
+            filter: { user_created: { _eq: currentUser.id } },
+            limit: 1
+        }));
+    
+        if (!profiles || profiles.length === 0) {
+            throw new Error("User profile not found after account creation flow.");
+        }
+    
+        const newProfile = profiles[0];
+        const newApiKey = newProfile.elastickey;
+    
+        // Check if the key is a valid string. The failing flow writes an object.
+        if (typeof newApiKey !== 'string' || newApiKey.length < 20) { // API keys are usually long.
+            if (typeof newApiKey === 'object' && newApiKey !== null && (newApiKey as any).error) {
+                // Provide a specific error message if the flow returned one.
+                throw new Error(`Account setup failed on the server: ${(newApiKey as any).error}`);
+            }
+            // Provide a generic but helpful error message.
+            throw new Error("Failed to create and retrieve a valid API key from the server. Please contact support.");
+        }
+    
+        // If the key is valid, refresh the user state for the whole app.
+        await getMe();
+    };
 
     const value = {
         user,
@@ -231,6 +279,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         changePassword,
         requestPasswordReset,
         resetPassword,
+        createElasticSubaccount,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
