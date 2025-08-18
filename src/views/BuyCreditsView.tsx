@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApi from './useApi';
@@ -106,7 +108,7 @@ const BalanceDisplayCard = ({ creditLoading, creditError, accountData, onHistory
     );
 };
 
-const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, setView: (view: string) => void }) => {
+const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, setView: (view: string, data?: any) => void }) => {
     const { t, i18n } = useTranslation();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
@@ -192,7 +194,7 @@ const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, 
                 user_created: user.id,
                 order_total: pkg.packprice,
                 project_name: "Mailzila",
-                order_note: pkg.packname || `Package of ${pkg.packsize} credits`,
+                order_note: String(pkg.packsize),
                 order_status: "pending",
             };
 
