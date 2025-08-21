@@ -1074,7 +1074,7 @@ html[data-theme='dark'] .cta-banner {
 .cta-banner-icon .icon {
     width: 4rem;
     height: 4rem;
-    color: var(--secondary-color);
+    color: var(--subtle-text-color);
 }
 
 .cta-banner-text {
@@ -1418,6 +1418,77 @@ tbody tr:hover {
 .create-list-form input { min-width: 200px; }
 
 /* --- CONTACTS VIEW --- */
+.contacts-view-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+.contact-status-filter .card-header {
+    padding: 1rem 1.25rem;
+}
+.contact-status-filter .card-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.contact-status-filter-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.contact-status-filter-item:hover {
+    background-color: var(--subtle-background);
+}
+.contact-status-filter-item .custom-checkbox {
+    flex-grow: 1;
+}
+.contact-status-filter-item .badge {
+    background-color: var(--subtle-background);
+    color: var(--text-color);
+    font-weight: 600;
+}
+html[data-theme='dark'] .contact-status-filter-item .badge {
+    background-color: var(--border-color);
+}
+
+.contacts-header {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    width: 100%;
+}
+.contacts-header .search-bar {
+    flex-grow: 2; /* Give more space to search */
+}
+.contacts-header .header-actions {
+    flex-shrink: 0;
+}
+
+.contacts-view-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+
+@media (max-width: 992px) {
+    .contacts-view-layout {
+        grid-template-columns: 1fr;
+    }
+}
+@media (max-width: 600px) {
+    .contacts-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
 .contacts-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
