@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useEffect, ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './contexts/AuthContext';
@@ -30,6 +32,7 @@ import ResetPasswordView from './views/ResetPasswordView';
 import CallbackView from './views/CallbackView';
 import { List, Template } from './api/types';
 import ListDetailView from './views/ListDetailView';
+import ContactDetailView from './views/ContactDetailView';
 
 
 const App = () => {
@@ -38,6 +41,8 @@ const App = () => {
     const [view, setView] = useState('Dashboard');
     const [templateToEdit, setTemplateToEdit] = useState<Template | null>(null);
     const [selectedList, setSelectedList] = useState<List | null>(null);
+    const [selectedContactEmail, setSelectedContactEmail] = useState<string | null>(null);
+    const [contactDetailOrigin, setContactDetailOrigin] = useState<{ view: string, data: any } | null>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const appContainerRef = useRef<HTMLDivElement>(null);
 
@@ -178,7 +183,7 @@ const App = () => {
         setView('Dashboard');
     };
 
-    const handleSetView = (newView: string, data?: { template?: Template; list?: List }) => {
+    const handleSetView = (newView: string, data?: { template?: Template; list?: List; contactEmail?: string; origin?: { view: string, data: any } }) => {
         if (newView === 'Email Builder' && data?.template) {
             setTemplateToEdit(data.template);
         } else {
@@ -187,8 +192,18 @@ const App = () => {
 
         if (newView === 'ListDetail' && data?.list) {
             setSelectedList(data.list);
-        } else {
+        } else if (newView !== 'ContactDetail') {
             setSelectedList(null);
+        }
+        
+        if (newView === 'ContactDetail' && data?.contactEmail) {
+            setSelectedContactEmail(data.contactEmail);
+            setContactDetailOrigin(data.origin || { view: 'Contacts', data: {} });
+        } else {
+            setSelectedContactEmail(null);
+            if (!data?.origin) {
+                 setContactDetailOrigin(null);
+            }
         }
 
         setView(newView);
@@ -200,9 +215,10 @@ const App = () => {
         'Statistics': { component: <StatisticsView apiKey={apiKey} />, title: t('statistics'), icon: ICONS.STATISTICS },
         'Account': { component: <AccountView apiKey={apiKey} user={user} />, title: t('account'), icon: ICONS.ACCOUNT },
         'Buy Credits': { component: <BuyCreditsView apiKey={apiKey} user={user} setView={handleSetView} />, title: t('buyCredits'), icon: ICONS.BUY_CREDITS },
-        'Contacts': { component: <ContactsView apiKey={apiKey} />, title: t('contacts'), icon: ICONS.CONTACTS },
+        'Contacts': { component: <ContactsView apiKey={apiKey} setView={handleSetView} />, title: t('contacts'), icon: ICONS.CONTACTS },
         'Email Lists': { component: <EmailListView apiKey={apiKey} setView={handleSetView} />, title: t('emailLists'), icon: ICONS.EMAIL_LISTS },
-        'ListDetail': { component: <ListDetailView apiKey={apiKey} listName={selectedList?.ListName || ''} onBack={() => handleSetView('Email Lists')} />, title: selectedList ? t('contactsInList', { listName: selectedList.ListName }) : t('contacts'), icon: ICONS.CONTACTS },
+        'ListDetail': { component: <ListDetailView apiKey={apiKey} list={selectedList} setView={handleSetView} onBack={() => handleSetView('Email Lists')} />, title: selectedList ? t('contactsInList', { listName: selectedList.ListName }) : t('contacts'), icon: ICONS.CONTACTS },
+        'ContactDetail': { component: <ContactDetailView apiKey={apiKey} contactEmail={selectedContactEmail || ''} onBack={() => contactDetailOrigin ? handleSetView(contactDetailOrigin.view, contactDetailOrigin.data) : handleSetView('Contacts')} />, title: selectedContactEmail || t('contactDetails'), icon: ICONS.ACCOUNT },
         'Segments': { component: <SegmentsView apiKey={apiKey} />, title: t('segments'), icon: ICONS.SEGMENTS },
         'Media Manager': { component: <MediaManagerView apiKey={apiKey} />, title: t('mediaManager'), icon: ICONS.FOLDER },
         'Campaigns': { component: <CampaignsView apiKey={apiKey} setView={handleSetView} />, title: t('campaigns'), icon: ICONS.CAMPAIGNS },
@@ -214,16 +230,21 @@ const App = () => {
     };
 
     const navItems = [
+        // Group 1: Overview & Core Actions
         { name: t('dashboard'), view: 'Dashboard', icon: ICONS.DASHBOARD },
         { name: t('statistics'), view: 'Statistics', icon: ICONS.STATISTICS },
+        { name: t('campaigns'), view: 'Campaigns', icon: ICONS.CAMPAIGNS },
+        { name: t('sendEmail'), view: 'Send Email', icon: ICONS.SEND_EMAIL },
+        { type: 'divider' },
+        // Group 2: Audience Management
         { name: t('contacts'), view: 'Contacts', icon: ICONS.CONTACTS },
         { name: t('emailLists'), view: 'Email Lists', icon: ICONS.EMAIL_LISTS },
         { name: t('segments'), view: 'Segments', icon: ICONS.SEGMENTS },
-        { name: t('mediaManager'), view: 'Media Manager', icon: ICONS.FOLDER },
-        { name: t('campaigns'), view: 'Campaigns', icon: ICONS.CAMPAIGNS },
+        { type: 'divider' },
+        // Group 3: Content & Assets
         { name: t('templates'), view: 'Templates', icon: ICONS.ARCHIVE },
-        { name: t('sendEmail'), view: 'Send Email', icon: ICONS.SEND_EMAIL },
         { name: t('emailBuilder'), view: 'Email Builder', icon: ICONS.PENCIL },
+        { name: t('mediaManager'), view: 'Media Manager', icon: ICONS.FOLDER },
     ];
     
     const SidebarContent = () => (
@@ -233,12 +254,18 @@ const App = () => {
             <span className="logo-font">Mailzila</span>
         </div>
         <nav className="nav">
-            {navItems.map(item => (
-                <button key={item.view} onClick={() => handleSetView(item.view)} className={`nav-btn ${view === item.view ? 'active' : ''}`}>
-                    <Icon path={item.icon} />
-                    <span>{item.name}</span>
-                </button>
-            ))}
+            {navItems.map((item, index) => {
+                if ('type' in item && item.type === 'divider') {
+                    return <hr key={`divider-${index}`} className="nav-divider" />;
+                }
+                const navItem = item as { name: string; view: string; icon: string; };
+                return (
+                    <button key={navItem.view} onClick={() => handleSetView(navItem.view)} className={`nav-btn ${view === navItem.view ? 'active' : ''}`}>
+                        <Icon path={navItem.icon} />
+                        <span>{navItem.name}</span>
+                    </button>
+                )
+            })}
         </nav>
         <div className="sidebar-footer-nav">
              <button onClick={() => handleSetView('Buy Credits')} className={`nav-btn ${view === 'Buy Credits' ? 'active' : ''}`}>
@@ -254,7 +281,7 @@ const App = () => {
     );
     
     const currentView = views[view];
-    const showHeader = view !== 'Dashboard' && view !== 'Email Builder' && view !== 'Account' && view !== 'Send Email' && view !== 'ListDetail';
+    const showHeader = view !== 'Dashboard' && view !== 'Email Builder' && view !== 'Account' && view !== 'Send Email' && view !== 'ListDetail' && view !== 'ContactDetail';
 
     return (
         <div ref={appContainerRef} className={`app-container ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
