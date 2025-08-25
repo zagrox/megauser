@@ -100,7 +100,7 @@ const ModulesTab: React.FC<ModulesTabProps> = ({ setView }) => {
     const filteredModules = useMemo(() => {
         if (!modules) return [];
         if (showOnlyActive) {
-            return modules.filter(module => hasModuleAccess(module.modulename));
+            return modules.filter(module => hasModuleAccess(module.modulename, modules));
         }
         return modules;
     }, [modules, showOnlyActive, hasModuleAccess]);
@@ -136,7 +136,7 @@ const ModulesTab: React.FC<ModulesTabProps> = ({ setView }) => {
                                 }
                             </td>
                             <td style={{ textAlign: 'right' }}>
-                                {hasModuleAccess(module.modulename) ? (
+                                {hasModuleAccess(module.modulename, modules) ? (
                                     <Badge text={t('unlocked')} type="success" iconPath={ICONS.LOCK_OPEN} />
                                 ) : (
                                     <button 
@@ -161,7 +161,7 @@ const ModulesTab: React.FC<ModulesTabProps> = ({ setView }) => {
                 <ModuleCard
                     key={module.id}
                     module={module}
-                    isUnlocked={hasModuleAccess(module.modulename)}
+                    isUnlocked={hasModuleAccess(module.modulename, modules)}
                     onUnlock={() => setModuleToUnlock(module)}
                     onInstantUnlock={() => handleInstantUnlock(module)}
                     isUnlocking={unlockingModuleId === module.id}

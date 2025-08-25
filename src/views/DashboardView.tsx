@@ -11,18 +11,20 @@ import Icon, { ICONS } from '../components/Icon';
 import useModules from '../hooks/useModules';
 import { Module } from '../api/types';
 import UnlockModuleModal from '../components/UnlockModuleModal';
+import { useConfiguration } from '../contexts/ConfigurationContext';
 
 const DashboardView = ({ setView, apiKey, user, isEmbed = false }: { setView: (view: string, data?: any) => void, apiKey: string, user: any, isEmbed?: boolean }) => {
     const { t, i18n } = useTranslation();
     const { hasModuleAccess, loading: authLoading } = useAuth();
+    const { config, loading: configLoading } = useConfiguration();
     const apiParams = useMemo(() => ({ from: formatDateForApiV4(getPastDateByDays(365)) }), []);
     const { data: statsData, loading: statsLoading, error: statsError } = useApiV4(`/statistics`, apiKey, apiParams);
     const { data: accountData, loading: accountLoading } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
     const { data: contactsCountData, loading: contactsCountLoading } = useApi('/contact/count', apiKey, { allContacts: true }, apiKey ? 1 : 0);
-    const { modules, loading: modulesLoading } = useModules();
+    const { modules, loading: modulesLoading } = useModules(config?.app_backend);
     const [moduleToUnlock, setModuleToUnlock] = useState<Module | null>(null);
 
-    const navItems = useMemo(() => [
+    const staticNavItems = useMemo(() => [
         { name: t('statistics'), icon: ICONS.STATISTICS, desc: t('statisticsDesc'), view: 'Statistics' },
         { name: t('contacts'), icon: ICONS.CONTACTS, desc: t('contactsDesc'), view: 'Contacts' },
         { name: t('sendEmail'), icon: ICONS.SEND_EMAIL, desc: t('sendEmailDesc'), view: 'Send Email' },
@@ -36,10 +38,25 @@ const DashboardView = ({ setView, apiKey, user, isEmbed = false }: { setView: (v
         { name: t('smtp'), icon: ICONS.SMTP, desc: t('smtpDesc'), view: 'SMTP' },
     ], [t]);
 
+    const dashboardTools = useMemo(() => {
+        const moduleMap = modules ? new Map(modules.map(m => [m.modulename, m])) : new Map();
+
+        return staticNavItems.map(item => {
+            const moduleData = moduleMap.get(item.view);
+            return {
+                ...item,
+                desc: moduleData ? moduleData.moduledetails : item.desc,
+                moduleData: moduleData || null,
+            };
+        });
+    }, [staticNavItems, modules]);
+
     if (!user && !isEmbed) return <CenteredMessage><Loader /></CenteredMessage>;
     if (statsError) console.warn("Could not load dashboard stats:", statsError);
 
     const welcomeName = user?.first_name || t('user');
+    const appName = config?.app_name || 'Mailzila';
+    const copyrightText = configLoading ? '...' : (config?.app_copyright || `${appName} © ${new Date().getFullYear()}, All Rights Reserved`);
 
     return (
         <div className="dashboard-container">
@@ -100,46 +117,53 @@ const DashboardView = ({ setView, apiKey, user, isEmbed = false }: { setView: (v
                             <p>{t('exploreYourToolsSubtitle')}</p>
                         </div>
                         <div className="dashboard-nav-grid">
-                            {navItems.map(item => {
-                                const hasAccess = hasModuleAccess(item.view);
-                                const isCoreModule = ['Dashboard', 'Account', 'Buy Credits'].includes(item.view);
-                                
-                                const moduleData = modules?.find(m => m.modulename === item.view);
-                                const isPurchasableModule = !!moduleData;
-                                const isLocked = !isCoreModule && !hasAccess && (authLoading || modulesLoading || isPurchasableModule);
-                                const isPromotional = isLocked && moduleData?.modulepro === true;
+                           {(modulesLoading || authLoading) ? (
+                                Array.from({ length: 8 }).map((_, i) => (
+                                    <div key={i} className="card nav-card" style={{
+                                        height: '115px',
+                                        backgroundColor: 'var(--subtle-background)',
+                                        animation: 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                                    }} />
+                                ))
+                            ) : (
+                                dashboardTools.map(item => {
+                                    const hasAccess = hasModuleAccess(item.view, modules);
+                                    const isPurchasable = !!item.moduleData;
+                                    const isLocked = isPurchasable && !hasAccess;
+                                    const isPromotional = isLocked && item.moduleData?.modulepro === true;
 
-                                const handleClick = () => {
-                                    if (isLocked) {
-                                        if (moduleData) setModuleToUnlock(moduleData);
-                                    } else {
-                                        setView(item.view);
-                                    }
-                                };
+                                    const handleClick = () => {
+                                        if (isLocked) {
+                                            if (item.moduleData) setModuleToUnlock(item.moduleData);
+                                        } else {
+                                            setView(item.view);
+                                        }
+                                    };
 
-                                return (
-                                    <div
-                                        key={item.view}
-                                        className={`card nav-card clickable ${isLocked ? 'locked' : ''}`}
-                                        onClick={handleClick}
-                                    >
-                                        {isLocked && (
-                                            <div className="lock-icon-overlay" style={isPromotional ? { color: 'var(--success-color)' } : {}}>
-                                                <Icon path={isPromotional ? ICONS.GIFT : ICONS.LOCK} />
+                                    return (
+                                        <div
+                                            key={item.view}
+                                            className={`card nav-card clickable ${isLocked ? 'locked' : ''}`}
+                                            onClick={handleClick}
+                                        >
+                                            {isLocked && (
+                                                <div className="lock-icon-overlay" style={isPromotional ? { color: 'var(--success-color)' } : {}}>
+                                                    <Icon path={isPromotional ? ICONS.GIFT : ICONS.LOCK} />
+                                                </div>
+                                            )}
+                                            <Icon path={item.icon} className="nav-card-icon" />
+                                            <div className="nav-card-text-content">
+                                                <div className="nav-card-title">{item.name}</div>
+                                                <div className="nav-card-description">{item.desc}</div>
                                             </div>
-                                        )}
-                                        <Icon path={item.icon} className="nav-card-icon" />
-                                        <div className="nav-card-text-content">
-                                            <div className="nav-card-title">{item.name}</div>
-                                            <div className="nav-card-description">{item.desc}</div>
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })
+                           )}
                         </div>
                     </div>
                     <div className="dashboard-branding-footer">
-                        <p>Mailzila App by <strong>ZAGROX.com</strong></p>
+                        <p dangerouslySetInnerHTML={{ __html: copyrightText }} />
                     </div>
                 </>
             )}

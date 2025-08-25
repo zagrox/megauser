@@ -131,6 +131,12 @@ a:hover {
   100% { transform: rotate(360deg); }
 }
 
+@keyframes pulse {
+  50% {
+    opacity: .5;
+  }
+}
+
 .info-message {
     padding: 1.5rem;
     margin: 1em 0;
@@ -226,7 +232,7 @@ a:hover {
 
 .sidebar-logo {
     width: 64px;
-    height: 36px;
+    height: 64px;
 }
 
 .nav {

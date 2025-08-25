@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, ReactNode, createContext, useC
 import { readMe, registerUser, updateMe, updateUser as sdkUpdateUser, createItem, readItems, updateItem } from '@directus/sdk';
 import sdk from '../api/directus';
 import { apiFetch } from '../api/elasticEmail';
+import type { Module } from '../api/types';
 
 interface User {
     id: string;
@@ -42,7 +43,7 @@ interface AuthContextType {
     requestPasswordReset: (email: string) => Promise<void>;
     resetPassword: (token: string, password: string) => Promise<void>;
     createElasticSubaccount: (email: string, password: string) => Promise<any>;
-    hasModuleAccess: (moduleName: string) => boolean;
+    hasModuleAccess: (moduleName: string, allModules: Module[] | null) => boolean;
     purchaseModule: (moduleId: string) => Promise<void>;
 }
 
@@ -266,10 +267,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await getMe(); // Re-fetch user data to get new API key
     };
 
-    const hasModuleAccess = (moduleName: string): boolean => {
-        const coreModules = ['Dashboard', 'Account', 'Buy Credits'];
-        if (coreModules.includes(moduleName)) return true;
-        if (user?.isApiKeyUser) return false; // API key users don't have module access
+    const hasModuleAccess = (moduleName: string, allModules: Module[] | null): boolean => {
+        // These are fundamental UI sections, not optional modules. Always grant access.
+        const hardcodedCoreViews = ['Dashboard', 'Account', 'Buy Credits'];
+        if (hardcodedCoreViews.includes(moduleName)) {
+            return true;
+        }
+    
+        // API key users only have access to the above sections.
+        if (user?.isApiKeyUser) return false;
+    
+        // If modules are still loading, deny access to non-core modules to prevent flicker.
+        if (!allModules) return false;
+        
+        const moduleData = allModules.find(m => m.modulename === moduleName);
+        
+        // A module can be unlocked if it's marked as a core module from the CMS...
+        if (moduleData?.modulecore) {
+            return true;
+        }
+        
+        // ...or if it has been explicitly purchased by the user.
         return user?.purchasedModules.includes(moduleName) ?? false;
     };
     

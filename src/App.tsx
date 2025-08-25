@@ -1,6 +1,7 @@
 import React, { useState, useEffect, ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './contexts/AuthContext';
+import { useConfiguration } from './contexts/ConfigurationContext';
 import { ICONS } from './components/Icon';
 import CenteredMessage from './components/CenteredMessage';
 import Loader from './components/Loader';
@@ -33,6 +34,7 @@ import UnlockModuleModal from './components/UnlockModuleModal';
 
 const App = () => {
     const { isAuthenticated, user, logout, hasModuleAccess, loading: authLoading } = useAuth();
+    const { config } = useConfiguration();
     const { t, i18n } = useTranslation();
     const [view, setView] = useState('Dashboard');
     const [templateToEdit, setTemplateToEdit] = useState<Template | null>(null);
@@ -41,7 +43,7 @@ const App = () => {
     const [contactDetailOrigin, setContactDetailOrigin] = useState<{ view: string, data: any } | null>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const appContainerRef = useRef<HTMLDivElement>(null);
-    const { modules, loading: modulesLoading } = useModules();
+    const { modules, loading: modulesLoading } = useModules(config?.app_backend);
     const [moduleToUnlock, setModuleToUnlock] = useState<Module | null>(null);
 
     useEffect(() => {
@@ -68,6 +70,71 @@ const App = () => {
             document.documentElement.dir = i18n.dir();
         }
     }, [i18n.language, i18n.dir, isEmbedMode]);
+
+    useEffect(() => {
+        if (!config) return;
+    
+        // Update Page Title
+        if (config.app_name) {
+            document.title = config.app_name;
+        }
+    
+        // Update Favicon and Apple Touch Icon
+        const favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+        const appleTouchIcon = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
+        if (config.app_logo && config.app_backend && favicon) {
+            const iconUrl = `${config.app_backend}/assets/${config.app_logo}`;
+            favicon.href = iconUrl;
+            if (appleTouchIcon) {
+                appleTouchIcon.href = iconUrl;
+            }
+        }
+
+        // Send backend URL to Service Worker
+        if (config.app_backend) {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'SET_BACKEND_URL', url: config.app_backend });
+            }
+        }
+    
+        // Update Theme Color Meta Tag & CSS Variables
+        const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (config.app_secondary_color) {
+            if (themeColorMeta) {
+                themeColorMeta.setAttribute('content', config.app_secondary_color);
+            }
+            document.documentElement.style.setProperty('--secondary-color', config.app_secondary_color);
+        }
+        if (config.app_secondary_color_dark) {
+            document.documentElement.style.setProperty('--secondary-color-dark', config.app_secondary_color_dark);
+        }
+    
+        // Update PWA Manifest
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        if (manifestLink && config.app_backend) {
+            const manifest = {
+                "name": `${config.app_name} - Email Marketing Platform`,
+                "short_name": config.app_name,
+                "description": `Your complete email marketing solution, powered by ${config.app_name}.`,
+                "start_url": "/",
+                "display": "standalone",
+                "background_color": "#F7F9FC",
+                "theme_color": config.app_secondary_color || "#1A2B3C",
+                "orientation": "portrait-primary",
+                "icons": [
+                    {
+                        "src": `${config.app_backend}/assets/${config.app_logo}`,
+                        "type": "image/png",
+                        "purpose": "any maskable",
+                        "sizes": "512x512"
+                    }
+                ]
+            };
+            const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+            const manifestUrl = URL.createObjectURL(manifestBlob);
+            manifestLink.setAttribute('href', manifestUrl);
+        }
+    }, [config]);
     
     useEffect(() => {
         const container = appContainerRef.current;
@@ -168,15 +235,18 @@ const App = () => {
         { name: t('templates'), view: 'Templates', icon: ICONS.ARCHIVE },
         { name: t('emailBuilder'), view: 'Email Builder', icon: ICONS.PENCIL },
         { name: t('mediaManager'), view: 'Media Manager', icon: ICONS.FOLDER },
-        { name: t('domains'), view: 'Domains', icon: ICONS.DOMAINS },
         { name: t('smtp'), view: 'SMTP', icon: ICONS.SMTP },
     ];
+    
+    const isRTL = i18n.dir() === 'rtl';
+    const appName = isRTL && config?.app_native ? config.app_native : (config?.app_name || '...');
+    const logoUrl = config?.app_logo && config?.app_backend ? `${config.app_backend}/assets/${config.app_logo}` : '';
     
     const SidebarContent = () => (
       <>
         <div className="sidebar-header">
-            <img src="https://mailzila.com/logo.png" alt="Mailzila logo" className="sidebar-logo" />
-            <span className="logo-font">Mailzila</span>
+            <img src={logoUrl} alt={`${appName} logo`} className="sidebar-logo" />
+            <span className="logo-font">{appName}</span>
         </div>
         <nav className="nav">
             {navItems.map((item, index) => {
@@ -184,12 +254,15 @@ const App = () => {
                     return <hr key={`divider-${index}`} className="nav-divider" />;
                 }
                 const navItem = item as { name: string; view: string; icon: string; };
-                const hasAccess = hasModuleAccess(navItem.view);
-                const isCoreModule = ['Dashboard', 'Account', 'Buy Credits'].includes(navItem.view);
+                const hasAccess = hasModuleAccess(navItem.view, modules);
 
                 const moduleData = modules?.find(m => m.modulename === navItem.view);
                 const isPurchasableModule = !!moduleData;
-                const isLocked = !isCoreModule && !hasAccess && (authLoading || modulesLoading || isPurchasableModule);
+
+                // A module is locked if the user doesn't have access AND it's a known module from the CMS
+                // (or if modules are still loading, to prevent flicker).
+                // hasModuleAccess handles fundamental sections like Dashboard internally.
+                const isLocked = !hasAccess && (authLoading || modulesLoading || isPurchasableModule);
                 const isPromotional = isLocked && moduleData?.modulepro === true;
 
                 const handleClick = () => {
@@ -249,7 +322,7 @@ const App = () => {
                      <button className="mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(true)} aria-label={t('openMenu')}>
                         <Icon path={ICONS.MENU} />
                     </button>
-                    <h1 className="mobile-header-title">{currentView?.title || 'Mailzila'}</h1>
+                    <h1 className="mobile-header-title">{currentView?.title || appName}</h1>
                     <button className="mobile-menu-toggle" onClick={() => handleSetView('Account')} aria-label={t('account')}>
                         <Icon path={ICONS.ACCOUNT} />
                     </button>
