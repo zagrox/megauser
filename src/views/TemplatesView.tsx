@@ -23,13 +23,7 @@ const TemplatePreviewModal = ({ isOpen, onClose, template }: { isOpen: boolean; 
     );
 };
 
-const TemplateCard = ({ template, onPreview, onUse, onDelete, isLoadingDetails }: { 
-    template: Template; 
-    onPreview: () => void; 
-    onUse: () => void; 
-    onDelete: () => void;
-    isLoadingDetails?: boolean;
-}) => {
+const TemplateCard = ({ template, onPreview, onUse, onDelete }: { template: Template; onPreview: () => void; onUse: () => void; onDelete: () => void; }) => {
     const { t, i18n } = useTranslation();
     return (
         <div className="card campaign-card">
@@ -45,15 +39,9 @@ const TemplateCard = ({ template, onPreview, onUse, onDelete, isLoadingDetails }
                 </p>
             </div>
             <div className="campaign-card-footer" style={{ gap: '0.5rem', justifyContent: 'flex-end' }}>
-                <button className="btn btn-secondary" onClick={onPreview} disabled={isLoadingDetails}>
-                    {isLoadingDetails ? <Loader /> : <><Icon path={ICONS.EYE} /> {t('preview')}</>}
-                </button>
-                <button className="btn" onClick={onUse} disabled={isLoadingDetails}>
-                    {isLoadingDetails ? <Loader /> : <><Icon path={ICONS.SEND_EMAIL} /> {t('useTemplate')}</>}
-                </button>
-                <button className="btn-icon btn-icon-danger" onClick={onDelete} disabled={isLoadingDetails}>
-                    <Icon path={ICONS.DELETE} />
-                </button>
+                <button className="btn btn-secondary" onClick={onPreview}><Icon path={ICONS.EYE} /> {t('preview')}</button>
+                <button className="btn" onClick={onUse}><Icon path={ICONS.SEND_EMAIL} /> {t('useTemplate')}</button>
+                <button className="btn-icon btn-icon-danger" onClick={onDelete}><Icon path={ICONS.DELETE} /></button>
             </div>
         </div>
     );
@@ -68,7 +56,6 @@ const TemplatesView = ({ apiKey, setView }: { apiKey: string; setView: (view: st
     const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
     const [offset, setOffset] = useState(0);
     const TEMPLATES_PER_PAGE = 12;
-    const [loadingTemplateName, setLoadingTemplateName] = useState<string | null>(null);
 
     const { data: templates, loading, error } = useApiV4(
         '/templates',
@@ -97,34 +84,6 @@ const TemplatesView = ({ apiKey, setView }: { apiKey: string; setView: (view: st
         } finally {
             setTemplateToDelete(null);
         }
-    };
-
-    const fetchFullTemplateAndAct = async (templateName: string, action: (fullTemplate: Template) => void) => {
-        setLoadingTemplateName(templateName);
-        try {
-            const fullTemplate = await apiFetchV4(`/templates/${encodeURIComponent(templateName)}`, apiKey);
-            if (fullTemplate) {
-                action(fullTemplate);
-            } else {
-                throw new Error("Template not found or empty response.");
-            }
-        } catch (err: any) {
-            addToast(t('contactDetailsError'), 'error'); // Using a generic error
-        } finally {
-            setLoadingTemplateName(null);
-        }
-    };
-
-    const handlePreview = (template: Template) => {
-        fetchFullTemplateAndAct(template.Name, (fullTemplate) => {
-            setTemplateToPreview(fullTemplate);
-        });
-    };
-
-    const handleUse = (template: Template) => {
-        fetchFullTemplateAndAct(template.Name, (fullTemplate) => {
-            setView('Email Builder', { template: fullTemplate });
-        });
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,10 +141,9 @@ const TemplatesView = ({ apiKey, setView }: { apiKey: string; setView: (view: st
                                 <TemplateCard
                                     key={template.Name}
                                     template={template}
-                                    onPreview={() => handlePreview(template)}
-                                    onUse={() => handleUse(template)}
+                                    onPreview={() => setTemplateToPreview(template)}
+                                    onUse={() => setView('Email Builder', { template })}
                                     onDelete={() => setTemplateToDelete(template)}
-                                    isLoadingDetails={loadingTemplateName === template.Name}
                                 />
                             ))}
                         </div>

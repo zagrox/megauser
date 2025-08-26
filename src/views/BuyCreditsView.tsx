@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApi from './useApi';
@@ -6,8 +9,8 @@ import Loader from '../components/Loader';
 import Modal from '../components/Modal';
 import ErrorMessage from '../components/ErrorMessage';
 import CenteredMessage from '../components/CenteredMessage';
+import { DIRECTUS_CRM_URL } from '../api/config';
 import sdk from '../api/directus';
-import { useConfiguration } from '../contexts/ConfigurationContext';
 
 const CreditSelector = ({ packages, onPurchase, isSubmitting }: { packages: any[], onPurchase: (pkg: any) => void, isSubmitting: boolean }) => {
     const { t, i18n } = useTranslation();
@@ -107,7 +110,6 @@ const BalanceDisplayCard = ({ creditLoading, creditError, accountData, onHistory
 
 const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, setView: (view: string, data?: any) => void }) => {
     const { t, i18n } = useTranslation();
-    const { config } = useConfiguration();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isPaying, setIsPaying] = useState(false);
     const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '' });
@@ -120,16 +122,11 @@ const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, 
     const { data: accountData, loading: creditLoading, error: creditError } = useApi('/account/load', apiKey, {}, apiKey ? 1 : 0);
     
     useEffect(() => {
-        if (!config?.app_backend) {
-            if (!packagesLoading) setPackagesLoading(true);
-            return;
-        }
-
         const fetchPackages = async () => {
             setPackagesLoading(true);
             setPackagesError(null);
             
-            const url = `${config.app_backend}/items/packages?sort=packsize`;
+            const url = `${DIRECTUS_CRM_URL}/items/packages?sort=packsize`;
     
             try {
                 const response = await fetch(url, {
@@ -170,16 +167,16 @@ const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, 
         };
     
         fetchPackages();
-    }, [t, i18n.language, config?.app_backend]);
+    }, [t, i18n.language]);
 
 
     const handlePurchase = async (pkg: any) => {
         if (!user || !user.id) {
-            setModalState({ isOpen: true, title: t('error'), message: t('userInfoUnavailable') });
-            return;
-        }
-        if (!config?.app_backend) {
-            setModalState({ isOpen: true, title: t('error'), message: 'Application backend is not configured.' });
+            setModalState({
+                isOpen: true,
+                title: t('error'),
+                message: t('userInfoUnavailable')
+            });
             return;
         }
 
@@ -201,7 +198,7 @@ const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, 
                 order_status: "pending",
             };
 
-            const response = await fetch(`${config.app_backend}/items/orders`, {
+            const response = await fetch(`${DIRECTUS_CRM_URL}/items/orders`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -233,10 +230,6 @@ const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, 
 
     const handleConfirmAndPay = async () => {
         if (!createdOrder) return;
-        if (!config?.app_backend) {
-            setModalState({ isOpen: true, title: t('error'), message: 'Application backend is not configured.' });
-            return;
-        }
 
         setIsPaying(true);
         setModalState({ isOpen: false, title: '', message: '' });
@@ -244,9 +237,9 @@ const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, 
         try {
             // Step 1: Request trackId from Zibal
             const zibalPayload = {
-                merchant: config?.app_zibal || "62f36ca618f934159dd26c19",
+                merchant: "62f36ca618f934159dd26c19",
                 amount: createdOrder.order_total * 10, // Convert Toman to Rial for Zibal
-                callbackUrl: `${config?.app_url || window.location.origin}/#/callback`,
+                callbackUrl: "https://my.mailzila.com/#/callback",
                 description: createdOrder.order_note,
                 orderId: createdOrder.id,
             };
@@ -274,7 +267,7 @@ const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, 
                 status: 'published'
             };
 
-            const directusResponse = await fetch(`${config.app_backend}/items/transactions`, {
+            const directusResponse = await fetch(`${DIRECTUS_CRM_URL}/items/transactions`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -307,7 +300,7 @@ const BuyCreditsView = ({ apiKey, user, setView }: { apiKey: string, user: any, 
                     transactions: [newTransactionId],
                 };
 
-                const orderUpdateResponse = await fetch(`${config.app_backend}/items/orders/${createdOrder.id}`, {
+                const orderUpdateResponse = await fetch(`${DIRECTUS_CRM_URL}/items/orders/${createdOrder.id}`, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${token}`,
