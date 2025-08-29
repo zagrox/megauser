@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import useApiV4 from '../hooks/useApiV4';
@@ -13,6 +11,7 @@ import { useToast } from '../contexts/ToastContext';
 import RenameModal from '../components/RenameModal';
 import Icon, { ICONS } from '../components/Icon';
 import ConfirmModal from '../components/ConfirmModal';
+import LineLoader from '../components/LineLoader';
 
 
 const EmailListView = ({ apiKey, setView }: { apiKey: string, setView: (view: string, data?: any) => void }) => {
@@ -168,7 +167,7 @@ const EmailListView = ({ apiKey, setView }: { apiKey: string, setView: (view: st
             )}
 
             <div className="view-header">
-                <div className="search-bar" style={{flexGrow: 1, marginRight: '1rem'}}>
+                <div className="search-bar" style={{flexGrow: 1}}>
                     <Icon path={ICONS.SEARCH} />
                     <input
                         type="search"
@@ -178,24 +177,30 @@ const EmailListView = ({ apiKey, setView }: { apiKey: string, setView: (view: st
                         disabled={loading}
                     />
                 </div>
-                <form className="create-list-form" onSubmit={handleCreateList}>
-                    <input
-                        type="text"
-                        placeholder={t('newListNamePlaceholder')}
-                        value={newListName}
-                        onChange={(e) => setNewListName(e.target.value)}
-                        disabled={isSubmitting}
-                        required
-                    />
-                    <button type="submit" className="btn btn-primary" disabled={!newListName || isSubmitting}>
-                        {isSubmitting ? <Loader /> : (
-                            <>
-                                <Icon path={ICONS.PLUS} />
-                                <span>{t('createList')}</span>
-                            </>
-                        )}
+                <div className="header-actions">
+                    <form className="create-list-form" onSubmit={handleCreateList}>
+                        <input
+                            type="text"
+                            placeholder={t('newListNamePlaceholder')}
+                            value={newListName}
+                            onChange={(e) => setNewListName(e.target.value)}
+                            disabled={isSubmitting}
+                            required
+                        />
+                        <button type="submit" className="btn btn-primary" disabled={!newListName || isSubmitting}>
+                            {isSubmitting ? <Loader /> : (
+                                <>
+                                    <Icon path={ICONS.PLUS} />
+                                    <span>{t('createList')}</span>
+                                </>
+                            )}
+                        </button>
+                    </form>
+                    <button className="btn btn-secondary" onClick={() => setView('Segments')}>
+                        <Icon path={ICONS.SEGMENTS} />
+                        <span>{t('segments')}</span>
                     </button>
-                </form>
+                </div>
             </div>
             
             {loading && <CenteredMessage><Loader /></CenteredMessage>}
@@ -231,7 +236,7 @@ const EmailListView = ({ apiKey, setView }: { apiKey: string, setView: (view: st
                                                 </button>
                                             </td>
                                             <td style={{ textAlign: 'center' }}>
-                                                {countInfo?.loading || !countInfo ? <div className="table-container td .loader"><Loader/></div> :
+                                                {countInfo?.loading || !countInfo ? <div style={{maxWidth: '50px', margin: '0 auto'}}><LineLoader/></div> :
                                                  countInfo.error ? 'N/A' :
                                                  countInfo.count !== null ? countInfo.count.toLocaleString(i18n.language) : '-'}
                                             </td>

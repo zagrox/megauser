@@ -112,6 +112,37 @@ a:hover {
   animation: spin 1s linear infinite;
 }
 
+/* --- NEW LINE LOADER --- */
+.line-loader {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 6px;
+    background-color: var(--border-color);
+    border-radius: 3px;
+}
+
+.line-loader::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 40%;
+    height: 100%;
+    background-color: var(--secondary-color);
+    border-radius: 3px;
+    animation: indeterminate-progress 1.5s infinite ease-in-out;
+}
+
+@keyframes indeterminate-progress {
+    0% {
+        left: -50%;
+    }
+    100% {
+        left: 110%;
+    }
+}
+
 .btn .loader, .form-actions .loader, .campaign-stats-grid .loader {
     width: 20px;
     height: 20px;
@@ -493,6 +524,31 @@ a:hover {
 .full-width {
     width: 100%;
 }
+
+/* --- PROGRESS BAR --- */
+.progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background-color: var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background-color: var(--subtle-text-color); /* Default color for low rates */
+    border-radius: 4px;
+    transition: width 0.5s ease-in-out;
+}
+
+.progress-bar-container.warning .progress-bar-fill {
+    background-color: var(--secondary-color); /* Blue for medium rates */
+}
+
+.progress-bar-container.success .progress-bar-fill {
+    background-color: var(--success-color); /* Green for high rates */
+}
+
 
 /* --- FORMS & INPUTS --- */
 .form-group {
@@ -955,9 +1011,11 @@ html[data-theme='dark'] .from-email-composer select {
 .accordion-header.open {
     border-bottom: 1px solid var(--border-color);
 }
-.accordion-header h3 {
+.accordion-header .accordion-title {
     margin: 0;
     font-size: 1.1rem;
+    font-weight: 600;
+    flex-grow: 1;
 }
 .accordion-icon {
     transition: transform 0.2s ease-in-out;
@@ -1044,6 +1102,11 @@ html[data-theme='dark'] .from-email-composer select {
 .modal-body {
     padding: 1.5rem;
     overflow-y: auto;
+    flex-grow: 1; /* Allow body to fill available space */
+}
+.modal-body--no-padding {
+    padding: 0;
+    overflow: hidden; /* Let iframe handle scrolling */
 }
 .modal-form .form-actions {
     margin-top: 1.5rem;
@@ -1414,6 +1477,33 @@ html[data-theme='dark'] .cta-banner {
 .badge-danger { background-color: rgba(var(--danger-color), 0.1); color: var(--danger-color); }
 .badge-warning { background-color: rgba(var(--warning-color), 0.1); color: var(--warning-color); }
 .badge-info { background-color: rgba(var(--info-color), 0.1); color: var(--info-color); }
+
+/* Recipient count badge */
+.badge-total-recipients {
+    background-color: var(--secondary-color);
+    color: white;
+    min-width: 60px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+}
+
+.badge-total-recipients .loader {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+    border-top-color: white;
+    border-left-color: white;
+    border-right-color: white;
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
 
 /* --- TABLE --- */
 .table-container {

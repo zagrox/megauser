@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -16,7 +15,7 @@ import {
 } from '@dnd-kit/sortable';
 import { produce } from 'immer';
 
-import Icon, { ICONS } from '../components/Icon';
+import Icon, { ICONS, SOCIAL_ICONS } from '../components/Icon';
 import Toolbar, { TOOLBAR_COMPONENTS } from '../components/email_builder/Toolbar';
 import Canvas from '../components/email_builder/Canvas';
 import { renderBlock } from '../components/email_builder/blocks';
@@ -154,6 +153,84 @@ const renderBlockToHtml = (block: any): string => {
              });
             return `<div style="${wrapperStyle}"><div style="${lineStyle}"></div></div>`;
         }
+        case 'Social': {
+            const s = style;
+            const c = content;
+            const items = c.items || [];
+            if (items.length === 0) return '';
+ 
+            const iconColors: Record<string, { bg: string, icon: string }> = {
+                dark: { bg: '#1F2937', icon: 'FFFFFF' },
+                white: { bg: '#FFFFFF', icon: '1F2937' },
+                gray: { bg: '#6B7280', icon: 'FFFFFF' },
+            };
+ 
+            const iconsHtml = items.map((item: any, index: number) => {
+                if (!item.url) return '';
+                const socialInfo = SOCIAL_ICONS[item.network];
+                if (!socialInfo) return '';
+ 
+                const colors = s.iconColor === 'color' 
+                    ? { bg: socialInfo.brandColor, icon: 'FFFFFF' }
+                    : iconColors[s.iconColor] || iconColors.gray;
+ 
+                const iconUrl = `https://cdn.simpleicons.org/${item.network.toLowerCase()}/${colors.icon}`;
+ 
+                const borderRadius = s.iconStyle === 'circle' ? '50%' : s.iconStyle === 'rounded' ? '6px' : '0px';
+ 
+                const iconTdStyle = styleObjectToString({
+                    borderRadius: borderRadius,
+                    width: `${s.iconSize}px`,
+                    height: `${s.iconSize}px`,
+                    textAlign: 'center',
+                    verticalAlign: 'middle',
+                });
+                
+                const spacerTd = index > 0 ? `<td width="${s.iconSpacing}"></td>` : '';
+ 
+                if (s.iconStyle === 'default') {
+                    return `
+                        ${spacerTd}
+                        <td>
+                            <a href="${item.url}" target="_blank" rel="noopener noreferrer">
+                                <img src="${iconUrl.replace(colors.icon, colors.bg.replace('#',''))}" alt="${item.network}" width="${s.iconSize}" height="${s.iconSize}" style="border:0; display:block;"/>
+                            </a>
+                        </td>
+                    `;
+                }
+ 
+                return `
+                    ${spacerTd}
+                    <td bgcolor="${colors.bg}" style="${iconTdStyle}">
+                        <a href="${item.url}" target="_blank" rel="noopener noreferrer" style="display:block; width:100%; height:100%; text-align:center;">
+                            <!--[if mso]><i style="letter-spacing: ${s.iconSize/2}px;mso-font-width:-100%;mso-text-raise:15px">&nbsp;</i><![endif]-->
+                            <img src="${iconUrl}" alt="${item.network}" width="${s.iconSize * 0.6}" height="${s.iconSize * 0.6}" style="border:0; margin: 0 auto; vertical-align: middle;" />
+                            <!--[if mso]><i style="letter-spacing: ${s.iconSize/2}px;mso-font-width:-100%">&nbsp;</i><![endif]-->
+                        </a>
+                    </td>
+                `;
+            }).join('');
+ 
+            const wrapperStyle = styleObjectToString({
+                backgroundColor: s.backgroundColor || 'transparent',
+                paddingTop: s.paddingTop,
+                paddingRight: s.paddingRight,
+                paddingBottom: s.paddingBottom,
+                paddingLeft: s.paddingLeft,
+            });
+ 
+            return `
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="${wrapperStyle}">
+                    <tr>
+                        <td align="${s.alignment || 'center'}">
+                            <table border="0" cellpadding="0" cellspacing="0">
+                                <tr>${iconsHtml}</tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            `;
+        }
         case 'Columns':
         case 'Product': {
              const totalFlex = content.columns.reduce((acc: number, col: any) => acc + (col.flex || 1), 0);
@@ -178,7 +255,7 @@ const findItemContainer = (items: any[], itemId: string): { container: any[], in
         if (item.id === itemId) {
             return { container: items, index: i };
         }
-        if ((item.type === 'Columns' || item.type === 'Product') && item.content.columns) {
+        if ((item.type === 'Columns' || item.type === 'Product' || item.type === 'Social') && item.content.columns) {
             for (const column of item.content.columns) {
                 const found = findItemContainer(column.items, itemId);
                 if (found) {
@@ -197,7 +274,7 @@ const findAndMutateItem = (items: any[], itemId: string, mutator: (item: any) =>
             mutator(item);
             return true;
         }
-        if ((item.type === 'Columns' || item.type === 'Product') && item.content.columns) {
+        if ((item.type === 'Columns' || item.type === 'Product' || item.type === 'Social') && item.content.columns) {
             for (const column of item.content.columns) {
                 if (findAndMutateItem(column.items, itemId, mutator)) {
                     return true;
@@ -214,7 +291,7 @@ const findBlockById = (items: any[], id: string): any | null => {
         if (item.id === id) {
             return item;
         }
-        if ((item.type === 'Columns' || item.type === 'Product') && item.content.columns) {
+        if ((item.type === 'Columns' || item.type === 'Product' || item.type === 'Social') && item.content.columns) {
             for (const column of item.content.columns) {
                 const found = findBlockById(column.items, id);
                 if (found) {
@@ -273,6 +350,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
             setOriginalTemplateName(null);
             setTemplateName(t('newTemplateName'));
             setSubject('');
+            setFromName('');
             setItems([]);
             setGlobalStyles({
                 backdropColor: '#F7F9FC',
@@ -302,6 +380,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
                         setGlobalStyles(state.globalStyles || globalStyles);
                         setItems(state.items || []);
                         setSubject(state.subject || templateToEdit.Subject || '');
+                        setFromName(state.fromName || '');
                         setTemplateName(state.templateName || templateToEdit.Name);
                         return; // Exit after successful parsing
                     } catch (e) {
@@ -314,6 +393,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
             addToast(t('This template is from an older version and could not be fully loaded into the editor. Its content has been placed in a text block.'), 'warning');
             setTemplateName(templateToEdit.Name);
             setSubject(templateToEdit.Subject || '');
+            setFromName('');
             const fallbackBlock = {
                 id: generateId('text'),
                 type: 'Text',
@@ -353,7 +433,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
         
         const contentHtml = items.map(renderBlockToHtml).join('');
         
-        const state = { globalStyles, items, subject, templateName };
+        const state = { globalStyles, items, subject, templateName, fromName };
         const jsonState = JSON.stringify(state);
         const base64State = encodeState(jsonState);
 
@@ -388,7 +468,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
             </body>
             </html>
         `;
-    }, [items, globalStyles, subject, templateName]);
+    }, [items, globalStyles, subject, templateName, fromName]);
     
     const handleSaveTemplate = async () => {
         if (!templateName) {
@@ -585,7 +665,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
                          draft.push(newBlock);
                      } else { // It's a column
                         for(const item of draft) {
-                            if (item.type === 'Columns' || item.type === 'Product') {
+                            if (item.type === 'Columns' || item.type === 'Product' || item.type === 'Social') {
                                 const col = item.content.columns.find((c: any) => c.id === overId);
                                 if (col) {
                                     col.items.push(newBlock);
@@ -608,7 +688,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
                 const [movedItem] = oldContainerResult.container.splice(oldContainerResult.index, 1);
 
                 for(const item of draft) {
-                    if (item.type === 'Columns' || item.type === 'Product') {
+                    if (item.type === 'Columns' || item.type === 'Product' || item.type === 'Social') {
                         const col = item.content.columns.find((c: any) => c.id === overId);
                         if (col) {
                             col.items.push(movedItem);
@@ -645,7 +725,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
                 
                 const regenerateIds = (item: any) => {
                     item.id = generateId(item.type.toLowerCase());
-                    if (item.type === 'Columns' && item.content?.columns) {
+                    if ((item.type === 'Columns' || item.type === 'Product' || item.type === 'Social') && item.content?.columns) {
                         item.content.columns.forEach((col: any) => {
                             col.id = generateId('col');
                             col.items.forEach(regenerateIds);
@@ -744,7 +824,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
     const handleSetColumns = useCallback((blockId: string, layoutConfig: { flex: number }[]) => {
         setItems(produce(draft => {
             const item = findBlockById(draft, blockId);
-            if (item && (item.type === 'Columns' || item.type === 'Product')) {
+            if (item && (item.type === 'Columns' || item.type === 'Product' || item.type === 'Social')) {
                 item.content.columns = layoutConfig.map(config => ({
                     id: generateId('col'),
                     flex: config.flex,
@@ -938,6 +1018,10 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
                             onContentChange={handleContentChange}
                             onOpenMediaManager={handleEditImageBlock}
                             onClose={handleCloseSettingsPanel}
+                            subject={subject}
+                            onSubjectChange={setSubject}
+                            fromName={fromName}
+                            onFromNameChange={setFromName}
                         />
                     </div>
                 </div>
@@ -950,7 +1034,7 @@ const EmailBuilderView = ({ apiKey, user, templateToEdit }: { apiKey: string; us
                 onSelect={handleImageSelect}
             />
             
-            <Modal isOpen={isPreviewModalOpen} onClose={() => setIsPreviewModalOpen(false)} title={t('previewEmail')} size="fullscreen">
+            <Modal isOpen={isPreviewModalOpen} onClose={() => setIsPreviewModalOpen(false)} title={t('previewEmail')} size="fullscreen" bodyClassName="modal-body--no-padding">
                 <iframe srcDoc={generatedHtml} className="preview-iframe" title={t('previewEmail')} />
             </Modal>
             
