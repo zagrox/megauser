@@ -10,8 +10,7 @@ import CenteredMessage from '../components/CenteredMessage';
 import Modal from '../components/Modal';
 import MultiSelectSearch from '../components/MultiSelectSearch';
 
-type RecipientTarget = 'list' | 'segment' | 'all';
-type ContentMethod = 'template' | 'plainText';
+type RecipientTarget = 'list' | 'segment' | 'all' | null;
 type AccordionSection = 'recipients' | 'content' | 'settings' | '';
 
 const emptyContent = { From: '', FromName: '', ReplyTo: '', Subject: '', TemplateName: '', Preheader: '', Body: null, Utm: null };
@@ -27,6 +26,19 @@ const initialCampaignState = {
         EnableSendTimeOptimization: false
     }
 };
+
+// Decode a Base64 string to UTF-8 using modern browser APIs
+const decodeState = (base64: string): string => {
+    // 1. Decode the Base64 string to a binary string.
+    const binary_string = window.atob(base64);
+    // 2. Create a Uint8Array from the binary string.
+    const bytes = new Uint8Array(binary_string.length);
+    for (let i = 0; i < binary_string.length; i++) {
+        bytes[i] = binary_string.charCodeAt(i);
+    }
+    // 3. Decode the UTF-8 bytes back to a string.
+    return new TextDecoder().decode(bytes);
+}
 
 
 const AccordionItem = ({ 
@@ -59,8 +71,7 @@ const SendEmailView = ({ apiKey, setView, campaignToLoad }: { apiKey: string, se
     const [isSending, setIsSending] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [activeContent, setActiveContent] = useState(0);
-    const [recipientTarget, setRecipientTarget] = useState<RecipientTarget>('all');
-    const [contentMethod, setContentMethod] = useState<ContentMethod>('template');
+    const [recipientTarget, setRecipientTarget] = useState<RecipientTarget>(null);
     const [openAccordion, setOpenAccordion] = useState<AccordionSection>('recipients');
     const [isOptimizationOn, setIsOptimizationOn] = useState(false);
     const [isScheduling, setIsScheduling] = useState(false);
@@ -168,8 +179,7 @@ const SendEmailView = ({ apiKey, setView, campaignToLoad }: { apiKey: string, se
     
     const resetForm = useCallback(() => {
         setCampaign(JSON.parse(JSON.stringify(initialCampaignState)));
-        setRecipientTarget('all');
-        setContentMethod('template');
+        setRecipientTarget(null);
         setIsScheduling(false);
         setScheduleDate('');
         setScheduleTime('');
@@ -235,11 +245,16 @@ const SendEmailView = ({ apiKey, setView, campaignToLoad }: { apiKey: string, se
                 }
             });
 
-            if (loadedRecipients.ListNames?.length > 0) setRecipientTarget('list');
-            else if (loadedRecipients.SegmentNames?.length > 0) setRecipientTarget('segment');
-            else setRecipientTarget('all');
+            if (loadedRecipients.ListNames?.length > 0) {
+                setRecipientTarget('list');
+            } else if (loadedRecipients.SegmentNames?.length > 0) {
+                setRecipientTarget('segment');
+            } else if (Object.keys(loadedRecipients).length === 0) {
+                setRecipientTarget('all');
+            } else {
+                setRecipientTarget(null);
+            }
 
-            setContentMethod(loadedContent.TemplateName ? 'template' : 'plainText');
             setIsScheduling(!!loadedOptions.ScheduleFor);
             setIsOptimizationOn(loadedOptions.DeliveryOptimization === 'ToEngagedFirst' || loadedOptions.EnableSendTimeOptimization);
             setIsUtmEnabled(!!loadedContent.Utm);
@@ -263,51 +278,51 @@ const SendEmailView = ({ apiKey, setView, campaignToLoad }: { apiKey: string, se
     useEffect(() => {
         const calculateCount = async () => {
             if (!apiKey) return;
-    
-            const shouldShowLoader = recipientTarget === 'all' 
-                || (recipientTarget === 'list' && campaign.Recipients.ListNames.length > 0);
 
-            if (shouldShowLoader) {
-                setIsCountLoading(true);
+            // --- ASYNCHRONOUS PATH for 'all' and 'list' ---
+            if (recipientTarget === 'all' || (recipientTarget === 'list' && campaign.Recipients.ListNames.length > 0)) {
+                // The key fix is NOT setting a loading state that removes the existing count.
+                // By just fetching and then setting the new count, the number will update seamlessly
+                // without a disruptive "flash" or loading indicator replacing it.
+                try {
+                    let countResult: number | null = null;
+                    if (recipientTarget === 'all') {
+                        const count = await apiFetch('/contact/count', apiKey, { params: { allContacts: 'true' } });
+                        countResult = Number(count);
+                    } else { // 'list'
+                        const counts = await Promise.all(
+                            campaign.Recipients.ListNames.map(listName =>
+                                apiFetch('/contact/count', apiKey, { params: { rule: `listname = '${listName.replace(/'/g, "''")}'` } })
+                            )
+                        );
+                        countResult = counts.reduce((sum, count) => sum + Number(count), 0);
+                    }
+                    setRecipientCount(countResult);
+                } catch (error) {
+                    console.error("Failed to calculate recipient count:", error);
+                    addToast(`Failed to get recipient count: ${(error as Error).message}`, 'error');
+                    setRecipientCount(null);
+                }
+                return;
             }
-            setRecipientCount(null);
-    
-            try {
-                if (recipientTarget === 'all') {
-                    const count = await apiFetch('/contact/count', apiKey, { params: { allContacts: 'true' } });
-                    setRecipientCount(Number(count));
-                } else if (recipientTarget === 'list' && campaign.Recipients.ListNames.length > 0) {
-                    const counts = await Promise.all(
-                        campaign.Recipients.ListNames.map(listName =>
-                            apiFetch('/contact/count', apiKey, { params: { rule: `listname = '${listName.replace(/'/g, "''")}'` } })
-                        )
-                    );
-                    const total = counts.reduce((sum, count) => sum + Number(count), 0);
-                    setRecipientCount(total);
-                } else if (recipientTarget === 'segment' && campaign.Recipients.SegmentNames.length > 0) {
-                    const total = campaign.Recipients.SegmentNames.reduce((sum, segmentName) => {
-                        const count = segmentCounts[segmentName];
-                        return sum + (typeof count === 'number' ? count : 0);
-                    }, 0);
-                    setRecipientCount(total);
-                } else {
-                    setRecipientCount(0);
-                }
-            } catch (error) {
-                console.error("Failed to calculate recipient count:", error);
-                addToast(`Failed to get recipient count: ${(error as Error).message}`, 'error');
-                setRecipientCount(null);
-            } finally {
-                if (shouldShowLoader) {
-                    setIsCountLoading(false);
-                }
+
+            // --- SYNCHRONOUS PATH for 'segment', empty selection, or null target ---
+            setIsCountLoading(false); // Ensure loader is always off for sync operations.
+            if (recipientTarget === 'segment' && campaign.Recipients.SegmentNames.length > 0) {
+                const total = campaign.Recipients.SegmentNames.reduce((sum, segmentName) => {
+                    const count = segmentCounts[segmentName];
+                    return sum + (typeof count === 'number' ? count : 0);
+                }, 0);
+                setRecipientCount(total);
+            } else {
+                setRecipientCount(0); // Default to 0 if no recipients are selected
             }
         };
-    
+
         const debounceTimer = setTimeout(() => {
             calculateCount();
         }, 300);
-    
+
         return () => clearTimeout(debounceTimer);
     }, [recipientTarget, campaign.Recipients.ListNames, campaign.Recipients.SegmentNames, apiKey, segmentCounts, addToast]);
 
@@ -388,7 +403,18 @@ const SendEmailView = ({ apiKey, setView, campaignToLoad }: { apiKey: string, se
         });
     };
 
+    const isRecipientSelected = useMemo(() => (
+        recipientTarget === 'all' ||
+        (recipientTarget === 'list' && campaign.Recipients.ListNames.length > 0) ||
+        (recipientTarget === 'segment' && campaign.Recipients.SegmentNames.length > 0)
+    ), [recipientTarget, campaign.Recipients]);
+
     const handleSubmit = async (action: 'send' | 'draft' | 'schedule') => {
+        if (action !== 'draft' && !isRecipientSelected) {
+            addToast(t('selectRecipientsToSend'), 'error');
+            return;
+        }
+
         setIsSending(true);
     
         const payload = JSON.parse(JSON.stringify(campaign));
@@ -409,19 +435,28 @@ const SendEmailView = ({ apiKey, setView, campaignToLoad }: { apiKey: string, se
             payload.Options = { ...payload.Options, Trigger: { Count: 1 } };
         } else payload.Status = 'Draft';
     
-        if (contentMethod === 'plainText') {
-             payload.Content = payload.Content.map((c: any) => ({...c, Body: { Content: c.Body?.Content || '', ContentType: 'PlainText', Charset: 'utf-8' }, TemplateName: null }));
-        } else {
-             payload.Content = payload.Content.map((c: any) => ({...c, Body: null, TemplateName: c.TemplateName || null}));
-        }
+        payload.Content = payload.Content.map((c: any) => ({...c, Body: null, TemplateName: c.TemplateName || null}));
         
         if (!isUtmEnabled) {
              payload.Content = payload.Content.map((c: any) => { const { Utm, ...rest } = c; return rest; });
         }
     
-        let finalRecipients = {};
-        if (recipientTarget === 'list') finalRecipients = { ListNames: campaign.Recipients.ListNames || [] };
-        else if (recipientTarget === 'segment') finalRecipients = { SegmentNames: campaign.Recipients.SegmentNames || [] };
+        let finalRecipients: { ListNames?: string[]; SegmentNames?: string[] } = {};
+
+        switch (recipientTarget) {
+            case 'list':
+                finalRecipients = { ListNames: campaign.Recipients.ListNames || [] };
+                break;
+            case 'segment':
+                finalRecipients = { SegmentNames: campaign.Recipients.SegmentNames || [] };
+                break;
+            case 'all':
+                finalRecipients = {}; // API expects empty object for all contacts
+                break;
+            default: // recipientTarget is null
+                finalRecipients = { ListNames: [], SegmentNames: [] };
+                break;
+        }
     
         payload.Recipients = finalRecipients;
     
@@ -441,9 +476,51 @@ const SendEmailView = ({ apiKey, setView, campaignToLoad }: { apiKey: string, se
         }
     };
     
-    const handleSelectTemplate = (templateName: string) => {
-        handleValueChange('Content', 'TemplateName', templateName, activeContent);
+    const handleSelectTemplate = async (templateName: string) => {
         setIsTemplateModalOpen(false);
+        setIsSending(true);
+        try {
+            const fullTemplate = await apiFetchV4(`/templates/${encodeURIComponent(templateName)}`, apiKey);
+            const htmlContent = fullTemplate.Body?.[0]?.Content;
+            let fromName = '';
+            let subject = fullTemplate.Subject || '';
+    
+            if (htmlContent) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, 'text/html');
+                const stateContainer = doc.getElementById('mailzila-template-state');
+                const base64State = stateContainer?.getAttribute('data-state');
+    
+                if (base64State) {
+                    try {
+                        const jsonState = decodeState(base64State);
+                        const state = JSON.parse(jsonState);
+                        fromName = state.fromName || '';
+                        subject = state.subject || fullTemplate.Subject || '';
+                    } catch (e) {
+                        console.error("Failed to parse template state from HTML.", e);
+                    }
+                }
+            }
+            
+            setCampaign(prev => ({
+                ...prev,
+                Name: fullTemplate.Name,
+                Content: prev.Content.map((item, idx) => 
+                    idx === activeContent ? { 
+                        ...item, 
+                        TemplateName: fullTemplate.Name,
+                        Subject: subject,
+                        FromName: fromName
+                    } : item
+                )
+            }));
+    
+        } catch (err: any) {
+            addToast(`Failed to load template: ${err.message}`, 'error');
+        } finally {
+            setIsSending(false);
+        }
     };
 
     const handleGoToDomains = () => {
@@ -543,56 +620,57 @@ const SendEmailView = ({ apiKey, setView, campaignToLoad }: { apiKey: string, se
                     openAccordion={openAccordion}
                     setOpenAccordion={setOpenAccordion}
                 >
-                    <div className="form-grid">
-                        <div className="form-group"><label>{t('fromName')}</label><input type="text" value={currentContent.FromName} onChange={e => handleValueChange('Content', 'FromName', e.target.value)} /></div>
-                        <div className="form-group">
-                            <label>{t('fromEmail')}</label>
-                            {verifiedDomainsWithDefault.length > 0 ? (
-                                <>
-                                <select value={selectedDomain} onChange={handleDomainChange}>
-                                    {verifiedDomainsWithDefault.map(d => <option key={d.domain} value={d.domain}>{d.domain}</option>)}
-                                </select>
-                                <p style={{fontSize: '0.9rem', color: 'var(--subtle-text-color)', marginTop: '0.5rem'}}>
-                                    Sending from: <strong>{currentContent.From}</strong>
-                                </p>
-                                </>
-                            ) : (
-                                <div className="info-message warning" style={{width: '100%', margin: 0}}>
-                                    <p style={{margin: 0}}>
-                                        {t('noVerifiedDomainsToSendError')}{' '}
-                                        <button type="button" className="link-button" onClick={handleGoToDomains}>
-                                            {t('addDomainNow')}
-                                        </button>
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="form-group"><label>{t('subject')}</label><input type="text" value={currentContent.Subject} onChange={e => handleValueChange('Content', 'Subject', e.target.value)} required /></div>
-                    <div className="form-group"><label>{t('preheader')}</label><input type="text" value={currentContent.Preheader} onChange={e => handleValueChange('Content', 'Preheader', e.target.value)} /></div>
-                    
-                    <h4>{t('content')}</h4>
-                    <div className="content-method-tabs">
-                        <button type="button" className={`content-method-tab ${contentMethod === 'template' ? 'active' : ''}`} onClick={() => setContentMethod('template')}><Icon path={ICONS.ARCHIVE} /> {t('templates')}</button>
-                        <button type="button" className={`content-method-tab ${contentMethod === 'plainText' ? 'active' : ''}`} onClick={() => setContentMethod('plainText')}><Icon path={ICONS.TYPE} /> {t('plainText')}</button>
-                    </div>
-
-                    {contentMethod === 'template' && (
-                        <div className="form-group">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
+                    <div className="form-group">
+                        <label>{t('template')}</label>
+                        {currentContent.TemplateName ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                 <input 
                                     type="text" 
                                     readOnly 
-                                    value={currentContent.TemplateName || ''} 
-                                    placeholder={t('noTemplatesFound')} 
-                                    onClick={() => setIsTemplateModalOpen(true)}
-                                    style={{cursor: 'pointer'}}
+                                    value={currentContent.TemplateName}
                                 />
-                                <button type="button" className="btn btn-secondary" onClick={() => setIsTemplateModalOpen(true)}>{t('useTemplate')}</button>
+                                <button type="button" className="btn btn-secondary" onClick={() => setIsTemplateModalOpen(true)}>{t('edit')}</button>
                             </div>
-                        </div>
+                        ) : (
+                            <button type="button" className="btn btn-secondary" onClick={() => setIsTemplateModalOpen(true)} style={{width: '100%', padding: '1.5rem'}}>
+                                <Icon path={ICONS.ARCHIVE} />
+                                <span>{t('useTemplate')}</span>
+                            </button>
+                        )}
+                    </div>
+
+                    {currentContent.TemplateName && (
+                        <>
+                             <hr className="form-separator" />
+                             <div className="form-grid">
+                                <div className="form-group"><label>{t('fromName')}</label><input type="text" value={currentContent.FromName} onChange={e => handleValueChange('Content', 'FromName', e.target.value)} /></div>
+                                <div className="form-group">
+                                    <label>{t('fromEmail')}</label>
+                                    {verifiedDomainsWithDefault.length > 0 ? (
+                                        <>
+                                        <select value={selectedDomain} onChange={handleDomainChange}>
+                                            {verifiedDomainsWithDefault.map(d => <option key={d.domain} value={d.domain}>{d.domain}</option>)}
+                                        </select>
+                                        <p style={{fontSize: '0.9rem', color: 'var(--subtle-text-color)', marginTop: '0.5rem'}}>
+                                            Sending from: <strong>{currentContent.From}</strong>
+                                        </p>
+                                        </>
+                                    ) : (
+                                        <div className="info-message warning" style={{width: '100%', margin: 0}}>
+                                            <p style={{margin: 0}}>
+                                                {t('noVerifiedDomainsToSendError')}{' '}
+                                                <button type="button" className="link-button" onClick={handleGoToDomains}>
+                                                    {t('addDomainNow')}
+                                                </button>
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="form-group"><label>{t('subject')}</label><input type="text" value={currentContent.Subject} onChange={e => handleValueChange('Content', 'Subject', e.target.value)} required /></div>
+                            <div className="form-group"><label>{t('preheader')}</label><input type="text" value={currentContent.Preheader} onChange={e => handleValueChange('Content', 'Preheader', e.target.value)} /></div>
+                        </>
                     )}
-                    {contentMethod === 'plainText' && <textarea value={currentContent.Body?.Content || ''} onChange={e => handleValueChange('Content', 'Body', { ...currentContent.Body, Content: e.target.value }, activeContent)} rows={10} />}
                 </AccordionItem>
 
                 <AccordionItem 
@@ -662,15 +740,15 @@ const SendEmailView = ({ apiKey, setView, campaignToLoad }: { apiKey: string, se
                 <button type="button" className="btn" onClick={() => handleSubmit('draft')} disabled={isSending}>{t('saveAsDraft')}</button>
                 {!isScheduling ? (
                     <div style={{display: 'flex', gap: '1rem'}}>
-                         <button type="button" className="btn btn-secondary" onClick={() => setIsScheduling(true)} disabled={isSending || verifiedDomainsWithDefault.length === 0}>{t('schedule')}</button>
-                         <button type="button" className="btn btn-primary" onClick={() => handleSubmit('send')} disabled={isSending || verifiedDomainsWithDefault.length === 0}>{isSending ? <Loader/> : t('sendNow')}</button>
+                         <button type="button" className="btn btn-secondary" onClick={() => setIsScheduling(true)} disabled={isSending || verifiedDomainsWithDefault.length === 0 || !isRecipientSelected}>{t('schedule')}</button>
+                         <button type="button" className="btn btn-primary" onClick={() => handleSubmit('send')} disabled={isSending || verifiedDomainsWithDefault.length === 0 || !isRecipientSelected}>{isSending ? <Loader/> : t('sendNow')}</button>
                     </div>
                 ) : (
                     <div className="schedule-controls">
                         <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} required />
                         <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} required />
                         <button type="button" className="btn" onClick={() => setIsScheduling(false)} disabled={isSending}>{t('cancel')}</button>
-                        <button type="button" className="btn btn-primary" onClick={() => handleSubmit('schedule')} disabled={isSending || !campaign.Options.ScheduleFor || verifiedDomainsWithDefault.length === 0}>{isSending ? <Loader/> : t('confirm')}</button>
+                        <button type="button" className="btn btn-primary" onClick={() => handleSubmit('schedule')} disabled={isSending || !campaign.Options.ScheduleFor || verifiedDomainsWithDefault.length === 0 || !isRecipientSelected}>{isSending ? <Loader/> : t('confirm')}</button>
                     </div>
                 )}
             </div>
